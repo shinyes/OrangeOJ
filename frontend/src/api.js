@@ -12,7 +12,7 @@ const errorMessageMap = {
   'authentication required': '请先登录',
   'invalid token': '登录状态已失效，请重新登录',
   'system admin required': '需要系统管理员权限',
-  'space admin required': '需要空间管理员权限',
+  'space admin required': '当前账号为普通成员，无空间管理权限',
   'space membership required': '需要先加入该空间',
   'invalid spaceId': '空间不存在',
   'invalid userId': '用户ID不合法',

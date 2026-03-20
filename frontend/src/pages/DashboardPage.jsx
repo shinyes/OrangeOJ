@@ -163,6 +163,10 @@ export default function DashboardPage({ user, onLogout }) {
       try {
         await refreshSpaceData(selectedSpaceId)
       } catch (err) {
+        if (String(err?.message || '').includes('空间管理权限')) {
+          setError('')
+          return
+        }
         setError(err.message || '加载空间数据失败')
       }
     })()
@@ -193,6 +197,12 @@ export default function DashboardPage({ user, onLogout }) {
     }
   }
 
+  const ensureCanManageSpace = () => {
+    if (canManageSelectedSpace) return true
+    setError('当前账号为普通成员，无空间管理权限')
+    return false
+  }
+
   const createRootProblem = async () => {
     if (!problemTitle.trim()) {
       setError('题目标题不能为空')
@@ -219,6 +229,7 @@ export default function DashboardPage({ user, onLogout }) {
 
   const linkProblem = async () => {
     if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
     if (!linkProblemId.trim()) {
       setError('请输入根题库题目 ID')
       return
@@ -235,6 +246,7 @@ export default function DashboardPage({ user, onLogout }) {
 
   const createTrainingPlan = async () => {
     if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
     if (!planTitle.trim()) {
       setError('训练计划标题不能为空')
       return
@@ -273,6 +285,7 @@ export default function DashboardPage({ user, onLogout }) {
 
   const createHomework = async () => {
     if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
     if (!homeworkTitle.trim()) {
       setError('作业标题不能为空')
       return
@@ -298,6 +311,7 @@ export default function DashboardPage({ user, onLogout }) {
 
   const handleAddMember = async () => {
     if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
     const userId = Number(memberUserId)
     if (!Number.isInteger(userId) || userId <= 0) {
       setError('请输入有效的用户ID')
