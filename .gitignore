@@ -1,0 +1,63 @@
+# ------------------------------
+# OS / Editor
+# ------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ------------------------------
+# Environment / secrets
+# ------------------------------
+.env
+.env.*
+!.env.example
+
+# ------------------------------
+# Logs
+# ------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------
+# Go
+# ------------------------------
+.gocache/
+.gomodcache/
+*.test
+*.out
+coverage.out
+cover.out
+
+# Local binaries
+orangeoj
+orangeoj.exe
+
+# ------------------------------
+# Node / Frontend
+# ------------------------------
+node_modules/
+frontend/node_modules/
+frontend/.npm-cache/
+frontend/dist/
+
+# ------------------------------
+# Runtime data / SQLite
+# ------------------------------
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ------------------------------
+# Build artifacts / temp
+# ------------------------------
+backend/tmp/
+backend/web/assets/
+tmp/

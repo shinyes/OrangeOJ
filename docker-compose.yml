@@ -1,0 +1,23 @@
+services:
+  orangeoj:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: orangeoj:latest
+    container_name: orangeoj
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ORANGEOJ_PORT: "8080"
+      ORANGEOJ_DB_PATH: "/app/data/orangeoj.db"
+      ORANGEOJ_JUDGE_WORKERS: "2"
+      ORANGEOJ_REGISTRATION_DEFAULT: "false"
+      ORANGEOJ_JWT_SECRET: "change-this-in-production"
+      ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173"
+      ORANGEOJ_IMAGE_CPP: "gcc:13.2"
+      ORANGEOJ_IMAGE_PYTHON: "python:3.8-alpine"
+      ORANGEOJ_IMAGE_GO: "golang:1.25-alpine"
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
