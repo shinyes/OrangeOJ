@@ -15,6 +15,8 @@ const errorMessageMap = {
   'space admin required': '需要空间管理员权限',
   'space membership required': '需要先加入该空间',
   'invalid spaceId': '空间不存在',
+  'invalid userId': '用户ID不合法',
+  'invalid role': '角色不合法',
   'invalid username': '用户名不能为空',
   'password must be at least 6 characters': '密码至少需要 6 位',
   'items must contain 1 to 200 entries': '批量注册每次最多 200 条',
@@ -76,6 +78,7 @@ export const api = {
 
   listSpaceProblems: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`),
   addSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`, { method: 'POST', body: { problemId } }),
+  addSpaceMember: (spaceId, userId, role = 'member') => apiFetch(`/api/spaces/${spaceId}/members`, { method: 'POST', body: { userId, role } }),
   getProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`),
 
   listTrainingPlans: (spaceId) => apiFetch(`/api/spaces/${spaceId}/training-plans`),
