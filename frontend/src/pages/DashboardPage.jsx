@@ -434,7 +434,7 @@ export default function DashboardPage({ user, onLogout }) {
 
             {spaceTab === 'problems' && (
               <div className="tab-body">
-                {canManageSelectedSpace ? (
+                {canManageSelectedSpace && (
                   <div className="inline-form">
                     <input
                       placeholder="根题库题目 ID"
@@ -443,8 +443,6 @@ export default function DashboardPage({ user, onLogout }) {
                     />
                     <button onClick={linkProblem}>添加到空间</button>
                   </div>
-                ) : (
-                  <p className="muted">你可查看题目，但无权修改空间题库。</p>
                 )}
                 {spaceProblems.length === 0 && <p className="muted">当前空间暂无题目。</p>}
                 {spaceProblems.map((problem) => (
@@ -461,7 +459,7 @@ export default function DashboardPage({ user, onLogout }) {
 
             {spaceTab === 'training' && (
               <div className="tab-body">
-                {canManageSelectedSpace ? (
+                {canManageSelectedSpace && (
                   <div className="inline-form">
                     <input
                       placeholder="训练计划标题"
@@ -470,8 +468,6 @@ export default function DashboardPage({ user, onLogout }) {
                     />
                     <button onClick={createTrainingPlan}>创建训练计划</button>
                   </div>
-                ) : (
-                  <p className="muted">你可查看并参加训练计划，但无权创建。</p>
                 )}
                 {trainingPlans.length === 0 && <p className="muted">暂无训练计划。</p>}
                 {trainingPlans.map((plan) => (
@@ -488,7 +484,7 @@ export default function DashboardPage({ user, onLogout }) {
 
             {spaceTab === 'homework' && (
               <div className="tab-body">
-                {canManageSelectedSpace ? (
+                {canManageSelectedSpace && (
                   <div className="inline-form">
                     <input
                       placeholder="作业标题"
@@ -497,8 +493,6 @@ export default function DashboardPage({ user, onLogout }) {
                     />
                     <button onClick={createHomework}>创建作业</button>
                   </div>
-                ) : (
-                  <p className="muted">你可查看作业，但无权创建作业。</p>
                 )}
                 {homeworks.length === 0 && <p className="muted">暂无作业。</p>}
                 {homeworks.map((hw) => (
