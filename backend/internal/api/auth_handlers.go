@@ -20,6 +20,14 @@ type registerRequest struct {
 	Password string `json:"password"`
 }
 
+func (a *API) handleRegistrationStatus(c *fiber.Ctx) error {
+	enabled, err := db.GetRegistrationEnabled(c.Context(), a.DB)
+	if err != nil {
+		return err
+	}
+	return respondData(c, fiber.Map{"enabled": enabled})
+}
+
 func (a *API) handleLogin(c *fiber.Ctx) error {
 	var req loginRequest
 	if err := c.BodyParser(&req); err != nil {

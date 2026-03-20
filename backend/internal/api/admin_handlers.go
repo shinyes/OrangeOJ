@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"orangeoj/backend/internal/auth"
 	"orangeoj/backend/internal/db"
 )
 
@@ -27,6 +28,16 @@ type createSpacePayload struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	AdminUserID int64  `json:"adminUserId"`
+}
+
+type batchRegisterItemPayload struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type batchRegisterPayload struct {
+	Items   []batchRegisterItemPayload `json:"items"`
+	SpaceID *int64                     `json:"spaceId"`
 }
 
 func (a *API) handleGetRegistration(c *fiber.Ctx) error {
@@ -244,4 +255,104 @@ func (a *API) handleAdminCreateSpace(c *fiber.Ctx) error {
 		return err
 	}
 	return respondData(c, fiber.Map{"id": spaceID})
+}
+
+func (a *API) handleBatchRegisterUsers(c *fiber.Ctx) error {
+	var req batchRegisterPayload
+	if err := c.BodyParser(&req); err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid request")
+	}
+	if len(req.Items) == 0 || len(req.Items) > 200 {
+		return respondError(c, fiber.StatusBadRequest, "items must contain 1 to 200 entries")
+	}
+
+	hasSpace := req.SpaceID != nil
+	spaceID := int64(0)
+	if hasSpace {
+		spaceID = *req.SpaceID
+		if spaceID <= 0 {
+			return respondError(c, fiber.StatusBadRequest, "invalid spaceId")
+		}
+		var count int
+		if err := a.DB.QueryRow(`SELECT COUNT(1) FROM spaces WHERE id=?`, spaceID).Scan(&count); err != nil {
+			return err
+		}
+		if count == 0 {
+			return respondError(c, fiber.StatusBadRequest, "invalid spaceId")
+		}
+	}
+
+	results := make([]fiber.Map, 0, len(req.Items))
+	successCount := 0
+
+	for idx, item := range req.Items {
+		username := strings.TrimSpace(item.Username)
+		row := fiber.Map{
+			"index":    idx + 1,
+			"username": username,
+			"success":  false,
+		}
+
+		if username == "" {
+			row["reason"] = "invalid username"
+			results = append(results, row)
+			continue
+		}
+		if len(item.Password) < 6 {
+			row["reason"] = "password must be at least 6 characters"
+			results = append(results, row)
+			continue
+		}
+
+		hashed, err := auth.HashPassword(item.Password)
+		if err != nil {
+			row["reason"] = "failed to process password"
+			results = append(results, row)
+			continue
+		}
+
+		tx, err := a.DB.BeginTx(c.Context(), nil)
+		if err != nil {
+			return err
+		}
+
+		res, err := tx.Exec(`INSERT INTO users(username, password_hash, global_role) VALUES(?, ?, 'user')`, username, hashed)
+		if err != nil {
+			_ = tx.Rollback()
+			if isUniqueErr(err) {
+				row["reason"] = "username already exists"
+				results = append(results, row)
+				continue
+			}
+			return err
+		}
+		userID, _ := res.LastInsertId()
+
+		if hasSpace {
+			_, err = tx.Exec(`
+INSERT INTO space_members(space_id, user_id, role)
+VALUES(?, ?, 'member')
+ON CONFLICT(space_id, user_id) DO UPDATE SET role='member'`, spaceID, userID)
+			if err != nil {
+				_ = tx.Rollback()
+				return err
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+
+		successCount++
+		row["success"] = true
+		row["userId"] = userID
+		results = append(results, row)
+	}
+
+	return respondData(c, fiber.Map{
+		"total":        len(req.Items),
+		"successCount": successCount,
+		"failureCount": len(req.Items) - successCount,
+		"results":      results,
+	})
 }

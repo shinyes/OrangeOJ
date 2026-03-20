@@ -1,11 +1,38 @@
-import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import { api } from '../api'
 
 export default function LoginPage({ onLogin, user }) {
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [registrationEnabled, setRegistrationEnabled] = useState(false)
+  const [loadingRegistrationStatus, setLoadingRegistrationStatus] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const result = await api.registrationStatus()
+        if (active) {
+          setRegistrationEnabled(Boolean(result?.enabled))
+        }
+      } catch {
+        if (active) {
+          setRegistrationEnabled(false)
+        }
+      } finally {
+        if (active) {
+          setLoadingRegistrationStatus(false)
+        }
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   if (user) {
     return <Navigate to="/" replace />
@@ -18,7 +45,7 @@ export default function LoginPage({ onLogin, user }) {
     try {
       await onLogin({ username, password })
     } catch (err) {
-      setError(err.message || 'Login failed')
+      setError(err.message || '登录失败')
     } finally {
       setSubmitting(false)
     }
@@ -28,19 +55,29 @@ export default function LoginPage({ onLogin, user }) {
     <div className="auth-wrap">
       <div className="auth-panel">
         <h1>OrangeOJ</h1>
-        <p>Sign in to manage spaces, problem banks, plans, homework, and submissions.</p>
+        <p>登录后即可进入空间管理、题库、训练计划和作业。</p>
         <form onSubmit={handleSubmit} className="auth-form">
           <label>
-            Username
-            <input value={username} onChange={(e) => setUsername(e.target.value)} />
+            用户名
+            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="请输入用户名" />
           </label>
           <label>
-            Password
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            密码
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="请输入密码" />
           </label>
           {error && <div className="error-box">{error}</div>}
-          <button type="submit" disabled={submitting}>{submitting ? 'Signing in...' : 'Sign in'}</button>
+          <button type="submit" disabled={submitting}>{submitting ? '登录中...' : '登录'}</button>
         </form>
+
+        <div className="auth-footer">
+          {loadingRegistrationStatus ? (
+            <span className="muted">注册状态加载中...</span>
+          ) : registrationEnabled ? (
+            <span>没有账号？<Link to="/register">去注册</Link></span>
+          ) : (
+            <span className="muted">当前未开放注册，请联系管理员。</span>
+          )}
+        </div>
       </div>
     </div>
   )

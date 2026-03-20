@@ -20,6 +20,12 @@ function pickStarter(body, language) {
   return body.starterCode[language] || body.starterCode.cpp || ''
 }
 
+function problemTypeText(type) {
+  if (type === 'single_choice') return '单选题'
+  if (type === 'true_false') return '判断题'
+  return type
+}
+
 export default function CodingPage() {
   const { spaceId, problemId } = useParams()
   const [problem, setProblem] = useState(null)
@@ -29,7 +35,7 @@ export default function CodingPage() {
   const [language, setLanguage] = useState('cpp')
   const [code, setCode] = useState('')
   const [customInput, setCustomInput] = useState('')
-  const [consoleText, setConsoleText] = useState('No output yet')
+  const [consoleText, setConsoleText] = useState('暂无输出')
   const [running, setRunning] = useState(false)
 
   const [objectiveAnswer, setObjectiveAnswer] = useState('')
@@ -66,20 +72,20 @@ export default function CodingPage() {
   const saveDraft = () => {
     const key = `orangeoj:code:${spaceId}:${problemId}:${language}`
     localStorage.setItem(key, code)
-    setConsoleText((prev) => `${prev}\n[save] draft stored in localStorage`)
+    setConsoleText((prev) => `${prev}\n[保存] 草稿已写入本地缓存`)
   }
 
   const pollSubmission = async (submissionId) => {
     for (let i = 0; i < 180; i += 1) {
       const snapshot = await api.pollSubmission(submissionId)
       const data = snapshot
-      setConsoleText(`${data.stdout || ''}\n${data.stderr || ''}\nStatus: ${data.status} / ${data.verdict || ''}`)
+      setConsoleText(`${data.stdout || ''}\n${data.stderr || ''}\n状态: ${data.status} / ${data.verdict || ''}`)
       if (data.status === 'done' || data.status === 'failed') {
         return data
       }
       await new Promise((resolve) => setTimeout(resolve, snapshot.pollAfterMs || 1000))
     }
-    throw new Error('Judge timeout')
+    throw new Error('判题超时，请稍后再试')
   }
 
   const handleCodeSubmit = async (mode) => {
@@ -87,7 +93,8 @@ export default function CodingPage() {
 
     setRunning(true)
     setError('')
-    setConsoleText(`[${new Date().toLocaleTimeString()}] ${mode} started...`)
+    const actionText = mode === 'run' ? '运行' : mode === 'test' ? '测试' : '提交'
+    setConsoleText(`[${new Date().toLocaleTimeString()}] 开始${actionText}...`)
 
     try {
       const payload = {
@@ -103,10 +110,10 @@ export default function CodingPage() {
           : await api.submit(spaceId, problemId, payload)
 
       const result = await pollSubmission(created.submissionId)
-      setConsoleText((prev) => `${prev}\n\nFinal: ${result.verdict} | ${result.timeMs || 0}ms | ${result.memoryKiB || 0}KiB`)
+      setConsoleText((prev) => `${prev}\n\n最终结果: ${result.verdict} | ${result.timeMs || 0}ms | ${result.memoryKiB || 0}KiB`)
     } catch (err) {
       setError(err.message)
-      setConsoleText((prev) => `${prev}\nError: ${err.message}`)
+      setConsoleText((prev) => `${prev}\n错误: ${err.message}`)
     } finally {
       setRunning(false)
     }
@@ -118,7 +125,7 @@ export default function CodingPage() {
       setError('')
       const answer = problem.type === 'true_false' ? objectiveAnswer === 'true' : objectiveAnswer
       const result = await api.objectiveSubmit(spaceId, problemId, answer)
-      setConsoleText(`Result: ${result.verdict} | score: ${result.score}`)
+      setConsoleText(`判定结果: ${result.verdict} | 得分: ${result.score}`)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -127,20 +134,20 @@ export default function CodingPage() {
   }
 
   if (loading) {
-    return <div className="screen-center">Loading problem...</div>
+    return <div className="screen-center">题目加载中...</div>
   }
 
   if (error && !problem) {
     return (
       <div className="page-shell">
         <div className="error-box">{error}</div>
-        <Link className="ghost-btn" to="/">Back</Link>
+        <Link className="ghost-btn" to="/">返回首页</Link>
       </div>
     )
   }
 
   if (!problem) {
-    return <div className="screen-center">Problem not found.</div>
+    return <div className="screen-center">题目不存在</div>
   }
 
   if (problem.type !== 'programming') {
@@ -149,9 +156,9 @@ export default function CodingPage() {
         <header className="topbar">
           <div>
             <h1>{problem.title}</h1>
-            <p>{problem.type}</p>
+            <p>{problemTypeText(problem.type)}</p>
           </div>
-          <Link className="ghost-btn" to="/">Back</Link>
+          <Link className="ghost-btn" to="/">返回首页</Link>
         </header>
 
         {error && <div className="error-box">{error}</div>}
@@ -168,7 +175,7 @@ export default function CodingPage() {
                     name="singleChoice"
                     value={String(opt)}
                     checked={objectiveAnswer === String(opt)}
-                    onChange={(e) => setObjectiveAnswer(e.target.value)}
+                    onChange={(event) => setObjectiveAnswer(event.target.value)}
                   />
                   <span>{String(opt)}</span>
                 </label>
@@ -182,9 +189,9 @@ export default function CodingPage() {
                   name="tf"
                   value="true"
                   checked={objectiveAnswer === 'true'}
-                  onChange={(e) => setObjectiveAnswer(e.target.value)}
+                  onChange={(event) => setObjectiveAnswer(event.target.value)}
                 />
-                True
+                正确
               </label>
               <label>
                 <input
@@ -192,15 +199,15 @@ export default function CodingPage() {
                   name="tf"
                   value="false"
                   checked={objectiveAnswer === 'false'}
-                  onChange={(e) => setObjectiveAnswer(e.target.value)}
+                  onChange={(event) => setObjectiveAnswer(event.target.value)}
                 />
-                False
+                错误
               </label>
             </div>
           )}
 
           <button disabled={running} onClick={handleObjectiveSubmit}>
-            {running ? 'Submitting...' : 'Submit'}
+            {running ? '提交中...' : '提交答案'}
           </button>
 
           <pre className="console-box">{consoleText}</pre>
@@ -216,55 +223,55 @@ export default function CodingPage() {
       <div className="coder-topbar">
         <div>
           <h1>{problem.title}</h1>
-          <p>Time limit: {problem.timeLimitMs}ms | Memory limit: {problem.memoryLimitMiB}MiB</p>
+          <p>时间限制: {problem.timeLimitMs}ms | 内存限制: {problem.memoryLimitMiB}MiB</p>
         </div>
-        <Link to="/" className="ghost-btn">Back</Link>
+        <Link to="/" className="ghost-btn">返回首页</Link>
       </div>
 
       {error && <div className="error-box">{error}</div>}
 
       <div className="coder-grid">
         <section className="statement-panel">
-          <h2>Description</h2>
+          <h2>题目描述</h2>
           <pre className="statement">{problem.statementMd}</pre>
 
-          <h3>Input</h3>
-          <p>{body.inputFormat || 'See statement'}</p>
+          <h3>输入格式</h3>
+          <p>{body.inputFormat || '见题面描述'}</p>
 
-          <h3>Output</h3>
-          <p>{body.outputFormat || 'See statement'}</p>
+          <h3>输出格式</h3>
+          <p>{body.outputFormat || '见题面描述'}</p>
 
-          <h3>Samples</h3>
-          {samples.length === 0 && <p>No samples</p>}
+          <h3>样例</h3>
+          {samples.length === 0 && <p>暂无样例</p>}
           {samples.map((sample, index) => (
             <div key={index} className="sample-box">
               <div>
-                <strong>Sample Input {index + 1}</strong>
-                <pre>{sample.input || '(empty)'}</pre>
+                <strong>输入样例 {index + 1}</strong>
+                <pre>{sample.input || '(空)'}</pre>
               </div>
               <div>
-                <strong>Sample Output {index + 1}</strong>
-                <pre>{sample.output || '(empty)'}</pre>
+                <strong>输出样例 {index + 1}</strong>
+                <pre>{sample.output || '(空)'}</pre>
               </div>
             </div>
           ))}
 
-          <h3>Limits</h3>
-          <p>Time: {problem.timeLimitMs}ms</p>
-          <p>Memory: {problem.memoryLimitMiB}MiB</p>
+          <h3>限制</h3>
+          <p>时间限制: {problem.timeLimitMs}ms</p>
+          <p>内存限制: {problem.memoryLimitMiB}MiB</p>
         </section>
 
         <section className="editor-panel">
           <div className="editor-actions">
-            <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+            <select value={language} onChange={(event) => setLanguage(event.target.value)}>
               <option value="cpp">C++17</option>
               <option value="python">Python 3.8</option>
               <option value="go">Go 1.25</option>
             </select>
-            <button className="run-btn" disabled={running} onClick={() => handleCodeSubmit('run')}>Run</button>
-            <button className="test-btn" disabled={running} onClick={() => handleCodeSubmit('test')}>Test</button>
-            <button className="save-btn" onClick={saveDraft}>Save</button>
-            <button className="submit-btn" disabled={running} onClick={() => handleCodeSubmit('submit')}>Submit</button>
+            <button className="run-btn" disabled={running} onClick={() => handleCodeSubmit('run')}>运行</button>
+            <button className="test-btn" disabled={running} onClick={() => handleCodeSubmit('test')}>测试</button>
+            <button className="save-btn" onClick={saveDraft}>保存</button>
+            <button className="submit-btn" disabled={running} onClick={() => handleCodeSubmit('submit')}>提交</button>
           </div>
 
           <div className="editor-wrap">
@@ -282,15 +289,15 @@ export default function CodingPage() {
             />
           </div>
 
-          <label>Custom input (for Run)</label>
+          <label>自定义输入（运行模式）</label>
           <textarea
             className="io-input"
             value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
-            placeholder="Type input for run mode"
+            onChange={(event) => setCustomInput(event.target.value)}
+            placeholder="请输入运行模式的输入内容"
           />
 
-          <label>Console</label>
+          <label>控制台输出</label>
           <pre className="console-box">{consoleText}</pre>
         </section>
       </div>

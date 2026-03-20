@@ -100,6 +100,11 @@ textarea {
   color: var(--muted);
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -138,6 +143,13 @@ textarea {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.main-tabs {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px;
 }
 
 .tabs button {
@@ -200,6 +212,14 @@ textarea {
   padding: 10px;
 }
 
+.ok-box {
+  background: #def6e5;
+  color: #155d2b;
+  border: 1px solid #9ad7ac;
+  border-radius: 10px;
+  padding: 10px;
+}
+
 .ghost-btn {
   display: inline-block;
   border-radius: 10px;
@@ -209,6 +229,11 @@ textarea {
   text-decoration: none;
   background: #fff;
   white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0;
 }
 
 .auth-wrap {
@@ -238,10 +263,69 @@ textarea {
   gap: 6px;
 }
 
+.auth-footer {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth-footer a {
+  color: #b55a00;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
 .setting-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.system-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.inline-field {
+  display: grid;
+  gap: 6px;
+  min-width: 260px;
+}
+
+.batch-input {
+  min-height: 160px;
+}
+
+.batch-result-wrap {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdf8;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.result-table th,
+.result-table td {
+  border: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+}
+
+.result-table thead {
+  background: #fff4e4;
 }
 
 .coder-shell {
@@ -389,5 +473,14 @@ textarea {
 
   .editor-wrap {
     min-height: 320px;
+  }
+
+  .result-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .inline-field {
+    min-width: 100%;
   }
 }

@@ -2,6 +2,32 @@ const defaultHeaders = {
   'Content-Type': 'application/json'
 }
 
+const errorMessageMap = {
+  'invalid request': '请求参数不正确',
+  'username and password required': '请输入用户名和密码',
+  'invalid credentials': '用户名或密码错误',
+  'registration is disabled': '当前未开放注册',
+  'invalid username or password': '用户名或密码不合法（密码至少 6 位）',
+  'username already exists': '用户名已存在',
+  'authentication required': '请先登录',
+  'invalid token': '登录状态已失效，请重新登录',
+  'system admin required': '需要系统管理员权限',
+  'space admin required': '需要空间管理员权限',
+  'space membership required': '需要先加入该空间',
+  'invalid spaceId': '空间不存在',
+  'invalid username': '用户名不能为空',
+  'password must be at least 6 characters': '密码至少需要 6 位',
+  'items must contain 1 to 200 entries': '批量注册每次最多 200 条',
+  'problem already linked': '该题目已在空间题库中',
+  'problem not linked in this space': '该题目未加入当前空间'
+}
+
+export function toFriendlyError(message) {
+  const normalized = String(message || '').trim()
+  if (!normalized) return '请求失败'
+  return errorMessageMap[normalized] || normalized
+}
+
 export async function apiFetch(path, options = {}) {
   const response = await fetch(path, {
     method: options.method || 'GET',
@@ -22,13 +48,14 @@ export async function apiFetch(path, options = {}) {
 
   if (!response.ok) {
     const message = data?.error || `Request failed: ${response.status}`
-    throw new Error(message)
+    throw new Error(toFriendlyError(message))
   }
 
   return data?.data
 }
 
 export const api = {
+  registrationStatus: () => apiFetch('/api/auth/registration-status'),
   me: () => apiFetch('/api/auth/me'),
   login: (body) => apiFetch('/api/auth/login', { method: 'POST', body }),
   logout: () => apiFetch('/api/auth/logout', { method: 'POST' }),
@@ -39,6 +66,7 @@ export const api = {
 
   listRootProblems: () => apiFetch('/api/admin/root-problems'),
   createRootProblem: (body) => apiFetch('/api/admin/root-problems', { method: 'POST', body }),
+  batchRegisterUsers: (body) => apiFetch('/api/admin/users/batch-register', { method: 'POST', body }),
 
   listAdminSpaces: () => apiFetch('/api/admin/spaces'),
   createSpace: (body) => apiFetch('/api/admin/spaces', { method: 'POST', body }),

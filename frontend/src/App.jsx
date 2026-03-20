@@ -2,6 +2,7 @@
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api } from './api'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import CodingPage from './pages/CodingPage'
 
@@ -9,7 +10,7 @@ function Protected({ user, loading, children }) {
   const location = useLocation()
 
   if (loading) {
-    return <div className="screen-center">Loading...</div>
+    return <div className="screen-center">加载中...</div>
   }
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
@@ -52,6 +53,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage onLogin={handleLogin} user={user} />} />
+      <Route path="/register" element={<RegisterPage user={user} />} />
       <Route
         path="/"
         element={
