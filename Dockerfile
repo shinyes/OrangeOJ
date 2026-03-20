@@ -7,14 +7,16 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-FROM golang:1.25-alpine AS backend-build
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend-build
 WORKDIR /src/backend
+ARG TARGETOS
+ARG TARGETARCH
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/orangeoj ./main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/orangeoj ./main.go
 
-FROM alpine:3.21
+FROM --platform=$TARGETPLATFORM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata docker-cli
 WORKDIR /app
 COPY --from=backend-build /out/orangeoj /app/orangeoj

@@ -1,6 +1,6 @@
 # OrangeOJ
 
-OrangeOJ 是一个基于 Go + Fiber + SQLite + React + Monaco 构建的单体 OJ 平台。
+OrangeOJ 是一个基于 Go + Fiber + SQLite + React + Monaco 的单体 OJ 平台。
 
 ## 功能特性
 
@@ -12,9 +12,9 @@ OrangeOJ 是一个基于 Go + Fiber + SQLite + React + Monaco 构建的单体 OJ
 - 基于 SQLite 的判题队列，支持可配置并发 worker
 - 时间与内存限制（默认：1000ms、256MiB）
 - 首次启动自动创建 `admin`（随机密码仅输出一次日志）
-- 由管理员控制是否开放注册
+- 管理员可控制是否开放注册
 
-## 使用 Docker Compose 运行
+## 方式一：源码构建运行
 
 ```bash
 docker compose up -d --build
@@ -26,6 +26,53 @@ docker compose up -d --build
 
 ```bash
 docker logs orangeoj | grep BOOTSTRAP
+```
+
+## 方式二：直接拉取预构建镜像运行
+
+仓库镜像地址（GHCR）：
+
+- `ghcr.io/shinyes/orangeoj:latest`
+- `ghcr.io/shinyes/orangeoj:v0.1.0`
+
+可直接使用仓库内文件：
+
+- `deploy/docker-compose.pull.yml`
+
+启动命令：
+
+```bash
+docker compose -f deploy/docker-compose.pull.yml up -d
+```
+
+如果你想固定版本，请把 `deploy/docker-compose.pull.yml` 里的镜像改为：
+
+```yaml
+image: ghcr.io/shinyes/orangeoj:v0.1.0
+```
+
+## 直接拉取版 Docker Compose 示例
+
+```yaml
+services:
+  orangeoj:
+    image: ghcr.io/shinyes/orangeoj:latest
+    container_name: orangeoj
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ORANGEOJ_DB_PATH: "/app/data/orangeoj.db"
+      ORANGEOJ_JUDGE_WORKERS: "2"
+      ORANGEOJ_REGISTRATION_DEFAULT: "false"
+      ORANGEOJ_JWT_SECRET: "change-this-in-production"
+      ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
+      ORANGEOJ_IMAGE_CPP: "gcc:13.2"
+      ORANGEOJ_IMAGE_PYTHON: "python:3.8-alpine"
+      ORANGEOJ_IMAGE_GO: "golang:1.25-alpine"
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
 ```
 
 ## 重要环境变量
