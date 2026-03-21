@@ -17,7 +17,7 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/orangeoj ./main.go
 
 FROM --platform=$TARGETPLATFORM alpine:3.21
-RUN apk add --no-cache ca-certificates tzdata docker-cli
+RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=backend-build /out/orangeoj /app/orangeoj
 COPY --from=frontend-build /src/frontend/dist /app/web
@@ -27,7 +27,9 @@ ENV ORANGEOJ_PORT=8080
 ENV ORANGEOJ_DB_PATH=/app/data/orangeoj.db
 ENV ORANGEOJ_JUDGE_WORKERS=2
 ENV ORANGEOJ_REGISTRATION_DEFAULT=false
-ENV ORANGEOJ_IMAGE_JUDGE=ghcr.io/shinyes/orangeoj-judge:latest
+ENV ORANGEOJ_JUDGE_ENDPOINT=http://judge-runtime:9090
+ENV ORANGEOJ_JUDGE_SHARED_TOKEN=change-this-in-production
+ENV ORANGEOJ_JUDGE_HTTP_TIMEOUT_SEC=300
 
 EXPOSE 8080
 CMD ["/app/orangeoj"]

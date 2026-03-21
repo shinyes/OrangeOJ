@@ -1,13 +1,34 @@
 # syntax=docker/dockerfile:1.7
 
-FROM --platform=$TARGETPLATFORM alpine:3.21
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS backend-build
+WORKDIR /src/backend
+ARG TARGETOS
+ARG TARGETARCH
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+COPY backend/ ./
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/judge-runtime ./cmd/judge-runtime
 
-RUN apk add --no-cache \
-    bash \
-    coreutils \
-    g++ \
-    python3 \
-    go
+FROM --platform=$TARGETPLATFORM ubuntu:24.04
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bash \
+        ca-certificates \
+        coreutils \
+        curl \
+        g++ \
+        golang-go \
+        nsjail \
+        python3 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work
-CMD ["sh"]
+COPY --from=backend-build /out/judge-runtime /usr/local/bin/judge-runtime
+RUN mkdir -p /work/jobs
+
+ENV ORANGEOJ_JUDGE_RUNTIME_PORT=9090
+ENV ORANGEOJ_JUDGE_WORKDIR=/work/jobs
+ENV ORANGEOJ_JUDGE_COMPILE_TIMEOUT_SEC=10
+
+EXPOSE 9090
+CMD ["/usr/local/bin/judge-runtime"]

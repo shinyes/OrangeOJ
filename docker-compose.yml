@@ -1,11 +1,29 @@
 services:
   judge-runtime:
-    image: "${ORANGEOJ_IMAGE_JUDGE:-ghcr.io/shinyes/orangeoj-judge:latest}"
+    build:
+      context: .
+      dockerfile: Dockerfile.judge
+    image: "${ORANGEOJ_IMAGE_JUDGE:-orangeoj-judge:latest}"
     container_name: orangeoj-judge-runtime
     restart: unless-stopped
-    command: ["sh", "-lc", "sleep infinity"]
+    environment:
+      ORANGEOJ_JUDGE_RUNTIME_PORT: "9090"
+      ORANGEOJ_JUDGE_WORKDIR: "/work/jobs"
+      ORANGEOJ_JUDGE_COMPILE_TIMEOUT_SEC: "10"
+      ORANGEOJ_JUDGE_SHARED_TOKEN: "${ORANGEOJ_JUDGE_SHARED_TOKEN:-change-this-in-production}"
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - judge-work:/work/jobs
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /tmp
     healthcheck:
-      test: ["CMD-SHELL", "g++ --version >/dev/null 2>&1 && python3 --version >/dev/null 2>&1 && go version >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9090/healthz >/dev/null"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -27,10 +45,14 @@ services:
       ORANGEOJ_REGISTRATION_DEFAULT: "false"
       ORANGEOJ_JWT_SECRET: "change-this-in-production"
       ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173"
-      ORANGEOJ_IMAGE_JUDGE: "${ORANGEOJ_IMAGE_JUDGE:-ghcr.io/shinyes/orangeoj-judge:latest}"
+      ORANGEOJ_JUDGE_ENDPOINT: "http://judge-runtime:9090"
+      ORANGEOJ_JUDGE_SHARED_TOKEN: "${ORANGEOJ_JUDGE_SHARED_TOKEN:-change-this-in-production}"
+      ORANGEOJ_JUDGE_HTTP_TIMEOUT_SEC: "300"
     depends_on:
       judge-runtime:
         condition: service_healthy
     volumes:
       - ./data:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  judge-work:

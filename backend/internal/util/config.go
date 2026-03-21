@@ -13,8 +13,9 @@ type Config struct {
 	JudgeWorkers          int
 	RegistrationDefault   bool
 	AdminPasswordOverride string
-	JudgeImage            string
-	JudgeCPU              string
+	JudgeEndpoint         string
+	JudgeSharedToken      string
+	JudgeHTTPTimeoutSec   int
 	CookieSecure          bool
 	CORSOrigins           string
 }
@@ -27,8 +28,9 @@ func LoadConfig() Config {
 		JudgeWorkers:          envIntOr("ORANGEOJ_JUDGE_WORKERS", 2),
 		RegistrationDefault:   envBoolOr("ORANGEOJ_REGISTRATION_DEFAULT", false),
 		AdminPasswordOverride: os.Getenv("ORANGEOJ_ADMIN_PASSWORD"),
-		JudgeImage:            envOr("ORANGEOJ_IMAGE_JUDGE", "ghcr.io/shinyes/orangeoj-judge:latest"),
-		JudgeCPU:              envOr("ORANGEOJ_JUDGE_CPU", "0.5"),
+		JudgeEndpoint:         envOr("ORANGEOJ_JUDGE_ENDPOINT", "http://judge-runtime:9090"),
+		JudgeSharedToken:      envOr("ORANGEOJ_JUDGE_SHARED_TOKEN", "orangeoj-judge-shared-token-change-me"),
+		JudgeHTTPTimeoutSec:   envIntOr("ORANGEOJ_JUDGE_HTTP_TIMEOUT_SEC", 300),
 		CookieSecure:          envBoolOr("ORANGEOJ_COOKIE_SECURE", false),
 		CORSOrigins:           envOr("ORANGEOJ_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173"),
 	}
@@ -37,6 +39,12 @@ func LoadConfig() Config {
 	}
 	if cfg.JWTSecret == "orangeoj-dev-secret-change-me" {
 		log.Println("[WARN] ORANGEOJ_JWT_SECRET is using default value; change it in production")
+	}
+	if cfg.JudgeSharedToken == "orangeoj-judge-shared-token-change-me" {
+		log.Println("[WARN] ORANGEOJ_JUDGE_SHARED_TOKEN is using default value; change it in production")
+	}
+	if cfg.JudgeHTTPTimeoutSec < 10 {
+		cfg.JudgeHTTPTimeoutSec = 10
 	}
 	return cfg
 }

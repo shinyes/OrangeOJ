@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +15,7 @@ import (
 
 type QueueService struct {
 	db      *sql.DB
-	runner  *DockerRunner
+	runner  Runner
 	workers int
 }
 
@@ -51,7 +50,7 @@ type runtimeSubmission struct {
 	BodyJSON       string
 }
 
-func NewQueueService(db *sql.DB, runner *DockerRunner, workers int) *QueueService {
+func NewQueueService(db *sql.DB, runner Runner, workers int) *QueueService {
 	if workers < 1 {
 		workers = 1
 	}
@@ -126,6 +125,10 @@ RETURNING id, submission_id`, uuid.NewString())
 }
 
 func (q *QueueService) processJob(ctx context.Context, job jobItem) error {
+	if q.runner == nil {
+		return fmt.Errorf("judge runner is nil")
+	}
+
 	if _, err := q.db.ExecContext(ctx, `UPDATE submissions SET status='running' WHERE id=?`, job.SubmissionID); err != nil {
 		return err
 	}
@@ -141,61 +144,51 @@ func (q *QueueService) processJob(ctx context.Context, job jobItem) error {
 	}
 
 	finalVerdict := model.VerdictAC
-	totalStdout := strings.Builder{}
-	totalStderr := strings.Builder{}
-	maxTimeMS := 0
 	score := 0
+	checkAnswer := sub.SubmitType == model.SubmitTypeTest || sub.SubmitType == model.SubmitTypeSubmit
 
-	var cases []programmingCase
+	var selectedCases []programmingCase
 	switch sub.SubmitType {
 	case model.SubmitTypeRun:
-		cases = []programmingCase{{Input: sub.InputData}}
+		selectedCases = []programmingCase{{Input: sub.InputData}}
 	case model.SubmitTypeTest:
-		cases = body.Samples
-		if len(cases) == 0 {
-			cases = []programmingCase{{Input: sub.InputData}}
+		selectedCases = body.Samples
+		if len(selectedCases) == 0 {
+			selectedCases = []programmingCase{{Input: sub.InputData}}
 		}
 	case model.SubmitTypeSubmit:
-		cases = body.TestCases
-		if len(cases) == 0 {
-			cases = body.Samples
+		selectedCases = body.TestCases
+		if len(selectedCases) == 0 {
+			selectedCases = body.Samples
 		}
 	default:
-		cases = []programmingCase{{Input: sub.InputData}}
+		selectedCases = []programmingCase{{Input: sub.InputData}}
 	}
-	if len(cases) == 0 {
-		cases = []programmingCase{{Input: "", Output: ""}}
-	}
-
-	for i, tc := range cases {
-		res := q.runner.Run(ctx, sub.ID, sub.Language, sub.SourceCode, tc.Input, sub.TimeLimitMS, sub.MemoryLimitMiB)
-		if res.TimeMS > maxTimeMS {
-			maxTimeMS = res.TimeMS
-		}
-		totalStdout.WriteString(fmt.Sprintf("[case %d stdout]\n%s\n", i+1, res.Stdout))
-		if res.Stderr != "" {
-			totalStderr.WriteString(fmt.Sprintf("[case %d stderr]\n%s\n", i+1, res.Stderr))
-		}
-
-		if res.Verdict != model.VerdictOK {
-			finalVerdict = res.Verdict
-			break
-		}
-
-		if sub.SubmitType == model.SubmitTypeTest || sub.SubmitType == model.SubmitTypeSubmit {
-			if NormalizeOutput(res.Stdout) != NormalizeOutput(tc.Output) {
-				finalVerdict = model.VerdictWA
-				totalStderr.WriteString(fmt.Sprintf("[case %d] expected:\n%s\n", i+1, tc.Output))
-				break
-			}
-		}
+	if len(selectedCases) == 0 {
+		selectedCases = []programmingCase{{Input: "", Output: ""}}
 	}
 
-	if sub.SubmitType == model.SubmitTypeRun {
-		if finalVerdict == model.VerdictAC {
-			finalVerdict = model.VerdictOK
-		}
+	cases := make([]JudgeCase, 0, len(selectedCases))
+	for _, item := range selectedCases {
+		cases = append(cases, JudgeCase{
+			Input:    item.Input,
+			Expected: item.Output,
+		})
 	}
+	result, err := q.runner.Judge(ctx, JudgeTask{
+		SubmissionID:    sub.ID,
+		Language:        sub.Language,
+		SourceCode:      sub.SourceCode,
+		TimeLimitMS:     sub.TimeLimitMS,
+		MemoryLimitMiB:  sub.MemoryLimitMiB,
+		CheckAnswer:     checkAnswer,
+		CompileTimeoutS: 10,
+		Cases:           cases,
+	})
+	if err != nil {
+		return err
+	}
+	finalVerdict = result.Verdict
 
 	if sub.SubmitType == model.SubmitTypeSubmit {
 		if finalVerdict == model.VerdictAC {
@@ -209,7 +202,7 @@ func (q *QueueService) processJob(ctx context.Context, job jobItem) error {
 		}
 	}
 
-	if err := q.finishSubmission(ctx, sub, finalVerdict, maxTimeMS, sub.MemoryLimitMiB*1024, score, totalStdout.String(), totalStderr.String()); err != nil {
+	if err := q.finishSubmission(ctx, sub, finalVerdict, result.TimeMS, result.MemoryKiB, score, result.Stdout, result.Stderr); err != nil {
 		return err
 	}
 	if err := q.completeJob(ctx, job.ID); err != nil {

@@ -30,19 +30,11 @@ func main() {
 	}
 	db.LogAdminPassword(setup.AdminPasswordGenerated)
 
-	runner := judge.NewDockerRunner(judge.RunnerConfig{
-		ImageJudge: cfg.JudgeImage,
-		CPU:        cfg.JudgeCPU,
-	})
-	go func() {
-		warmupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-		if err := runner.Warmup(warmupCtx); err != nil {
-			log.Printf("[judge] image warmup warning: %v", err)
-			return
-		}
-		log.Printf("[judge] judge image warmed up")
-	}()
+	runner := judge.NewHTTPRunner(
+		cfg.JudgeEndpoint,
+		cfg.JudgeSharedToken,
+		time.Duration(cfg.JudgeHTTPTimeoutSec)*time.Second,
+	)
 
 	queue := judge.NewQueueService(database, runner, cfg.JudgeWorkers)
 	workerCtx, workerCancel := context.WithCancel(context.Background())
