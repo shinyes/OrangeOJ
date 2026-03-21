@@ -1,4 +1,16 @@
 services:
+  judge-runtime:
+    image: "${ORANGEOJ_IMAGE_JUDGE:-ghcr.io/shinyes/orangeoj-judge:latest}"
+    container_name: orangeoj-judge-runtime
+    restart: unless-stopped
+    command: ["sh", "-lc", "sleep infinity"]
+    healthcheck:
+      test: ["CMD-SHELL", "g++ --version >/dev/null 2>&1 && python3 --version >/dev/null 2>&1 && go version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   orangeoj:
     image: ghcr.io/shinyes/orangeoj:latest
     container_name: orangeoj
@@ -11,7 +23,10 @@ services:
       ORANGEOJ_REGISTRATION_DEFAULT: "false"
       ORANGEOJ_JWT_SECRET: "change-this-in-production"
       ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
-      ORANGEOJ_IMAGE_JUDGE: "ghcr.io/shinyes/orangeoj-judge:latest"
+      ORANGEOJ_IMAGE_JUDGE: "${ORANGEOJ_IMAGE_JUDGE:-ghcr.io/shinyes/orangeoj-judge:latest}"
+    depends_on:
+      judge-runtime:
+        condition: service_healthy
     volumes:
       - ./data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
