@@ -1,6 +1,9 @@
 name: Build And Publish Images On Release
 
 on:
+  push:
+    tags:
+      - "v*"
   release:
     types: [published]
   workflow_dispatch:
@@ -43,6 +46,7 @@ jobs:
         with:
           images: ${{ steps.vars.outputs.app_image }}
           tags: |
+            type=raw,value=${{ github.ref_name }},enable=${{ github.event_name == 'push' }}
             type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
             type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.prerelease == false) }}
             type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
@@ -65,6 +69,7 @@ jobs:
         with:
           images: ${{ steps.vars.outputs.judge_image }}
           tags: |
+            type=raw,value=${{ github.ref_name }},enable=${{ github.event_name == 'push' }}
             type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
             type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.prerelease == false) }}
             type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
