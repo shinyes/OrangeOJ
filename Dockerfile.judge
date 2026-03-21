@@ -10,17 +10,21 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/judge-runtime ./cmd/judge-runtime
 
 FROM --platform=$TARGETPLATFORM ubuntu:24.04
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        bash \
-        ca-certificates \
-        coreutils \
-        curl \
-        g++ \
-        golang-go \
-        nsjail \
-        python3 \
-    && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list.d/ubuntu.sources ] && ! grep -qE '^Components:.*\\buniverse\\b' /etc/apt/sources.list.d/ubuntu.sources; then \
+      sed -i '/^Components:/ s/$/ universe/' /etc/apt/sources.list.d/ubuntu.sources; \
+    fi; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      bash \
+      ca-certificates \
+      coreutils \
+      curl \
+      g++ \
+      golang-go \
+      nsjail \
+      python3; \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work
 COPY --from=backend-build /out/judge-runtime /usr/local/bin/judge-runtime
