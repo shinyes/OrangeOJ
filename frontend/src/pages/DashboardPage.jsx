@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, toFriendlyError } from '../api'
 
@@ -120,6 +120,7 @@ export default function DashboardPage({ user, onLogout }) {
   )
   const isSpaceAdminOfSelectedSpace = Boolean(selectedSpace && selectedSpace.myRole === 'space_admin')
   const canManageSelectedSpace = isSystemAdmin || isSpaceAdminOfSelectedSpace
+  const showSpaceTopTabs = !isSystemAdmin || adminTab === 'space'
 
   const refreshSpaces = async () => {
     const list = await api.listSpaces()
@@ -517,15 +518,6 @@ export default function DashboardPage({ user, onLogout }) {
           <p className="muted">{spaces.length === 0 ? '暂无可访问空间，请先创建或加入空间。' : '请选择一个空间。'}</p>
         ) : (
           <>
-            <div className="tabs">
-              <button className={spaceTab === 'problems' ? 'active' : ''} onClick={() => setSpaceTab('problems')}>题库</button>
-              <button className={spaceTab === 'training' ? 'active' : ''} onClick={() => setSpaceTab('training')}>训练计划</button>
-              <button className={spaceTab === 'homework' ? 'active' : ''} onClick={() => setSpaceTab('homework')}>作业</button>
-              {canManageSelectedSpace && (
-                <button className={spaceTab === 'members' ? 'active' : ''} onClick={() => setSpaceTab('members')}>成员管理</button>
-              )}
-            </div>
-
             {spaceTab === 'problems' && (
               <div className="tab-body">
                 {canManageSelectedSpace && (
@@ -806,11 +798,17 @@ export default function DashboardPage({ user, onLogout }) {
   return (
     <div className="page-shell">
       <header className="topbar">
-        <div className="topbar-brand">
-          <h1>OrangeOJ</h1>
-          <p>欢迎回来，开始今天的学习与管理</p>
-        </div>
         {renderTopbarSpaceSwitcher()}
+        {showSpaceTopTabs && (
+          <div className="tabs topbar-center-tabs">
+            <button className={spaceTab === 'problems' ? 'active' : ''} onClick={() => setSpaceTab('problems')}>题库</button>
+            <button className={spaceTab === 'homework' ? 'active' : ''} onClick={() => setSpaceTab('homework')}>作业</button>
+            <button className={spaceTab === 'training' ? 'active' : ''} onClick={() => setSpaceTab('training')}>训练</button>
+            {canManageSelectedSpace && (
+              <button className={spaceTab === 'members' ? 'active' : ''} onClick={() => setSpaceTab('members')}>成员管理</button>
+            )}
+          </div>
+        )}
         <div className="header-actions" ref={userMenuRef}>
           <button
             className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}

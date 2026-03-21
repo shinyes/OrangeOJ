@@ -138,9 +138,15 @@ textarea {
 .topbar-space {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  margin-left: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.topbar-center-tabs {
   flex: 1;
-  min-width: 260px;
+  justify-content: center;
 }
 
 .space-switcher {
@@ -164,8 +170,8 @@ textarea {
   border: none;
   background: transparent;
   box-shadow: none;
-  min-width: 220px;
-  width: 280px;
+  min-width: 120px;
+  width: 160px;
   padding: 4px 0;
   color: var(--text);
   font-weight: 600;
@@ -713,17 +719,24 @@ textarea {
   }
 
   .topbar-space {
-    order: 3;
-    width: 100%;
-    justify-content: stretch;
+    order: 0;
+    width: auto;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .space-switcher {
-    width: 100%;
+    width: auto;
   }
 
   .space-switcher select {
+    width: 140px;
+    min-width: 110px;
+  }
+
+  .topbar-center-tabs {
+    order: 2;
     width: 100%;
-    min-width: 0;
+    justify-content: flex-start;
   }
 }
