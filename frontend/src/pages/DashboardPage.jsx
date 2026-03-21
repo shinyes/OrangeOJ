@@ -406,25 +406,33 @@ export default function DashboardPage({ user, onLogout }) {
     }
   }
 
-  const renderSpacesSection = () => (
-    <div className="grid-two">
-      <aside className="panel">
-        <h2>空间列表</h2>
-        {spaces.length === 0 && <p className="muted">暂无空间</p>}
-        {spaces.map((space) => (
-          <button
-            key={space.id}
-            className={`space-row ${space.id === selectedSpaceId ? 'active' : ''}`}
-            onClick={() => setSelectedSpaceId(space.id)}
-          >
-            <strong>{space.name}</strong>
-            <span>{space.description || '暂无描述'}</span>
-          </button>
-        ))}
+  const renderTopbarSpaceSwitcher = () => (
+    <div className="topbar-space">
+      <label className="space-switcher">
+        <span>空间</span>
+        <select
+          value={selectedSpaceId ? String(selectedSpaceId) : ''}
+          onChange={(event) => setSelectedSpaceId(event.target.value ? Number(event.target.value) : null)}
+          disabled={spaces.length === 0}
+        >
+          {spaces.length === 0 ? (
+            <option value="">暂无空间</option>
+          ) : (
+            spaces.map((space) => (
+              <option key={space.id} value={String(space.id)}>{space.name}</option>
+            ))
+          )}
+        </select>
+      </label>
+    </div>
+  )
 
-        {isSystemAdmin && (
-          <>
-            <h3>新建空间</h3>
+  const renderSpacesSection = () => (
+    <div className="space-content-grid">
+      {isSystemAdmin && (
+        <section className="panel">
+          <h2>创建空间</h2>
+          <div className="space-create-form">
             <input
               placeholder="空间名称"
               value={newSpaceName}
@@ -436,16 +444,15 @@ export default function DashboardPage({ user, onLogout }) {
               onChange={(event) => setNewSpaceDesc(event.target.value)}
             />
             <button onClick={createSpace}>创建空间</button>
-          </>
-        )}
-      </aside>
+          </div>
+        </section>
+      )}
 
       <main className="panel">
         {!selectedSpace ? (
-          <p className="muted">请选择一个空间。</p>
+          <p className="muted">{spaces.length === 0 ? '暂无可访问空间，请先创建或加入空间。' : '请选择一个空间。'}</p>
         ) : (
           <>
-            <h2>{selectedSpace.name}</h2>
             <div className="tabs">
               <button className={spaceTab === 'problems' ? 'active' : ''} onClick={() => setSpaceTab('problems')}>题库</button>
               <button className={spaceTab === 'training' ? 'active' : ''} onClick={() => setSpaceTab('training')}>训练计划</button>
@@ -686,10 +693,11 @@ export default function DashboardPage({ user, onLogout }) {
   return (
     <div className="page-shell">
       <header className="topbar">
-        <div>
+        <div className="topbar-brand">
           <h1>OrangeOJ</h1>
           <p>欢迎回来，开始今天的学习与管理</p>
         </div>
+        {renderTopbarSpaceSwitcher()}
         <div className="header-actions" ref={userMenuRef}>
           <button
             className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}

@@ -104,11 +104,17 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 14px 16px;
   background: linear-gradient(135deg, #fff8eb 0%, #fff2df 100%);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
+}
+
+.topbar-brand {
+  min-width: 220px;
 }
 
 .topbar h1 {
@@ -125,6 +131,58 @@ textarea {
 .header-actions {
   position: relative;
   display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.topbar-space {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 260px;
+}
+
+.space-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #fffdf7;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: var(--shadow-sm);
+}
+
+.space-switcher span {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.space-switcher select {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  min-width: 220px;
+  width: 280px;
+  padding: 4px 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.space-switcher select:focus {
+  border: none;
+  box-shadow: none;
+}
+
+.space-content-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.space-create-form {
+  display: grid;
   gap: 8px;
 }
 
@@ -609,5 +667,20 @@ textarea {
 
   .user-menu-trigger {
     min-width: 180px;
+  }
+
+  .topbar-space {
+    order: 3;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .space-switcher {
+    width: 100%;
+  }
+
+  .space-switcher select {
+    width: 100%;
+    min-width: 0;
   }
 }
