@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { api } from '../api'
 
@@ -54,26 +54,43 @@ export default function LoginPage({ onLogin, user }) {
   return (
     <div className="auth-wrap">
       <div className="auth-panel">
-        <h1>OrangeOJ</h1>
-        <p>登录后即可进入空间管理、题库、训练计划和作业。</p>
+        <h1 className="auth-title">OrangeOJ</h1>
+        <p className="auth-subtitle">简洁高效的在线判题与教学平台</p>
+
         <form onSubmit={handleSubmit} className="auth-form">
           <label>
             用户名
-            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="请输入用户名" />
+            <input
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="请输入用户名"
+              autoComplete="username"
+            />
           </label>
           <label>
             密码
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="请输入密码" />
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="请输入密码"
+              autoComplete="current-password"
+            />
           </label>
           {error && <div className="error-box">{error}</div>}
-          <button type="submit" disabled={submitting}>{submitting ? '登录中...' : '登录'}</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? '登录中...' : '登录'}
+          </button>
         </form>
 
         <div className="auth-footer">
           {loadingRegistrationStatus ? (
             <span className="muted">注册状态加载中...</span>
           ) : registrationEnabled ? (
-            <span>没有账号？<Link to="/register">去注册</Link></span>
+            <span>
+              没有账号？
+              <Link to="/register">去注册</Link>
+            </span>
           ) : (
             <span className="muted">当前未开放注册，请联系管理员。</span>
           )}

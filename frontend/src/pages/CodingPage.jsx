@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../api'
@@ -26,6 +26,10 @@ function problemTypeText(type) {
   return type
 }
 
+function nowTimeText() {
+  return new Date().toLocaleTimeString()
+}
+
 export default function CodingPage() {
   const { spaceId, problemId } = useParams()
   const [problem, setProblem] = useState(null)
@@ -35,7 +39,7 @@ export default function CodingPage() {
   const [language, setLanguage] = useState('cpp')
   const [code, setCode] = useState('')
   const [customInput, setCustomInput] = useState('')
-  const [consoleText, setConsoleText] = useState('暂无输出')
+  const [consoleText, setConsoleText] = useState('控制台已就绪')
   const [running, setRunning] = useState(false)
 
   const [objectiveAnswer, setObjectiveAnswer] = useState('')
@@ -72,20 +76,21 @@ export default function CodingPage() {
   const saveDraft = () => {
     const key = `orangeoj:code:${spaceId}:${problemId}:${language}`
     localStorage.setItem(key, code)
-    setConsoleText((prev) => `${prev}\n[保存] 草稿已写入本地缓存`)
+    setConsoleText((prev) => `${prev}\n[${nowTimeText()}] 草稿已保存到本地`)
   }
 
   const pollSubmission = async (submissionId) => {
     for (let i = 0; i < 180; i += 1) {
       const snapshot = await api.pollSubmission(submissionId)
-      const data = snapshot
-      setConsoleText(`${data.stdout || ''}\n${data.stderr || ''}\n状态: ${data.status} / ${data.verdict || ''}`)
-      if (data.status === 'done' || data.status === 'failed') {
-        return data
+      setConsoleText(
+        `${snapshot.stdout || ''}\n${snapshot.stderr || ''}\n状态: ${snapshot.status} / ${snapshot.verdict || ''}`
+      )
+      if (snapshot.status === 'done' || snapshot.status === 'failed') {
+        return snapshot
       }
       await new Promise((resolve) => setTimeout(resolve, snapshot.pollAfterMs || 1000))
     }
-    throw new Error('判题超时，请稍后再试')
+    throw new Error('判题等待超时，请稍后再试')
   }
 
   const handleCodeSubmit = async (mode) => {
@@ -94,7 +99,7 @@ export default function CodingPage() {
     setRunning(true)
     setError('')
     const actionText = mode === 'run' ? '运行' : mode === 'test' ? '测试' : '提交'
-    setConsoleText(`[${new Date().toLocaleTimeString()}] 开始${actionText}...`)
+    setConsoleText(`[${nowTimeText()}] 开始${actionText}...`)
 
     try {
       const payload = {
@@ -110,7 +115,9 @@ export default function CodingPage() {
           : await api.submit(spaceId, problemId, payload)
 
       const result = await pollSubmission(created.submissionId)
-      setConsoleText((prev) => `${prev}\n\n最终结果: ${result.verdict} | ${result.timeMs || 0}ms | ${result.memoryKiB || 0}KiB`)
+      setConsoleText(
+        (prev) => `${prev}\n\n最终结果: ${result.verdict || '-'} | ${(result.timeMs || 0)}ms | ${(result.memoryKiB || 0)}KiB`
+      )
     } catch (err) {
       setError(err.message)
       setConsoleText((prev) => `${prev}\n错误: ${err.message}`)
@@ -206,7 +213,7 @@ export default function CodingPage() {
             </div>
           )}
 
-          <button disabled={running} onClick={handleObjectiveSubmit}>
+          <button disabled={running || !objectiveAnswer} onClick={handleObjectiveSubmit}>
             {running ? '提交中...' : '提交答案'}
           </button>
 
@@ -236,10 +243,10 @@ export default function CodingPage() {
           <pre className="statement">{problem.statementMd}</pre>
 
           <h3>输入格式</h3>
-          <p>{body.inputFormat || '见题面描述'}</p>
+          <p>{body.inputFormat || '见题目描述'}</p>
 
           <h3>输出格式</h3>
-          <p>{body.outputFormat || '见题面描述'}</p>
+          <p>{body.outputFormat || '见题目描述'}</p>
 
           <h3>样例</h3>
           {samples.length === 0 && <p>暂无样例</p>}
@@ -276,13 +283,13 @@ export default function CodingPage() {
 
           <div className="editor-wrap">
             <Editor
-              theme="vs-light"
+              theme="vs"
               language={editorLang[language]}
               value={code}
               onChange={(value) => setCode(value || '')}
               options={{
                 minimap: { enabled: false },
-                fontSize: 16,
+                fontSize: 15,
                 tabSize: 2,
                 automaticLayout: true
               }}

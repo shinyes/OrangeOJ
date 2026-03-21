@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 
@@ -81,8 +81,8 @@ export default function RegisterPage({ user }) {
     return (
       <div className="auth-wrap">
         <div className="auth-panel">
-          <h1>OrangeOJ</h1>
-          <p>当前未开放注册，请联系管理员开启后再试。</p>
+          <h1 className="auth-title">OrangeOJ</h1>
+          <p className="auth-subtitle">当前未开放注册，请联系管理员开启后再试。</p>
           <Link className="ghost-btn" to="/login">返回登录</Link>
         </div>
       </div>
@@ -92,27 +92,51 @@ export default function RegisterPage({ user }) {
   return (
     <div className="auth-wrap">
       <div className="auth-panel">
-        <h1>OrangeOJ</h1>
-        <p>创建新账号后即可登录系统。</p>
+        <h1 className="auth-title">OrangeOJ</h1>
+        <p className="auth-subtitle">创建账号后即可进入系统。</p>
+
         <form onSubmit={handleSubmit} className="auth-form">
           <label>
             用户名
-            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="请输入用户名" />
+            <input
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="请输入用户名"
+              autoComplete="username"
+            />
           </label>
           <label>
             密码
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 6 位" />
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="至少 6 位"
+              autoComplete="new-password"
+            />
           </label>
           <label>
             确认密码
-            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="请再次输入密码" />
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="请再次输入密码"
+              autoComplete="new-password"
+            />
           </label>
           {error && <div className="error-box">{error}</div>}
           {success && <div className="ok-box">{success}</div>}
-          <button type="submit" disabled={submitting}>{submitting ? '提交中...' : '注册'}</button>
+          <button type="submit" disabled={submitting}>
+            {submitting ? '提交中...' : '注册'}
+          </button>
         </form>
+
         <div className="auth-footer">
-          <span>已有账号？<Link to="/login">返回登录</Link></span>
+          <span>
+            已有账号？
+            <Link to="/login">返回登录</Link>
+          </span>
         </div>
       </div>
     </div>

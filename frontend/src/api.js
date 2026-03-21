@@ -1,4 +1,4 @@
-const defaultHeaders = {
+﻿const defaultHeaders = {
   'Content-Type': 'application/json'
 }
 
@@ -15,7 +15,7 @@ const errorMessageMap = {
   'space admin required': '当前账号为普通成员，无空间管理权限',
   'space membership required': '需要先加入该空间',
   'invalid spaceId': '空间不存在',
-  'invalid userId': '用户ID不合法',
+  'invalid userId': '用户 ID 不合法',
   'invalid role': '角色不合法',
   'invalid username': '用户名不能为空',
   'password must be at least 6 characters': '密码至少需要 6 位',
