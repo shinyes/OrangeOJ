@@ -86,6 +86,11 @@ export default function DashboardPage({ user, onLogout }) {
   const [spaceProblems, setSpaceProblems] = useState([])
   const [trainingPlans, setTrainingPlans] = useState([])
   const [homeworks, setHomeworks] = useState([])
+  const [homeworkDetails, setHomeworkDetails] = useState({})
+  const [expandedHomeworkId, setExpandedHomeworkId] = useState(null)
+  const [homeworkTargetInputs, setHomeworkTargetInputs] = useState({})
+  const [homeworkTargetSubmittingId, setHomeworkTargetSubmittingId] = useState(null)
+  const [homeworkActionMessage, setHomeworkActionMessage] = useState('')
 
   const [newSpaceName, setNewSpaceName] = useState('')
   const [newSpaceDesc, setNewSpaceDesc] = useState('')
@@ -179,6 +184,10 @@ export default function DashboardPage({ user, onLogout }) {
     setMemberMessage('')
     setMemberUserId('')
     setMemberRole('member')
+    setExpandedHomeworkId(null)
+    setHomeworkDetails({})
+    setHomeworkTargetInputs({})
+    setHomeworkActionMessage('')
     if (spaceTab === 'members' && !canManageSelectedSpace) {
       setSpaceTab('problems')
     }
@@ -329,6 +338,61 @@ export default function DashboardPage({ user, onLogout }) {
       await refreshSpaceData(selectedSpaceId)
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const loadHomeworkDetail = async (homeworkId, forceReload = false) => {
+    if (!selectedSpaceId || !homeworkId) return null
+    if (!forceReload && homeworkDetails[homeworkId]) {
+      return homeworkDetails[homeworkId]
+    }
+    const detail = await api.getHomework(selectedSpaceId, homeworkId)
+    setHomeworkDetails((prev) => ({ ...prev, [homeworkId]: detail }))
+    return detail
+  }
+
+  const toggleHomeworkDetail = async (homeworkId) => {
+    if (expandedHomeworkId === homeworkId) {
+      setExpandedHomeworkId(null)
+      return
+    }
+    try {
+      setError('')
+      setHomeworkActionMessage('')
+      setExpandedHomeworkId(homeworkId)
+      await loadHomeworkDetail(homeworkId)
+    } catch (err) {
+      setError(err.message || '加载作业详情失败')
+    }
+  }
+
+  const handleHomeworkTargetInputChange = (homeworkId, value) => {
+    setHomeworkTargetInputs((prev) => ({ ...prev, [homeworkId]: value }))
+  }
+
+  const handleAddHomeworkTarget = async (homeworkId) => {
+    if (!selectedSpaceId || !homeworkId) return
+    if (!ensureCanManageSpace()) return
+
+    const rawUserID = (homeworkTargetInputs[homeworkId] || '').trim()
+    const userID = Number(rawUserID)
+    if (!Number.isInteger(userID) || userID <= 0) {
+      setError('请输入有效的用户ID')
+      return
+    }
+
+    try {
+      setError('')
+      setHomeworkActionMessage('')
+      setHomeworkTargetSubmittingId(homeworkId)
+      await api.addHomeworkTarget(selectedSpaceId, homeworkId, userID)
+      setHomeworkTargetInputs((prev) => ({ ...prev, [homeworkId]: '' }))
+      setHomeworkActionMessage(`用户 #${userID} 已加入作业 #${homeworkId} 的目标名单`)
+      await loadHomeworkDetail(homeworkId, true)
+    } catch (err) {
+      setError(err.message || '分配作业目标用户失败')
+    } finally {
+      setHomeworkTargetSubmittingId(null)
     }
   }
 
@@ -525,14 +589,63 @@ export default function DashboardPage({ user, onLogout }) {
                   </div>
                 )}
                 {homeworks.length === 0 && <p className="muted">暂无作业。</p>}
-                {homeworks.map((hw) => (
-                  <div className="list-item" key={hw.id}>
-                    <div>
-                      <strong>{hw.title}</strong>
-                      <p>{hw.published ? '已发布' : '草稿'} {hw.dueAt ? `| 截止：${hw.dueAt}` : ''}</p>
+                {homeworks.map((hw) => {
+                  const detail = homeworkDetails[hw.id]
+                  const expanded = expandedHomeworkId === hw.id
+                  return (
+                    <div className="list-item homework-item" key={hw.id}>
+                      <div>
+                        <strong>{hw.title}</strong>
+                        <p>{hw.published ? '已发布' : '草稿'} {hw.dueAt ? `| 截止：${hw.dueAt}` : ''}</p>
+                      </div>
+                      <button className="ghost-btn" onClick={() => toggleHomeworkDetail(hw.id)}>
+                        {expanded ? '收起详情' : '查看详情'}
+                      </button>
+
+                      {expanded && (
+                        <div className="homework-detail">
+                          {!detail ? (
+                            <p className="muted">作业详情加载中...</p>
+                          ) : (
+                            <>
+                              <p className="muted">题目数：{detail.items?.length || 0} | 目标用户数：{detail.targets?.length || 0}</p>
+                              <div className="homework-target-list">
+                                {(detail.targets || []).length === 0 ? (
+                                  <span className="muted">暂无目标用户</span>
+                                ) : (
+                                  detail.targets.map((target) => (
+                                    <span key={target.userId} className="target-chip">
+                                      #{target.userId} {target.username}
+                                    </span>
+                                  ))
+                                )}
+                              </div>
+                            </>
+                          )}
+
+                          {canManageSelectedSpace && (
+                            <div className="inline-form homework-target-form">
+                              <input
+                                type="number"
+                                min="1"
+                                placeholder="输入用户ID分配作业"
+                                value={homeworkTargetInputs[hw.id] || ''}
+                                onChange={(event) => handleHomeworkTargetInputChange(hw.id, event.target.value)}
+                              />
+                              <button
+                                disabled={homeworkTargetSubmittingId === hw.id}
+                                onClick={() => handleAddHomeworkTarget(hw.id)}
+                              >
+                                {homeworkTargetSubmittingId === hw.id ? '分配中...' : '添加目标用户'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
+                {homeworkActionMessage && <div className="ok-box">{homeworkActionMessage}</div>}
               </div>
             )}
 

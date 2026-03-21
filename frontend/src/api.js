@@ -87,6 +87,8 @@ export const api = {
 
   listHomeworks: (spaceId) => apiFetch(`/api/spaces/${spaceId}/homeworks`),
   createHomework: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks`, { method: 'POST', body }),
+  getHomework: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`),
+  addHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets`, { method: 'POST', body: { userId } }),
 
   objectiveSubmit: (spaceId, problemId, answer) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/objective-submit`, { method: 'POST', body: { answer } }),
   run: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/run`, { method: 'POST', body }),

@@ -342,6 +342,41 @@ textarea {
   font-size: 13px;
 }
 
+.homework-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: flex-start;
+}
+
+.homework-detail {
+  grid-column: 1 / -1;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.homework-target-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.target-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 13px;
+  background: #fff8ea;
+}
+
+.homework-target-form input {
+  max-width: 260px;
+}
+
 .inline-form {
   display: flex;
   gap: 8px;
@@ -663,6 +698,14 @@ textarea {
 
   .inline-field {
     min-width: 100%;
+  }
+
+  .homework-item {
+    grid-template-columns: 1fr;
+  }
+
+  .homework-item .ghost-btn {
+    justify-self: flex-start;
   }
 
   .user-menu-trigger {
