@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, toFriendlyError } from '../api'
 
@@ -70,7 +70,10 @@ function toBatchCopyText(batchResult) {
 
 export default function DashboardPage({ user, onLogout }) {
   const isSystemAdmin = user.globalRole === 'system_admin'
+  const roleText = isSystemAdmin ? '系统管理员' : '普通用户'
   const [error, setError] = useState('')
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef(null)
 
   const [spaces, setSpaces] = useState([])
   const [selectedSpaceId, setSelectedSpaceId] = useState(null)
@@ -180,6 +183,26 @@ export default function DashboardPage({ user, onLogout }) {
       setSpaceTab('problems')
     }
   }, [selectedSpaceId, canManageSelectedSpace])
+
+  useEffect(() => {
+    const handleDocumentClick = (event) => {
+      if (!userMenuRef.current) return
+      if (!userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false)
+      }
+    }
+    const handleEsc = (event) => {
+      if (event.key === 'Escape') {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleDocumentClick)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [])
 
   const createSpace = async () => {
     if (!newSpaceName.trim()) {
@@ -665,10 +688,35 @@ export default function DashboardPage({ user, onLogout }) {
       <header className="topbar">
         <div>
           <h1>OrangeOJ</h1>
-          <p>{user.username} | {isSystemAdmin ? '系统管理员' : '普通用户'}</p>
+          <p>欢迎回来，开始今天的学习与管理</p>
         </div>
-        <div className="header-actions">
-          <button className="danger" onClick={onLogout}>退出登录</button>
+        <div className="header-actions" ref={userMenuRef}>
+          <button
+            className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+          >
+            <span className="user-menu-text">
+              <strong>{user.username}</strong>
+              <small>{roleText}</small>
+            </span>
+            <span className="user-menu-caret">{userMenuOpen ? '▴' : '▾'}</span>
+          </button>
+          {userMenuOpen && (
+            <div className="user-menu-panel" role="menu">
+              <div className="user-menu-meta">{user.username} · {roleText}</div>
+              <button
+                className="user-menu-item danger"
+                onClick={() => {
+                  setUserMenuOpen(false)
+                  onLogout()
+                }}
+              >
+                退出登录
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
