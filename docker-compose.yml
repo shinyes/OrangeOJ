@@ -1,9 +1,6 @@
 services:
   judge-runtime:
-    build:
-      context: .
-      dockerfile: Dockerfile.judge
-    image: "${ORANGEOJ_IMAGE_JUDGE:-orangeoj-judge:latest}"
+    image: "${ORANGEOJ_IMAGE_JUDGE:-ghcr.io/shinyes/orangeoj-judge:latest}"
     container_name: orangeoj-judge-runtime
     restart: unless-stopped
     environment:
@@ -30,10 +27,7 @@ services:
       start_period: 20s
 
   orangeoj:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: orangeoj:latest
+    image: "${ORANGEOJ_IMAGE_APP:-ghcr.io/shinyes/orangeoj:latest}"
     container_name: orangeoj
     restart: unless-stopped
     ports:

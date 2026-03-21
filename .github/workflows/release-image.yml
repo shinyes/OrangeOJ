@@ -4,12 +4,10 @@ on:
   push:
     tags:
       - "v*"
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -44,8 +42,7 @@ jobs:
           images: ${{ steps.vars.outputs.app_image }}
           tags: |
             type=raw,value=${{ github.ref_name }},enable=${{ github.event_name == 'push' }}
-            type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.prerelease == false) }}
+            type=raw,value=latest,enable=${{ (github.event_name == 'push' && !contains(github.ref_name, '-')) || github.event_name == 'workflow_dispatch' }}
             type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push app image
@@ -67,8 +64,7 @@ jobs:
           images: ${{ steps.vars.outputs.judge_image }}
           tags: |
             type=raw,value=${{ github.ref_name }},enable=${{ github.event_name == 'push' }}
-            type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.prerelease == false) }}
+            type=raw,value=latest,enable=${{ (github.event_name == 'push' && !contains(github.ref_name, '-')) || github.event_name == 'workflow_dispatch' }}
             type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push judge image
@@ -82,3 +78,36 @@ jobs:
           labels: ${{ steps.meta_judge.outputs.labels }}
           cache-from: type=gha,scope=judge
           cache-to: type=gha,mode=max,scope=judge
+
+      - name: Export image archives
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          set -euxo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          APP_IMAGE="${{ steps.vars.outputs.app_image }}:${TAG}"
+          JUDGE_IMAGE="${{ steps.vars.outputs.judge_image }}:${TAG}"
+
+          mkdir -p dist
+          docker pull "${APP_IMAGE}"
+          docker pull "${JUDGE_IMAGE}"
+
+          docker save "${APP_IMAGE}" | gzip -c > "dist/orangeoj-${TAG}-linux-amd64.tar.gz"
+          docker save "${JUDGE_IMAGE}" | gzip -c > "dist/orangeoj-judge-${TAG}-linux-amd64.tar.gz"
+
+          (
+            cd dist
+            sha256sum *.tar.gz > SHA256SUMS.txt
+          )
+
+      - name: Publish GitHub Release And Upload Archives
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/orangeoj-${{ github.ref_name }}-linux-amd64.tar.gz
+            dist/orangeoj-judge-${{ github.ref_name }}-linux-amd64.tar.gz
+            dist/SHA256SUMS.txt
