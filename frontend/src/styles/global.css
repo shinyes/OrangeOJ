@@ -114,25 +114,37 @@ textarea {
 }
 
 .topbar-brand {
-  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.brand-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #f9a34a, #f47a20);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: var(--shadow-sm);
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 24px;
-}
-
-.topbar p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 14px;
+  font-size: 22px;
 }
 
 .header-actions {
   position: relative;
   display: flex;
   gap: 8px;
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .topbar-space {
@@ -756,8 +768,13 @@ textarea {
   }
 
   .topbar-center-tabs {
-    order: 2;
+    order: 3;
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .header-actions {
+    order: 2;
+    margin-left: auto;
   }
 }

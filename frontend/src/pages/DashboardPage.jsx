@@ -1045,6 +1045,10 @@ export default function DashboardPage({ user, onLogout }) {
   return (
     <div className="page-shell">
       <header className="topbar">
+        <div className="topbar-brand">
+          <span className="brand-dot">O</span>
+          <h1>OrangeOJ</h1>
+        </div>
         {renderTopbarSpaceSwitcher()}
         {showSpaceTopTabs && (
           <div className="tabs topbar-center-tabs">
