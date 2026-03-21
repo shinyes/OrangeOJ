@@ -13,9 +13,7 @@ type Config struct {
 	JudgeWorkers          int
 	RegistrationDefault   bool
 	AdminPasswordOverride string
-	JudgeImageCPP         string
-	JudgeImagePython      string
-	JudgeImageGo          string
+	JudgeImage            string
 	JudgeCPU              string
 	CookieSecure          bool
 	CORSOrigins           string
@@ -29,9 +27,7 @@ func LoadConfig() Config {
 		JudgeWorkers:          envIntOr("ORANGEOJ_JUDGE_WORKERS", 2),
 		RegistrationDefault:   envBoolOr("ORANGEOJ_REGISTRATION_DEFAULT", false),
 		AdminPasswordOverride: os.Getenv("ORANGEOJ_ADMIN_PASSWORD"),
-		JudgeImageCPP:         envOr("ORANGEOJ_IMAGE_CPP", "gcc:13.2"),
-		JudgeImagePython:      envOr("ORANGEOJ_IMAGE_PYTHON", "python:3.8-alpine"),
-		JudgeImageGo:          envOr("ORANGEOJ_IMAGE_GO", "golang:1.25-alpine"),
+		JudgeImage:            envOr("ORANGEOJ_IMAGE_JUDGE", "ghcr.io/shinyes/orangeoj-judge:latest"),
 		JudgeCPU:              envOr("ORANGEOJ_JUDGE_CPU", "0.5"),
 		CookieSecure:          envBoolOr("ORANGEOJ_COOKIE_SECURE", false),
 		CORSOrigins:           envOr("ORANGEOJ_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173"),

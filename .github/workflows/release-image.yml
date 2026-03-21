@@ -1,4 +1,4 @@
-name: Build And Publish Image On Release
+name: Build And Publish Images On Release
 
 on:
   release:
@@ -10,18 +10,19 @@ permissions:
   packages: write
 
 jobs:
-  docker-image:
+  docker-images:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Compute image name
+      - name: Compute image names
         id: vars
         shell: bash
         run: |
-          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "app_image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "judge_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/orangeoj-judge" >> "$GITHUB_OUTPUT"
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -36,24 +37,46 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
+      - name: Extract app image metadata
+        id: meta_app
         uses: docker/metadata-action@v5
         with:
-          images: ${{ steps.vars.outputs.image }}
+          images: ${{ steps.vars.outputs.app_image }}
           tags: |
             type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
             type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.prerelease == false) }}
             type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
 
-      - name: Build and push image
+      - name: Build and push app image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta_app.outputs.tags }}
+          labels: ${{ steps.meta_app.outputs.labels }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      - name: Extract judge image metadata
+        id: meta_judge
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.judge_image }}
+          tags: |
+            type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.prerelease == false) }}
+            type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build and push judge image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.judge
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta_judge.outputs.tags }}
+          labels: ${{ steps.meta_judge.outputs.labels }}
+          cache-from: type=gha,scope=judge
+          cache-to: type=gha,mode=max,scope=judge

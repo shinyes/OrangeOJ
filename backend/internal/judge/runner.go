@@ -8,16 +8,15 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"orangeoj/backend/internal/model"
 )
 
 type RunnerConfig struct {
-	ImageCPP    string
-	ImagePython string
-	ImageGo     string
-	CPU         string
+	ImageJudge string
+	CPU        string
 }
 
 type RunResult struct {
@@ -30,11 +29,16 @@ type RunResult struct {
 }
 
 type DockerRunner struct {
-	cfg RunnerConfig
+	cfg        RunnerConfig
+	prepareMu  sync.Mutex
+	imageReady map[string]struct{}
 }
 
 func NewDockerRunner(cfg RunnerConfig) *DockerRunner {
-	return &DockerRunner{cfg: cfg}
+	return &DockerRunner{
+		cfg:        cfg,
+		imageReady: make(map[string]struct{}),
+	}
 }
 
 func (r *DockerRunner) Run(ctx context.Context, submissionID int64, language string, sourceCode string, input string, timeLimitMS int, memoryLimitMiB int) RunResult {
@@ -51,6 +55,12 @@ func (r *DockerRunner) Run(ctx context.Context, submissionID int64, language str
 	image, script, fileName, err := r.buildCommand(language)
 	if err != nil {
 		return RunResult{Verdict: model.VerdictRE, Stderr: err.Error()}
+	}
+	if err := r.ensureImage(ctx, image); err != nil {
+		return RunResult{
+			Verdict: model.VerdictRE,
+			Stderr:  trimTo("judge image prepare failed: "+err.Error(), 8000),
+		}
 	}
 
 	codeB64 := base64.StdEncoding.EncodeToString([]byte(sourceCode))
@@ -122,10 +132,87 @@ func (r *DockerRunner) Run(ctx context.Context, submissionID int64, language str
 	return RunResult{Verdict: model.VerdictOK, Stdout: trimTo(outStr, 8000), Stderr: trimTo(errStr, 8000), TimeMS: took}
 }
 
+func (r *DockerRunner) Warmup(ctx context.Context) error {
+	images := []string{
+		strings.TrimSpace(r.cfg.ImageJudge),
+	}
+	seen := make(map[string]struct{})
+	var warmupErr error
+	for _, image := range images {
+		if image == "" {
+			continue
+		}
+		if _, ok := seen[image]; ok {
+			continue
+		}
+		seen[image] = struct{}{}
+		if err := r.ensureImage(ctx, image); err != nil {
+			warmupErr = errors.Join(warmupErr, fmt.Errorf("%s: %w", image, err))
+		}
+	}
+	return warmupErr
+}
+
+func (r *DockerRunner) ensureImage(ctx context.Context, image string) error {
+	image = strings.TrimSpace(image)
+	if image == "" {
+		return fmt.Errorf("empty judge image")
+	}
+
+	r.prepareMu.Lock()
+	defer r.prepareMu.Unlock()
+
+	if _, ok := r.imageReady[image]; ok {
+		return nil
+	}
+
+	if err := inspectImage(ctx, image); err != nil {
+		if pullErr := pullImage(ctx, image); pullErr != nil {
+			return fmt.Errorf("pull image failed: %w", pullErr)
+		}
+		if recheckErr := inspectImage(ctx, image); recheckErr != nil {
+			return fmt.Errorf("image not available after pull: %w", recheckErr)
+		}
+	}
+
+	r.imageReady[image] = struct{}{}
+	return nil
+}
+
+func inspectImage(ctx context.Context, image string) error {
+	cmd := exec.CommandContext(ctx, "docker", "image", "inspect", image)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	msg := strings.TrimSpace(string(out))
+	if msg == "" {
+		msg = err.Error()
+	}
+	return fmt.Errorf("%s", msg)
+}
+
+func pullImage(ctx context.Context, image string) error {
+	cmd := exec.CommandContext(ctx, "docker", "pull", image)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	msg := strings.TrimSpace(string(out))
+	if msg == "" {
+		msg = err.Error()
+	}
+	return fmt.Errorf("%s", msg)
+}
+
 func (r *DockerRunner) buildCommand(language string) (image string, script string, fileName string, err error) {
+	image = strings.TrimSpace(r.cfg.ImageJudge)
+	if image == "" {
+		return "", "", "", fmt.Errorf("judge image is empty")
+	}
+
 	switch strings.ToLower(language) {
 	case "cpp", "c++":
-		image = r.cfg.ImageCPP
 		fileName = "main.cpp"
 		script = strings.Join([]string{
 			`echo "$CODE_B64" | base64 -d > "$SRC_FILE"`,
@@ -135,7 +222,6 @@ func (r *DockerRunner) buildCommand(language string) (image string, script strin
 			`./main.out < input.txt`,
 		}, " && ")
 	case "python", "python3", "py":
-		image = r.cfg.ImagePython
 		fileName = "main.py"
 		script = strings.Join([]string{
 			`echo "$CODE_B64" | base64 -d > "$SRC_FILE"`,
@@ -143,7 +229,6 @@ func (r *DockerRunner) buildCommand(language string) (image string, script strin
 			`python3 "$SRC_FILE" < input.txt`,
 		}, " && ")
 	case "go", "golang":
-		image = r.cfg.ImageGo
 		fileName = "main.go"
 		script = strings.Join([]string{
 			`echo "$CODE_B64" | base64 -d > "$SRC_FILE"`,

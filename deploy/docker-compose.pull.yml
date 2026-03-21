@@ -11,9 +11,7 @@ services:
       ORANGEOJ_REGISTRATION_DEFAULT: "false"
       ORANGEOJ_JWT_SECRET: "change-this-in-production"
       ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
-      ORANGEOJ_IMAGE_CPP: "gcc:13.2"
-      ORANGEOJ_IMAGE_PYTHON: "python:3.8-alpine"
-      ORANGEOJ_IMAGE_GO: "golang:1.25-alpine"
+      ORANGEOJ_IMAGE_JUDGE: "ghcr.io/shinyes/orangeoj-judge:latest"
     volumes:
       - ./data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock

@@ -2,17 +2,32 @@
 
 OrangeOJ 是一个基于 Go + Fiber + SQLite + React + Monaco 的单体 OJ 平台。
 
-## 功能特性
+## 功能概览
 
 - 角色体系：系统管理员、空间管理员、普通用户
-- 根题库 + 空间题库（空间内题目引用根题库）
-- 每个空间独立页面：题库、训练计划、作业
+- 根题库 + 多空间题库（空间题目引用根题）
+- 空间页面：题库、训练计划、作业
 - 题型支持：单选题、判断题、编程题
-- 在 Docker 沙箱中判题，支持 C++ / Python / Go
-- 基于 SQLite 的判题队列，支持可配置并发 worker
-- 时间与内存限制（默认：1000ms、256MiB）
-- 首次启动自动创建 `admin`（随机密码仅输出一次日志）
-- 管理员可控制是否开放注册
+- 判题语言：C++ / Python / Go
+- 判题队列：基于 SQLite，无需 Redis
+- 资源限制：默认 1000ms / 256MiB
+- 初始化：首次启动自动创建 `admin`，随机密码仅在日志输出一次
+- 注册控制：系统管理员可开关公开注册
+
+## 镜像说明（统一判题镜像）
+
+OrangeOJ 仅支持一个判题镜像配置项：
+
+- `ORANGEOJ_IMAGE_JUDGE`
+
+推荐值：
+
+- `ghcr.io/shinyes/orangeoj-judge:latest`
+
+迁移说明：
+
+- 旧配置：`ORANGEOJ_IMAGE_CPP` / `ORANGEOJ_IMAGE_PYTHON` / `ORANGEOJ_IMAGE_GO`
+- 新配置：`ORANGEOJ_IMAGE_JUDGE`
 
 ## 方式一：源码构建运行
 
@@ -30,28 +45,37 @@ docker logs orangeoj | grep BOOTSTRAP
 
 ## 方式二：直接拉取预构建镜像运行
 
-仓库镜像地址（GHCR）：
+应用镜像：
 
 - `ghcr.io/shinyes/orangeoj:latest`
-- `ghcr.io/shinyes/orangeoj:v0.1.0`
 
-可直接使用仓库内文件：
+判题镜像：
+
+- `ghcr.io/shinyes/orangeoj-judge:latest`
+
+使用仓库内部署文件：
 
 - `deploy/docker-compose.pull.yml`
 
-启动命令：
+启动：
 
 ```bash
 docker compose -f deploy/docker-compose.pull.yml up -d
 ```
 
-如果你想固定版本，请把 `deploy/docker-compose.pull.yml` 里的镜像改为：
+如果你要固定版本，请把镜像改为对应 tag，例如：
 
 ```yaml
-image: ghcr.io/shinyes/orangeoj:v0.1.0
+image: ghcr.io/shinyes/orangeoj:v0.2.4
 ```
 
-## 直接拉取版 Docker Compose 示例
+以及：
+
+```yaml
+ORANGEOJ_IMAGE_JUDGE: ghcr.io/shinyes/orangeoj-judge:v0.2.4
+```
+
+## 拉取版 Docker Compose 示例
 
 ```yaml
 services:
@@ -67,9 +91,7 @@ services:
       ORANGEOJ_REGISTRATION_DEFAULT: "false"
       ORANGEOJ_JWT_SECRET: "change-this-in-production"
       ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
-      ORANGEOJ_IMAGE_CPP: "gcc:13.2"
-      ORANGEOJ_IMAGE_PYTHON: "python:3.8-alpine"
-      ORANGEOJ_IMAGE_GO: "golang:1.25-alpine"
+      ORANGEOJ_IMAGE_JUDGE: "ghcr.io/shinyes/orangeoj-judge:latest"
     volumes:
       - ./data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -82,8 +104,8 @@ services:
 - `ORANGEOJ_REGISTRATION_DEFAULT`（默认 `false`）
 - `ORANGEOJ_ADMIN_PASSWORD`（可选，覆盖初始化密码）
 - `ORANGEOJ_JWT_SECRET`（生产环境必须修改）
-- `ORANGEOJ_CORS_ORIGINS`（逗号分隔的允许来源）
-- `ORANGEOJ_IMAGE_CPP` / `ORANGEOJ_IMAGE_PYTHON` / `ORANGEOJ_IMAGE_GO`
+- `ORANGEOJ_CORS_ORIGINS`（逗号分隔）
+- `ORANGEOJ_IMAGE_JUDGE`（统一判题镜像）
 
 ## 本地开发
 
