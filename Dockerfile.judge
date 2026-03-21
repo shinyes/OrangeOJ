@@ -10,21 +10,35 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/judge-runtime ./cmd/judge-runtime
 
 FROM --platform=$TARGETPLATFORM ubuntu:24.04
+ARG NSJAIL_REF=master
+
 RUN set -eux; \
-    if [ -f /etc/apt/sources.list.d/ubuntu.sources ] && ! grep -qE '^Components:.*\\buniverse\\b' /etc/apt/sources.list.d/ubuntu.sources; then \
-      sed -i '/^Components:/ s/$/ universe/' /etc/apt/sources.list.d/ubuntu.sources; \
-    fi; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      autoconf \
       bash \
+      bison \
       ca-certificates \
       coreutils \
       curl \
+      flex \
       g++ \
+      gcc \
+      git \
       golang-go \
-      nsjail \
+      libcap-dev \
+      libnl-route-3-dev \
+      libprotobuf-dev \
+      libseccomp-dev \
+      libtool \
+      make \
+      pkg-config \
+      protobuf-compiler \
       python3; \
-    rm -rf /var/lib/apt/lists/*
+    git clone --depth 1 --branch "$NSJAIL_REF" https://github.com/google/nsjail.git /tmp/nsjail; \
+    make -C /tmp/nsjail; \
+    install -m 0755 /tmp/nsjail/nsjail /usr/local/bin/nsjail; \
+    rm -rf /tmp/nsjail /var/lib/apt/lists/*
 
 WORKDIR /work
 COPY --from=backend-build /out/judge-runtime /usr/local/bin/judge-runtime
