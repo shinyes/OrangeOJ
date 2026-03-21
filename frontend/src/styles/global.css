@@ -252,6 +252,19 @@ textarea {
   width: 100%;
 }
 
+.password-form {
+  display: grid;
+  gap: 10px;
+}
+
+.btn-link {
+  background: #fffef8;
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  text-decoration: none;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -407,6 +420,14 @@ textarea {
 .problem-form {
   display: grid;
   gap: 8px;
+}
+
+.problem-form h3 {
+  margin: 0 0 2px;
+}
+
+.list-item-actions {
+  justify-content: flex-end;
 }
 
 .mono {

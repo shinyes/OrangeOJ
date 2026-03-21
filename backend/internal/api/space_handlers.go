@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,6 +15,66 @@ type memberPayload struct {
 
 type linkPayload struct {
 	ProblemID int64 `json:"problemId"`
+}
+
+func (a *API) handleCreateSpaceProblem(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	user, err := getUser(c)
+	if err != nil {
+		return err
+	}
+
+	var req rootProblemPayload
+	if err := c.BodyParser(&req); err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid request")
+	}
+
+	req.Title = strings.TrimSpace(req.Title)
+	req.Type = normalizeProblemType(req.Type)
+	if req.Title == "" || req.Type == "" {
+		return respondError(c, fiber.StatusBadRequest, "type and title are required")
+	}
+	if !isValidProblemType(req.Type) {
+		return respondError(c, fiber.StatusBadRequest, "invalid problem type")
+	}
+	if req.TimeLimitMS <= 0 {
+		req.TimeLimitMS = 1000
+	}
+	if req.MemoryLimitMiB <= 0 {
+		req.MemoryLimitMiB = 256
+	}
+	if len(req.BodyJSON) == 0 {
+		req.BodyJSON = json.RawMessage(`{}`)
+	}
+	if len(req.AnswerJSON) == 0 {
+		req.AnswerJSON = json.RawMessage(`{}`)
+	}
+
+	tx, err := a.DB.BeginTx(c.Context(), nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`
+INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, req.Type, req.Title, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, user.ID)
+	if err != nil {
+		return err
+	}
+	problemID, _ := res.LastInsertId()
+
+	if _, err := tx.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?)`, spaceID, problemID); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return respondData(c, fiber.Map{"id": problemID, "linked": true})
 }
 
 func (a *API) handleListSpaces(c *fiber.Ctx) error {

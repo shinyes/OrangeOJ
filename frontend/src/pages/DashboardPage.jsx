@@ -100,6 +100,11 @@ export default function DashboardPage({ user, onLogout }) {
   const [problemStatement, setProblemStatement] = useState('')
   const [problemBodyJson, setProblemBodyJson] = useState(asPretty(defaultBody('programming')))
   const [problemAnswerJson, setProblemAnswerJson] = useState(asPretty(defaultAnswer('programming')))
+  const [spaceProblemType, setSpaceProblemType] = useState('programming')
+  const [spaceProblemTitle, setSpaceProblemTitle] = useState('')
+  const [spaceProblemStatement, setSpaceProblemStatement] = useState('')
+  const [spaceProblemBodyJson, setSpaceProblemBodyJson] = useState(asPretty(defaultBody('programming')))
+  const [spaceProblemAnswerJson, setSpaceProblemAnswerJson] = useState(asPretty(defaultAnswer('programming')))
 
   const [linkProblemId, setLinkProblemId] = useState('')
   const [planTitle, setPlanTitle] = useState('')
@@ -108,11 +113,24 @@ export default function DashboardPage({ user, onLogout }) {
   const [memberRole, setMemberRole] = useState('member')
   const [memberSubmitting, setMemberSubmitting] = useState(false)
   const [memberMessage, setMemberMessage] = useState('')
+  const [memberResetUserId, setMemberResetUserId] = useState('')
+  const [memberResetSubmitting, setMemberResetSubmitting] = useState(false)
+  const [memberResetMessage, setMemberResetMessage] = useState('')
 
   const [batchInput, setBatchInput] = useState('')
   const [batchSpaceId, setBatchSpaceId] = useState('')
   const [batchSubmitting, setBatchSubmitting] = useState(false)
   const [batchResult, setBatchResult] = useState(null)
+  const [adminResetUserId, setAdminResetUserId] = useState('')
+  const [adminResetSubmitting, setAdminResetSubmitting] = useState(false)
+  const [adminResetMessage, setAdminResetMessage] = useState('')
+
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changePasswordSubmitting, setChangePasswordSubmitting] = useState(false)
+  const [changePasswordMessage, setChangePasswordMessage] = useState('')
 
   const selectedSpace = useMemo(
     () => spaces.find((space) => space.id === selectedSpaceId) || null,
@@ -185,6 +203,8 @@ export default function DashboardPage({ user, onLogout }) {
     setMemberMessage('')
     setMemberUserId('')
     setMemberRole('member')
+    setMemberResetUserId('')
+    setMemberResetMessage('')
     setExpandedHomeworkId(null)
     setHomeworkDetails({})
     setHomeworkTargetInputs({})
@@ -260,6 +280,35 @@ export default function DashboardPage({ user, onLogout }) {
     }
   }
 
+  const createSpaceProblem = async () => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    if (!spaceProblemTitle.trim()) {
+      setError('题目标题不能为空')
+      return
+    }
+    try {
+      setError('')
+      await api.createSpaceProblem(selectedSpaceId, {
+        type: spaceProblemType,
+        title: spaceProblemTitle.trim(),
+        statementMd: spaceProblemStatement,
+        bodyJson: JSON.parse(spaceProblemBodyJson || '{}'),
+        answerJson: JSON.parse(spaceProblemAnswerJson || '{}'),
+        timeLimitMs: 1000,
+        memoryLimitMiB: 256
+      })
+      setSpaceProblemTitle('')
+      setSpaceProblemStatement('')
+      await refreshSpaceData(selectedSpaceId)
+      if (isSystemAdmin) {
+        await refreshAdminData()
+      }
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const linkProblem = async () => {
     if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
@@ -271,6 +320,18 @@ export default function DashboardPage({ user, onLogout }) {
       setError('')
       await api.addSpaceProblem(selectedSpaceId, Number(linkProblemId))
       setLinkProblemId('')
+      await refreshSpaceData(selectedSpaceId)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const removeSpaceProblem = async (problemId) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      await api.deleteSpaceProblem(selectedSpaceId, problemId)
       await refreshSpaceData(selectedSpaceId)
     } catch (err) {
       setError(err.message)
@@ -425,6 +486,29 @@ export default function DashboardPage({ user, onLogout }) {
     }
   }
 
+  const handleResetSpaceMemberPassword = async () => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    const userId = Number(memberResetUserId)
+    if (!Number.isInteger(userId) || userId <= 0) {
+      setError('请输入有效的用户ID')
+      return
+    }
+
+    try {
+      setError('')
+      setMemberResetMessage('')
+      setMemberResetSubmitting(true)
+      await api.resetSpaceMemberPassword(selectedSpaceId, userId)
+      setMemberResetUserId('')
+      setMemberResetMessage(`用户 #${userId} 密码已重置为 123456`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setMemberResetSubmitting(false)
+    }
+  }
+
   const toggleRegistration = async () => {
     try {
       setError('')
@@ -433,6 +517,55 @@ export default function DashboardPage({ user, onLogout }) {
       setRegistrationEnabled(next)
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const handleAdminResetPassword = async () => {
+    const userId = Number(adminResetUserId)
+    if (!Number.isInteger(userId) || userId <= 0) {
+      setError('请输入有效的用户ID')
+      return
+    }
+    try {
+      setError('')
+      setAdminResetMessage('')
+      setAdminResetSubmitting(true)
+      await api.adminResetUserPassword(userId)
+      setAdminResetUserId('')
+      setAdminResetMessage(`用户 #${userId} 密码已重置为 123456`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setAdminResetSubmitting(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) {
+      setError('请输入旧密码和新密码')
+      return
+    }
+    if (newPassword.length < 6) {
+      setError('新密码至少 6 位')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('两次输入的新密码不一致')
+      return
+    }
+    try {
+      setError('')
+      setChangePasswordMessage('')
+      setChangePasswordSubmitting(true)
+      await api.changePassword({ oldPassword, newPassword })
+      setOldPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setChangePasswordMessage('密码修改成功')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setChangePasswordSubmitting(false)
     }
   }
 
@@ -492,6 +625,39 @@ export default function DashboardPage({ user, onLogout }) {
     </div>
   )
 
+  const renderChangePasswordSection = () => (
+    <section className="panel">
+      <h2>修改密码</h2>
+      <div className="password-form">
+        <input
+          type="password"
+          placeholder="旧密码"
+          value={oldPassword}
+          onChange={(event) => setOldPassword(event.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="新密码（至少 6 位）"
+          value={newPassword}
+          onChange={(event) => setNewPassword(event.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="确认新密码"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+        />
+        <div className="inline-form">
+          <button disabled={changePasswordSubmitting} onClick={handleChangePassword}>
+            {changePasswordSubmitting ? '提交中...' : '确认修改密码'}
+          </button>
+          <button className="ghost-btn btn-link" onClick={() => setChangePasswordOpen(false)}>取消</button>
+        </div>
+        {changePasswordMessage && <div className="ok-box">{changePasswordMessage}</div>}
+      </div>
+    </section>
+  )
+
   const renderSpacesSection = () => (
     <div className="space-content-grid">
       {isSystemAdmin && (
@@ -521,14 +687,56 @@ export default function DashboardPage({ user, onLogout }) {
             {spaceTab === 'problems' && (
               <div className="tab-body">
                 {canManageSelectedSpace && (
-                  <div className="inline-form">
-                    <input
-                      placeholder="根题库题目 ID"
-                      value={linkProblemId}
-                      onChange={(event) => setLinkProblemId(event.target.value)}
-                    />
-                    <button onClick={linkProblem}>添加到空间</button>
-                  </div>
+                  <>
+                    <div className="inline-form">
+                      <input
+                        placeholder="根题库题目 ID"
+                        value={linkProblemId}
+                        onChange={(event) => setLinkProblemId(event.target.value)}
+                      />
+                      <button onClick={linkProblem}>从根题库添加到空间</button>
+                    </div>
+
+                    <div className="problem-form">
+                      <h3>上传新题目（自动加入根题库并关联当前空间）</h3>
+                      <select
+                        value={spaceProblemType}
+                        onChange={(event) => {
+                          const nextType = event.target.value
+                          setSpaceProblemType(nextType)
+                          setSpaceProblemBodyJson(asPretty(defaultBody(nextType)))
+                          setSpaceProblemAnswerJson(asPretty(defaultAnswer(nextType)))
+                        }}
+                      >
+                        <option value="programming">编程题</option>
+                        <option value="single_choice">单选题</option>
+                        <option value="true_false">判断题</option>
+                      </select>
+                      <input
+                        placeholder="题目标题"
+                        value={spaceProblemTitle}
+                        onChange={(event) => setSpaceProblemTitle(event.target.value)}
+                      />
+                      <textarea
+                        placeholder="题面（Markdown）"
+                        value={spaceProblemStatement}
+                        onChange={(event) => setSpaceProblemStatement(event.target.value)}
+                      />
+                      <textarea
+                        className="mono"
+                        placeholder="bodyJson"
+                        value={spaceProblemBodyJson}
+                        onChange={(event) => setSpaceProblemBodyJson(event.target.value)}
+                      />
+                      <textarea
+                        className="mono"
+                        placeholder="answerJson"
+                        value={spaceProblemAnswerJson}
+                        onChange={(event) => setSpaceProblemAnswerJson(event.target.value)}
+                      />
+                      <button onClick={createSpaceProblem}>上传题目并加入空间</button>
+                    </div>
+                  </>
                 )}
                 {spaceProblems.length === 0 && <p className="muted">当前空间暂无题目。</p>}
                 {spaceProblems.map((problem) => (
@@ -537,7 +745,12 @@ export default function DashboardPage({ user, onLogout }) {
                       <strong>#{problem.id} {problem.title}</strong>
                       <p>{problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB</p>
                     </div>
-                    <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} className="ghost-btn">去做题</Link>
+                    <div className="inline-form list-item-actions">
+                      <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} className="ghost-btn">去做题</Link>
+                      {canManageSelectedSpace && (
+                        <button className="danger" onClick={() => removeSpaceProblem(problem.id)}>从空间移除</button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -644,6 +857,7 @@ export default function DashboardPage({ user, onLogout }) {
             {spaceTab === 'members' && (
               <div className="tab-body">
                 <p className="muted">将已注册用户加入当前空间。请输入用户 ID，可设置为成员或空间管理员。</p>
+                <p className="muted">一个空间支持设置多个空间管理员。</p>
                 <div className="inline-form">
                   <input
                     type="number"
@@ -661,6 +875,21 @@ export default function DashboardPage({ user, onLogout }) {
                   </button>
                 </div>
                 {memberMessage && <div className="ok-box">{memberMessage}</div>}
+
+                <p className="muted">重置当前空间内用户密码（重置后为 123456）。</p>
+                <div className="inline-form">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="需要重置密码的用户ID"
+                    value={memberResetUserId}
+                    onChange={(event) => setMemberResetUserId(event.target.value)}
+                  />
+                  <button disabled={memberResetSubmitting} onClick={handleResetSpaceMemberPassword}>
+                    {memberResetSubmitting ? '重置中...' : '重置密码为 123456'}
+                  </button>
+                </div>
+                {memberResetMessage && <div className="ok-box">{memberResetMessage}</div>}
               </div>
             )}
           </>
@@ -735,6 +964,24 @@ export default function DashboardPage({ user, onLogout }) {
             {registrationEnabled ? '已开启（点击关闭）' : '已关闭（点击开启）'}
           </button>
         </div>
+      </section>
+
+      <section className="panel">
+        <h2>重置用户密码</h2>
+        <p className="muted">系统管理员可将任意用户密码重置为 123456。</p>
+        <div className="inline-form">
+          <input
+            type="number"
+            min="1"
+            placeholder="用户ID"
+            value={adminResetUserId}
+            onChange={(event) => setAdminResetUserId(event.target.value)}
+          />
+          <button disabled={adminResetSubmitting} onClick={handleAdminResetPassword}>
+            {adminResetSubmitting ? '重置中...' : '重置密码为 123456'}
+          </button>
+        </div>
+        {adminResetMessage && <div className="ok-box">{adminResetMessage}</div>}
       </section>
 
       <section className="panel">
@@ -826,6 +1073,16 @@ export default function DashboardPage({ user, onLogout }) {
             <div className="user-menu-panel" role="menu">
               <div className="user-menu-meta">{user.username} · {roleText}</div>
               <button
+                className="user-menu-item"
+                onClick={() => {
+                  setUserMenuOpen(false)
+                  setChangePasswordOpen(true)
+                  setChangePasswordMessage('')
+                }}
+              >
+                修改密码
+              </button>
+              <button
                 className="user-menu-item danger"
                 onClick={() => {
                   setUserMenuOpen(false)
@@ -840,6 +1097,7 @@ export default function DashboardPage({ user, onLogout }) {
       </header>
 
       {error && <div className="error-box">{error}</div>}
+      {changePasswordOpen && renderChangePasswordSection()}
 
       {isSystemAdmin && (
         <div className="tabs main-tabs">

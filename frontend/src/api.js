@@ -19,6 +19,12 @@ const errorMessageMap = {
   'invalid role': '角色不合法',
   'invalid username': '用户名不能为空',
   'password must be at least 6 characters': '密码至少需要 6 位',
+  'oldPassword and newPassword required': '请输入旧密码和新密码',
+  'old password incorrect': '旧密码不正确',
+  'new password must be at least 6 characters': '新密码至少需要 6 位',
+  'user not found': '用户不存在',
+  'user is not in this space': '该用户不在当前空间内',
+  'cannot reset system admin password': '不能重置系统管理员密码',
   'items must contain 1 to 200 entries': '批量注册每次最多 200 条',
   'problem already linked': '该题目已在空间题库中',
   'problem not linked in this space': '该题目未加入当前空间'
@@ -62,6 +68,7 @@ export const api = {
   login: (body) => apiFetch('/api/auth/login', { method: 'POST', body }),
   logout: () => apiFetch('/api/auth/logout', { method: 'POST' }),
   register: (body) => apiFetch('/api/auth/register', { method: 'POST', body }),
+  changePassword: (body) => apiFetch('/api/auth/change-password', { method: 'POST', body }),
 
   getRegistration: () => apiFetch('/api/admin/settings/registration'),
   setRegistration: (enabled) => apiFetch('/api/admin/settings/registration', { method: 'PUT', body: { enabled } }),
@@ -72,13 +79,17 @@ export const api = {
 
   listAdminSpaces: () => apiFetch('/api/admin/spaces'),
   createSpace: (body) => apiFetch('/api/admin/spaces', { method: 'POST', body }),
+  adminResetUserPassword: (userId) => apiFetch(`/api/admin/users/${userId}/reset-password`, { method: 'POST' }),
 
   listSpaces: () => apiFetch('/api/spaces'),
   getSpace: (spaceId) => apiFetch(`/api/spaces/${spaceId}`),
 
   listSpaceProblems: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`),
+  createSpaceProblem: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/problems`, { method: 'POST', body }),
   addSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`, { method: 'POST', body: { problemId } }),
+  deleteSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links/${problemId}`, { method: 'DELETE' }),
   addSpaceMember: (spaceId, userId, role = 'member') => apiFetch(`/api/spaces/${spaceId}/members`, { method: 'POST', body: { userId, role } }),
+  resetSpaceMemberPassword: (spaceId, userId) => apiFetch(`/api/spaces/${spaceId}/members/${userId}/reset-password`, { method: 'POST' }),
   getProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`),
 
   listTrainingPlans: (spaceId) => apiFetch(`/api/spaces/${spaceId}/training-plans`),
