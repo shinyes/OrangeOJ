@@ -3,6 +3,8 @@ services:
     image: "${ORANGEOJ_IMAGE_JUDGE:-ghcr.io/shinyes/orangeoj-judge:latest}"
     container_name: orangeoj-judge-runtime
     restart: unless-stopped
+    privileged: true
+    cgroup: host
     environment:
       ORANGEOJ_JUDGE_RUNTIME_PORT: "9090"
       ORANGEOJ_JUDGE_WORKDIR: "/work/jobs"
@@ -13,7 +15,8 @@ services:
       - SYS_RESOURCE
       - SYS_PTRACE
     security_opt:
-      - apparmor:unconfined
+      - apparmor=unconfined
+      - seccomp=unconfined
     volumes:
       - judge-work:/work/jobs
       - /sys/fs/cgroup:/sys/fs/cgroup:rw

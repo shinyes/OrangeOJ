@@ -231,6 +231,13 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 	}
 
 	memoryBytes := int64(memoryLimitMiB) * 1024 * 1024
+	shell := "/bin/sh"
+	if _, err := os.Stat(shell); err != nil {
+		if _, bashErr := os.Stat("/bin/bash"); bashErr == nil {
+			shell = "/bin/bash"
+		}
+	}
+
 	args := []string{
 		"--quiet",
 		"--mode", "o",
@@ -239,6 +246,7 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 		"--iface_no_lo",
 		"--user", "65534",
 		"--group", "65534",
+		"--chroot", "/",
 		"--cwd", "/sandbox",
 		"--bindmount", fmt.Sprintf("%s:/sandbox", jobDir),
 		"--use_cgroupv2",
@@ -246,7 +254,7 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 		"--cgroup_pids_max", "128",
 		"--rlimit_as", strconv.FormatInt(memoryBytes, 10),
 		"--",
-		"/bin/sh", "-lc", command,
+		shell, "-lc", command,
 	}
 
 	cmd := exec.CommandContext(ctx, "nsjail", args...)

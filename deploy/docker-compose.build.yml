@@ -1,8 +1,13 @@
 services:
   judge-runtime:
-    image: "${ORANGEOJ_IMAGE_JUDGE:-ghcr.io/shinyes/orangeoj-judge:latest}"
+    build:
+      context: ..
+      dockerfile: Dockerfile.judge
+    image: orangeoj-judge:local
     container_name: orangeoj-judge-runtime
     restart: unless-stopped
+    privileged: true
+    cgroup: host
     environment:
       ORANGEOJ_JUDGE_RUNTIME_PORT: "9090"
       ORANGEOJ_JUDGE_WORKDIR: "/work/jobs"
@@ -13,7 +18,8 @@ services:
       - SYS_RESOURCE
       - SYS_PTRACE
     security_opt:
-      - apparmor:unconfined
+      - apparmor=unconfined
+      - seccomp=unconfined
     volumes:
       - judge-work:/work/jobs
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
@@ -27,18 +33,20 @@ services:
       start_period: 20s
 
   orangeoj:
-    image: "${ORANGEOJ_IMAGE_APP:-ghcr.io/shinyes/orangeoj:latest}"
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: orangeoj:local
     container_name: orangeoj
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      ORANGEOJ_PORT: "8080"
       ORANGEOJ_DB_PATH: "/app/data/orangeoj.db"
       ORANGEOJ_JUDGE_WORKERS: "2"
       ORANGEOJ_REGISTRATION_DEFAULT: "false"
       ORANGEOJ_JWT_SECRET: "change-this-in-production"
-      ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173"
+      ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
       ORANGEOJ_JUDGE_ENDPOINT: "http://judge-runtime:9090"
       ORANGEOJ_JUDGE_SHARED_TOKEN: "${ORANGEOJ_JUDGE_SHARED_TOKEN:-change-this-in-production}"
       ORANGEOJ_JUDGE_HTTP_TIMEOUT_SEC: "300"
@@ -46,7 +54,7 @@ services:
       judge-runtime:
         condition: service_healthy
     volumes:
-      - ./data:/app/data
+      - ../data:/app/data
 
 volumes:
   judge-work:
