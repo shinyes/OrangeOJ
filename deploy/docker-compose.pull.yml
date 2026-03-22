@@ -34,13 +34,13 @@ services:
     container_name: orangeoj
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "23453:8080"
     environment:
       ORANGEOJ_DB_PATH: "/app/data/orangeoj.db"
       ORANGEOJ_JUDGE_WORKERS: "2"
       ORANGEOJ_REGISTRATION_DEFAULT: "false"
       ORANGEOJ_JWT_SECRET: "change-this-in-production"
-      ORANGEOJ_CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
+      ORANGEOJ_CORS_ORIGINS: "http://localhost:23453,http://127.0.0.1:23453"
       ORANGEOJ_JUDGE_ENDPOINT: "http://judge-runtime:9090"
       ORANGEOJ_JUDGE_SHARED_TOKEN: "${ORANGEOJ_JUDGE_SHARED_TOKEN:-change-this-in-production}"
       ORANGEOJ_JUDGE_HTTP_TIMEOUT_SEC: "300"

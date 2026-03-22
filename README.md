@@ -58,6 +58,21 @@ cd ooj
 docker compose -f deploy/docker-compose.build.yml up -d --build
 ```
 
+### 国内网络构建（Go 模块镜像）
+
+本地构建版默认使用：
+
+- `GOPROXY=https://goproxy.cn,direct`
+- `GOSUMDB=sum.golang.google.cn`
+
+如需临时覆盖，可在构建前设置：
+
+```bash
+export ORANGEOJ_BUILD_GOPROXY=https://goproxy.cn,direct
+export ORANGEOJ_BUILD_GOSUMDB=sum.golang.google.cn
+docker compose -f deploy/docker-compose.build.yml up -d --build
+```
+
 ### 代码更新后重新构建
 
 ```bash
@@ -70,7 +85,7 @@ docker compose -f deploy/docker-compose.build.yml up -d --build
 
 访问地址：
 
-- `http://localhost:8080`
+- `http://localhost:23453`
 
 查看首次启动自动生成的 `admin` 密码：
 
