@@ -27,7 +27,10 @@ const errorMessageMap = {
   'cannot reset system admin password': '不能重置系统管理员密码',
   'items must contain 1 to 200 entries': '批量注册每次最多 200 条',
   'problem already linked': '该题目已在空间题库中',
-  'problem not linked in this space': '该题目未加入当前空间'
+  'problem not linked in this space': '该题目未加入当前空间',
+  'invalid language': '默认编程语言不合法',
+  'name required': '空间名称不能为空',
+  'space name already exists': '空间名称已存在'
 }
 
 export function toFriendlyError(message) {
@@ -75,6 +78,7 @@ export const api = {
 
   listRootProblems: () => apiFetch('/api/admin/root-problems'),
   createRootProblem: (body) => apiFetch('/api/admin/root-problems', { method: 'POST', body }),
+  updateRootProblem: (problemId, body) => apiFetch(`/api/admin/root-problems/${problemId}`, { method: 'PUT', body }),
   batchRegisterUsers: (body) => apiFetch('/api/admin/users/batch-register', { method: 'POST', body }),
 
   listAdminSpaces: () => apiFetch('/api/admin/spaces'),
@@ -83,9 +87,12 @@ export const api = {
 
   listSpaces: () => apiFetch('/api/spaces'),
   getSpace: (spaceId) => apiFetch(`/api/spaces/${spaceId}`),
+  updateSpace: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}`, { method: 'PUT', body }),
 
   listSpaceProblems: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`),
+  listSpaceRootProblems: (spaceId) => apiFetch(`/api/spaces/${spaceId}/root-problems`),
   createSpaceProblem: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/problems`, { method: 'POST', body }),
+  updateSpaceProblem: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`, { method: 'PUT', body }),
   addSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`, { method: 'POST', body: { problemId } }),
   deleteSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links/${problemId}`, { method: 'DELETE' }),
   addSpaceMember: (spaceId, userId, role = 'member') => apiFetch(`/api/spaces/${spaceId}/members`, { method: 'POST', body: { userId, role } }),

@@ -17,6 +17,12 @@ type linkPayload struct {
 	ProblemID int64 `json:"problemId"`
 }
 
+type spaceSettingsPayload struct {
+	Name                       string `json:"name"`
+	Description                string `json:"description"`
+	DefaultProgrammingLanguage string `json:"defaultProgrammingLanguage"`
+}
+
 func (a *API) handleCreateSpaceProblem(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
@@ -83,7 +89,7 @@ func (a *API) handleListSpaces(c *fiber.Ctx) error {
 		return err
 	}
 	query := `
-SELECT s.id, s.name, s.description, s.created_by, s.created_at,
+SELECT s.id, s.name, s.description, s.default_programming_language, s.created_by, s.created_at,
        COALESCE(sm.role, '') AS my_role
 FROM spaces s
 LEFT JOIN space_members sm ON sm.space_id=s.id AND sm.user_id=?`
@@ -101,18 +107,19 @@ LEFT JOIN space_members sm ON sm.space_id=s.id AND sm.user_id=?`
 	items := make([]fiber.Map, 0)
 	for rows.Next() {
 		var id, createdBy int64
-		var name, description, myRole string
+		var name, description, defaultLanguage, myRole string
 		var createdAt time.Time
-		if err := rows.Scan(&id, &name, &description, &createdBy, &createdAt, &myRole); err != nil {
+		if err := rows.Scan(&id, &name, &description, &defaultLanguage, &createdBy, &createdAt, &myRole); err != nil {
 			return err
 		}
 		items = append(items, fiber.Map{
-			"id":          id,
-			"name":        name,
-			"description": description,
-			"createdBy":   createdBy,
-			"createdAt":   createdAt,
-			"myRole":      myRole,
+			"id":                         id,
+			"name":                       name,
+			"description":                description,
+			"defaultProgrammingLanguage": normalizeSpaceProgrammingLanguage(defaultLanguage),
+			"createdBy":                  createdBy,
+			"createdAt":                  createdAt,
+			"myRole":                     myRole,
 		})
 	}
 	return respondData(c, items)
@@ -132,19 +139,51 @@ func (a *API) handleGetSpace(c *fiber.Ctx) error {
 	}
 
 	var id, createdBy int64
-	var name, description string
+	var name, description, defaultLanguage string
 	var createdAt time.Time
-	if err := a.DB.QueryRow(`SELECT id, name, description, created_by, created_at FROM spaces WHERE id=?`, spaceID).
-		Scan(&id, &name, &description, &createdBy, &createdAt); err != nil {
+	if err := a.DB.QueryRow(`SELECT id, name, description, default_programming_language, created_by, created_at FROM spaces WHERE id=?`, spaceID).
+		Scan(&id, &name, &description, &defaultLanguage, &createdBy, &createdAt); err != nil {
 		return err
 	}
 	return respondData(c, fiber.Map{
-		"id":          id,
-		"name":        name,
-		"description": description,
-		"createdBy":   createdBy,
-		"createdAt":   createdAt,
+		"id":                         id,
+		"name":                       name,
+		"description":                description,
+		"defaultProgrammingLanguage": normalizeSpaceProgrammingLanguage(defaultLanguage),
+		"createdBy":                  createdBy,
+		"createdAt":                  createdAt,
 	})
+}
+
+func (a *API) handleUpdateSpace(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	var req spaceSettingsPayload
+	if err := c.BodyParser(&req); err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid request")
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	req.Description = strings.TrimSpace(req.Description)
+	if req.Name == "" {
+		return respondError(c, fiber.StatusBadRequest, "name required")
+	}
+	if !isValidSpaceProgrammingLanguage(req.DefaultProgrammingLanguage) {
+		return respondError(c, fiber.StatusBadRequest, "invalid language")
+	}
+	defaultLanguage := normalizeSpaceProgrammingLanguage(req.DefaultProgrammingLanguage)
+	_, err = a.DB.Exec(`
+UPDATE spaces
+SET name=?, description=?, default_programming_language=?
+WHERE id=?`, req.Name, req.Description, defaultLanguage, spaceID)
+	if err != nil {
+		if isUniqueErr(err) {
+			return respondError(c, fiber.StatusConflict, "space name already exists")
+		}
+		return err
+	}
+	return respondData(c, fiber.Map{"ok": true})
 }
 
 func (a *API) handleAddSpaceMember(c *fiber.Ctx) error {
@@ -276,6 +315,90 @@ func (a *API) handleDeleteSpaceProblemLink(c *fiber.Ctx) error {
 		return err
 	}
 	return respondData(c, fiber.Map{"ok": true})
+}
+
+func (a *API) handleListSpaceRootProblems(c *fiber.Ctx) error {
+	rows, err := a.DB.Query(`
+SELECT id, type, title, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib
+FROM root_problems
+ORDER BY id DESC`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	items := make([]fiber.Map, 0)
+	for rows.Next() {
+		var (
+			id, timeLimit, memoryLimit                      int64
+			typeStr, title, statement, bodyJSON, answerJSON string
+		)
+		if err := rows.Scan(&id, &typeStr, &title, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit); err != nil {
+			return err
+		}
+		items = append(items, fiber.Map{
+			"id":             id,
+			"type":           typeStr,
+			"title":          title,
+			"statementMd":    statement,
+			"bodyJson":       json.RawMessage(bodyJSON),
+			"answerJson":     json.RawMessage(answerJSON),
+			"timeLimitMs":    timeLimit,
+			"memoryLimitMiB": memoryLimit,
+		})
+	}
+	return respondData(c, items)
+}
+
+func (a *API) handleUpdateSpaceProblem(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	problemID, err := parseIDParam(c, "problemId")
+	if err != nil {
+		return err
+	}
+	var linkedCount int
+	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM space_problem_links WHERE space_id=? AND problem_id=?`, spaceID, problemID).Scan(&linkedCount); err != nil {
+		return err
+	}
+	if linkedCount == 0 {
+		return respondError(c, fiber.StatusNotFound, "problem not linked in this space")
+	}
+
+	var req rootProblemPayload
+	if err := c.BodyParser(&req); err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid request")
+	}
+	req.Title = strings.TrimSpace(req.Title)
+	req.Type = normalizeProblemType(req.Type)
+	if req.Title == "" || req.Type == "" {
+		return respondError(c, fiber.StatusBadRequest, "type and title are required")
+	}
+	if !isValidProblemType(req.Type) {
+		return respondError(c, fiber.StatusBadRequest, "invalid problem type")
+	}
+	if req.TimeLimitMS <= 0 {
+		req.TimeLimitMS = 1000
+	}
+	if req.MemoryLimitMiB <= 0 {
+		req.MemoryLimitMiB = 256
+	}
+	if len(req.BodyJSON) == 0 {
+		req.BodyJSON = json.RawMessage(`{}`)
+	}
+	if len(req.AnswerJSON) == 0 {
+		req.AnswerJSON = json.RawMessage(`{}`)
+	}
+	_, err = a.DB.Exec(`
+UPDATE root_problems
+SET type=?, title=?, statement_md=?, body_json=?, answer_json=?, time_limit_ms=?, memory_limit_mib=?
+WHERE id=?`, req.Type, req.Title, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, problemID)
+	if err != nil {
+		return err
+	}
+	return respondData(c, fiber.Map{"id": problemID})
 }
 
 func (a *API) handleGetSpaceProblem(c *fiber.Ctx) error {

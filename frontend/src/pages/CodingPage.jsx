@@ -9,6 +9,12 @@ const editorLang = {
   go: 'go'
 }
 
+function normalizeDefaultLanguage(language) {
+  if (language === 'python') return 'python'
+  if (language === 'go') return 'go'
+  return 'cpp'
+}
+
 function pickStarter(body, language) {
   if (!body?.starterCode) {
     if (language === 'python') return 'print("hello")'
@@ -51,12 +57,17 @@ export default function CodingPage() {
       try {
         setLoading(true)
         setError('')
-        const data = await api.getProblem(spaceId, problemId)
+        const [data, space] = await Promise.all([
+          api.getProblem(spaceId, problemId),
+          api.getSpace(spaceId)
+        ])
+        const defaultLanguage = normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
+        setLanguage(defaultLanguage)
         setProblem(data)
         if (data.type === 'programming') {
-          const key = `orangeoj:code:${spaceId}:${problemId}:${language}`
+          const key = `orangeoj:code:${spaceId}:${problemId}:${defaultLanguage}`
           const cached = localStorage.getItem(key)
-          setCode(cached || pickStarter(data.bodyJson, language))
+          setCode(cached || pickStarter(data.bodyJson, defaultLanguage))
         }
       } catch (err) {
         setError(err.message)

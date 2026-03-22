@@ -91,3 +91,23 @@ func isValidLanguage(language string) bool {
 		return false
 	}
 }
+
+func normalizeSpaceProgrammingLanguage(language string) string {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "python", "python3", "py":
+		return "python"
+	case "go", "golang":
+		return "go"
+	default:
+		return "cpp"
+	}
+}
+
+func isValidSpaceProgrammingLanguage(language string) bool {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "cpp", "c++", "python", "python3", "py", "go", "golang":
+		return true
+	default:
+		return false
+	}
+}

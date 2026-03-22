@@ -25,9 +25,10 @@ type rootProblemPayload struct {
 }
 
 type createSpacePayload struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	AdminUserID int64  `json:"adminUserId"`
+	Name                       string `json:"name"`
+	Description                string `json:"description"`
+	AdminUserID                int64  `json:"adminUserId"`
+	DefaultProgrammingLanguage string `json:"defaultProgrammingLanguage"`
 }
 
 type batchRegisterItemPayload struct {
@@ -187,7 +188,7 @@ func (a *API) handleDeleteRootProblem(c *fiber.Ctx) error {
 
 func (a *API) handleAdminListSpaces(c *fiber.Ctx) error {
 	rows, err := a.DB.Query(`
-SELECT s.id, s.name, s.description, s.created_by, s.created_at,
+SELECT s.id, s.name, s.description, s.default_programming_language, s.created_by, s.created_at,
        (SELECT COUNT(1) FROM space_members sm WHERE sm.space_id=s.id) AS member_count,
        (SELECT COUNT(1) FROM space_problem_links l WHERE l.space_id=s.id) AS problem_count
 FROM spaces s
@@ -199,19 +200,20 @@ ORDER BY s.id DESC`)
 	spaces := make([]fiber.Map, 0)
 	for rows.Next() {
 		var id, createdBy, memberCount, problemCount int64
-		var name, description string
+		var name, description, defaultLanguage string
 		var createdAt time.Time
-		if err := rows.Scan(&id, &name, &description, &createdBy, &createdAt, &memberCount, &problemCount); err != nil {
+		if err := rows.Scan(&id, &name, &description, &defaultLanguage, &createdBy, &createdAt, &memberCount, &problemCount); err != nil {
 			return err
 		}
 		spaces = append(spaces, fiber.Map{
-			"id":           id,
-			"name":         name,
-			"description":  description,
-			"createdBy":    createdBy,
-			"createdAt":    createdAt,
-			"memberCount":  memberCount,
-			"problemCount": problemCount,
+			"id":                         id,
+			"name":                       name,
+			"description":                description,
+			"defaultProgrammingLanguage": normalizeSpaceProgrammingLanguage(defaultLanguage),
+			"createdBy":                  createdBy,
+			"createdAt":                  createdAt,
+			"memberCount":                memberCount,
+			"problemCount":               problemCount,
 		})
 	}
 	return respondData(c, spaces)
@@ -230,6 +232,12 @@ func (a *API) handleAdminCreateSpace(c *fiber.Ctx) error {
 	if req.Name == "" {
 		return respondError(c, fiber.StatusBadRequest, "name required")
 	}
+	if req.DefaultProgrammingLanguage == "" {
+		req.DefaultProgrammingLanguage = "cpp"
+	}
+	if !isValidSpaceProgrammingLanguage(req.DefaultProgrammingLanguage) {
+		return respondError(c, fiber.StatusBadRequest, "invalid language")
+	}
 	if req.AdminUserID <= 0 {
 		req.AdminUserID = user.ID
 	}
@@ -240,7 +248,9 @@ func (a *API) handleAdminCreateSpace(c *fiber.Ctx) error {
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`INSERT INTO spaces(name, description, created_by) VALUES(?, ?, ?)`, req.Name, req.Description, user.ID)
+	res, err := tx.Exec(`
+INSERT INTO spaces(name, description, default_programming_language, created_by)
+VALUES(?, ?, ?, ?)`, req.Name, req.Description, normalizeSpaceProgrammingLanguage(req.DefaultProgrammingLanguage), user.ID)
 	if err != nil {
 		if isUniqueErr(err) {
 			return respondError(c, fiber.StatusConflict, "space name already exists")

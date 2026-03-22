@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,6 +74,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL UNIQUE,
 			description TEXT NOT NULL DEFAULT '',
+			default_programming_language TEXT NOT NULL DEFAULT 'cpp',
 			created_by INTEGER NOT NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY(created_by) REFERENCES users(id)
@@ -219,6 +221,21 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("migrate failed: %w; stmt: %s", err, stmt)
 		}
+	}
+	if err := addColumnIfNotExists(ctx, db, "spaces", "default_programming_language", "TEXT NOT NULL DEFAULT 'cpp'"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addColumnIfNotExists(ctx context.Context, db *sql.DB, table, column, definition string) error {
+	stmt := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)
+	if _, err := db.ExecContext(ctx, stmt); err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "duplicate column name") {
+			return nil
+		}
+		return fmt.Errorf("add column %s.%s failed: %w", table, column, err)
 	}
 	return nil
 }

@@ -58,7 +58,31 @@ export default function App() {
         path="/"
         element={
           <Protected user={user} loading={loading}>
-            <DashboardPage user={user} onLogout={handleLogout} />
+            <DashboardPage user={user} onLogout={handleLogout} view="learn" />
+          </Protected>
+        }
+      />
+      <Route
+        path="/manage/space"
+        element={
+          <Protected user={user} loading={loading}>
+            <DashboardPage user={user} onLogout={handleLogout} view="space-manage" />
+          </Protected>
+        }
+      />
+      <Route
+        path="/manage/root-problems"
+        element={
+          <Protected user={user} loading={loading}>
+            <DashboardPage user={user} onLogout={handleLogout} view="root-manage" />
+          </Protected>
+        }
+      />
+      <Route
+        path="/manage/system"
+        element={
+          <Protected user={user} loading={loading}>
+            <DashboardPage user={user} onLogout={handleLogout} view="system-manage" />
           </Protected>
         }
       />

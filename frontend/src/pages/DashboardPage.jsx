@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, toFriendlyError } from '../api'
 
 function asPretty(value) {
@@ -39,6 +39,12 @@ function problemTypeText(type) {
   return type
 }
 
+function normalizeLanguage(language) {
+  if (language === 'python') return 'python'
+  if (language === 'go') return 'go'
+  return 'cpp'
+}
+
 function parseBatchLines(text) {
   return text
     .split('\n')
@@ -68,8 +74,14 @@ function toBatchCopyText(batchResult) {
   }).join('\n')
 }
 
-export default function DashboardPage({ user, onLogout }) {
+export default function DashboardPage({ user, onLogout, view = 'learn' }) {
+  const location = useLocation()
+  const navigate = useNavigate()
   const isSystemAdmin = user.globalRole === 'system_admin'
+  const isLearnView = view === 'learn'
+  const isSpaceManageView = view === 'space-manage'
+  const isRootManageView = view === 'root-manage'
+  const isSystemManageView = view === 'system-manage'
   const roleText = isSystemAdmin ? '系统管理员' : '普通用户'
   const [error, setError] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -78,9 +90,10 @@ export default function DashboardPage({ user, onLogout }) {
   const [spaces, setSpaces] = useState([])
   const [selectedSpaceId, setSelectedSpaceId] = useState(null)
   const [spaceTab, setSpaceTab] = useState('problems')
-  const [adminTab, setAdminTab] = useState('space')
+  const [spaceSelectorKeyword, setSpaceSelectorKeyword] = useState('')
 
   const [rootProblems, setRootProblems] = useState([])
+  const [spaceRootProblems, setSpaceRootProblems] = useState([])
   const [registrationEnabled, setRegistrationEnabled] = useState(false)
 
   const [spaceProblems, setSpaceProblems] = useState([])
@@ -94,6 +107,11 @@ export default function DashboardPage({ user, onLogout }) {
 
   const [newSpaceName, setNewSpaceName] = useState('')
   const [newSpaceDesc, setNewSpaceDesc] = useState('')
+  const [spaceSettingsName, setSpaceSettingsName] = useState('')
+  const [spaceSettingsDescription, setSpaceSettingsDescription] = useState('')
+  const [spaceDefaultLanguage, setSpaceDefaultLanguage] = useState('cpp')
+  const [spaceSettingsSubmitting, setSpaceSettingsSubmitting] = useState(false)
+  const [spaceSettingsMessage, setSpaceSettingsMessage] = useState('')
 
   const [problemType, setProblemType] = useState('programming')
   const [problemTitle, setProblemTitle] = useState('')
@@ -106,7 +124,16 @@ export default function DashboardPage({ user, onLogout }) {
   const [spaceProblemBodyJson, setSpaceProblemBodyJson] = useState(asPretty(defaultBody('programming')))
   const [spaceProblemAnswerJson, setSpaceProblemAnswerJson] = useState(asPretty(defaultAnswer('programming')))
 
-  const [linkProblemId, setLinkProblemId] = useState('')
+  const [spaceProblemSearch, setSpaceProblemSearch] = useState('')
+  const [editingProblemId, setEditingProblemId] = useState(null)
+  const [editingProblemType, setEditingProblemType] = useState('programming')
+  const [editingProblemTitle, setEditingProblemTitle] = useState('')
+  const [editingProblemStatement, setEditingProblemStatement] = useState('')
+  const [editingProblemBodyJson, setEditingProblemBodyJson] = useState(asPretty(defaultBody('programming')))
+  const [editingProblemAnswerJson, setEditingProblemAnswerJson] = useState(asPretty(defaultAnswer('programming')))
+  const [editingTimeLimitMs, setEditingTimeLimitMs] = useState('1000')
+  const [editingMemoryLimitMiB, setEditingMemoryLimitMiB] = useState('256')
+  const [editingProblemSubmitting, setEditingProblemSubmitting] = useState(false)
   const [planTitle, setPlanTitle] = useState('')
   const [homeworkTitle, setHomeworkTitle] = useState('')
   const [memberUserId, setMemberUserId] = useState('')
@@ -136,9 +163,28 @@ export default function DashboardPage({ user, onLogout }) {
     () => spaces.find((space) => space.id === selectedSpaceId) || null,
     [spaces, selectedSpaceId]
   )
+  const hasAnySpaceAdminRole = useMemo(
+    () => isSystemAdmin || spaces.some((space) => space.myRole === 'space_admin'),
+    [isSystemAdmin, spaces]
+  )
   const isSpaceAdminOfSelectedSpace = Boolean(selectedSpace && selectedSpace.myRole === 'space_admin')
   const canManageSelectedSpace = isSystemAdmin || isSpaceAdminOfSelectedSpace
-  const showSpaceTopTabs = !isSystemAdmin || adminTab === 'space'
+  const linkedProblemIDSet = useMemo(
+    () => new Set(spaceProblems.map((problem) => problem.id)),
+    [spaceProblems]
+  )
+  const filteredSpaceRootProblems = useMemo(() => {
+    const keyword = spaceProblemSearch.trim().toLowerCase()
+    if (!keyword) return spaceRootProblems
+    return spaceRootProblems.filter((problem) => {
+      return String(problem.id).includes(keyword) || String(problem.title || '').toLowerCase().includes(keyword)
+    })
+  }, [spaceProblemSearch, spaceRootProblems])
+  const filteredSpacesForManage = useMemo(() => {
+    const keyword = spaceSelectorKeyword.trim().toLowerCase()
+    if (!keyword) return spaces
+    return spaces.filter((space) => String(space.name || '').toLowerCase().includes(keyword))
+  }, [spaceSelectorKeyword, spaces])
 
   const refreshSpaces = async () => {
     const list = await api.listSpaces()
@@ -162,7 +208,12 @@ export default function DashboardPage({ user, onLogout }) {
   }
 
   const refreshSpaceData = async (spaceId) => {
-    if (!spaceId) return
+    if (!spaceId) {
+      setSpaceProblems([])
+      setTrainingPlans([])
+      setHomeworks([])
+      return
+    }
     const [problems, plans, hw] = await Promise.all([
       api.listSpaceProblems(spaceId),
       api.listTrainingPlans(spaceId),
@@ -171,6 +222,15 @@ export default function DashboardPage({ user, onLogout }) {
     setSpaceProblems(problems || [])
     setTrainingPlans(plans || [])
     setHomeworks(hw || [])
+  }
+
+  const refreshSpaceRootProblemData = async (spaceId) => {
+    if (!spaceId || !canManageSelectedSpace) {
+      setSpaceRootProblems([])
+      return
+    }
+    const list = await api.listSpaceRootProblems(spaceId)
+    setSpaceRootProblems(list || [])
   }
 
   useEffect(() => {
@@ -188,16 +248,25 @@ export default function DashboardPage({ user, onLogout }) {
   useEffect(() => {
     ;(async () => {
       try {
+        setError('')
         await refreshSpaceData(selectedSpaceId)
       } catch (err) {
-        if (String(err?.message || '').includes('空间管理权限')) {
-          setError('')
-          return
-        }
         setError(err.message || '加载空间数据失败')
       }
     })()
   }, [selectedSpaceId])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        await refreshSpaceRootProblemData(selectedSpaceId)
+      } catch (err) {
+        if (isSpaceManageView) {
+          setError(err.message || '加载根题库失败')
+        }
+      }
+    })()
+  }, [selectedSpaceId, canManageSelectedSpace, isSpaceManageView])
 
   useEffect(() => {
     setMemberMessage('')
@@ -209,9 +278,12 @@ export default function DashboardPage({ user, onLogout }) {
     setHomeworkDetails({})
     setHomeworkTargetInputs({})
     setHomeworkActionMessage('')
-    if (spaceTab === 'members' && !canManageSelectedSpace) {
-      setSpaceTab('problems')
-    }
+    setSpaceSettingsName(selectedSpace?.name || '')
+    setSpaceSettingsDescription(selectedSpace?.description || '')
+    setSpaceDefaultLanguage(normalizeLanguage(selectedSpace?.defaultProgrammingLanguage || 'cpp'))
+    setSpaceSettingsMessage('')
+    setSpaceProblemSearch('')
+    setEditingProblemId(null)
   }, [selectedSpaceId, canManageSelectedSpace])
 
   useEffect(() => {
@@ -241,7 +313,11 @@ export default function DashboardPage({ user, onLogout }) {
     }
     try {
       setError('')
-      await api.createSpace({ name: newSpaceName.trim(), description: newSpaceDesc.trim() })
+      await api.createSpace({
+        name: newSpaceName.trim(),
+        description: newSpaceDesc.trim(),
+        defaultProgrammingLanguage: 'cpp'
+      })
       setNewSpaceName('')
       setNewSpaceDesc('')
       await refreshSpaces()
@@ -254,6 +330,31 @@ export default function DashboardPage({ user, onLogout }) {
     if (canManageSelectedSpace) return true
     setError('当前账号为普通成员，无空间管理权限')
     return false
+  }
+
+  const updateSpaceSettings = async () => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    if (!spaceSettingsName.trim()) {
+      setError('空间名称不能为空')
+      return
+    }
+    try {
+      setError('')
+      setSpaceSettingsMessage('')
+      setSpaceSettingsSubmitting(true)
+      await api.updateSpace(selectedSpaceId, {
+        name: spaceSettingsName.trim(),
+        description: spaceSettingsDescription.trim(),
+        defaultProgrammingLanguage: normalizeLanguage(spaceDefaultLanguage)
+      })
+      setSpaceSettingsMessage('空间设置已保存')
+      await refreshSpaces()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSpaceSettingsSubmitting(false)
+    }
   }
 
   const createRootProblem = async () => {
@@ -275,6 +376,9 @@ export default function DashboardPage({ user, onLogout }) {
       setProblemTitle('')
       setProblemStatement('')
       await refreshAdminData()
+      if (canManageSelectedSpace && selectedSpaceId) {
+        await refreshSpaceRootProblemData(selectedSpaceId)
+      }
     } catch (err) {
       setError(err.message)
     }
@@ -301,6 +405,7 @@ export default function DashboardPage({ user, onLogout }) {
       setSpaceProblemTitle('')
       setSpaceProblemStatement('')
       await refreshSpaceData(selectedSpaceId)
+      await refreshSpaceRootProblemData(selectedSpaceId)
       if (isSystemAdmin) {
         await refreshAdminData()
       }
@@ -309,17 +414,12 @@ export default function DashboardPage({ user, onLogout }) {
     }
   }
 
-  const linkProblem = async () => {
+  const addProblemToSpace = async (problemId) => {
     if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
-    if (!linkProblemId.trim()) {
-      setError('请输入根题库题目 ID')
-      return
-    }
     try {
       setError('')
-      await api.addSpaceProblem(selectedSpaceId, Number(linkProblemId))
-      setLinkProblemId('')
+      await api.addSpaceProblem(selectedSpaceId, problemId)
       await refreshSpaceData(selectedSpaceId)
     } catch (err) {
       setError(err.message)
@@ -333,8 +433,59 @@ export default function DashboardPage({ user, onLogout }) {
       setError('')
       await api.deleteSpaceProblem(selectedSpaceId, problemId)
       await refreshSpaceData(selectedSpaceId)
+      if (editingProblemId === problemId) {
+        setEditingProblemId(null)
+      }
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const openEditProblem = (problemId) => {
+    const problem = spaceRootProblems.find((item) => item.id === problemId)
+    if (!problem) {
+      setError('题目详情尚未加载完成，请稍后重试')
+      return
+    }
+    setEditingProblemId(problemId)
+    setEditingProblemType(problem.type || 'programming')
+    setEditingProblemTitle(problem.title || '')
+    setEditingProblemStatement(problem.statementMd || '')
+    setEditingProblemBodyJson(asPretty(problem.bodyJson || {}))
+    setEditingProblemAnswerJson(asPretty(problem.answerJson || {}))
+    setEditingTimeLimitMs(String(problem.timeLimitMs || 1000))
+    setEditingMemoryLimitMiB(String(problem.memoryLimitMiB || 256))
+  }
+
+  const saveEditedSpaceProblem = async () => {
+    if (!selectedSpaceId || !editingProblemId) return
+    if (!ensureCanManageSpace()) return
+    if (!editingProblemTitle.trim()) {
+      setError('题目标题不能为空')
+      return
+    }
+    try {
+      setError('')
+      setEditingProblemSubmitting(true)
+      await api.updateSpaceProblem(selectedSpaceId, editingProblemId, {
+        type: editingProblemType,
+        title: editingProblemTitle.trim(),
+        statementMd: editingProblemStatement,
+        bodyJson: JSON.parse(editingProblemBodyJson || '{}'),
+        answerJson: JSON.parse(editingProblemAnswerJson || '{}'),
+        timeLimitMs: Number(editingTimeLimitMs) > 0 ? Number(editingTimeLimitMs) : 1000,
+        memoryLimitMiB: Number(editingMemoryLimitMiB) > 0 ? Number(editingMemoryLimitMiB) : 256
+      })
+      await refreshSpaceData(selectedSpaceId)
+      await refreshSpaceRootProblemData(selectedSpaceId)
+      if (isSystemAdmin) {
+        await refreshAdminData()
+      }
+      setEditingProblemId(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setEditingProblemSubmitting(false)
     }
   }
 
@@ -604,8 +755,13 @@ export default function DashboardPage({ user, onLogout }) {
     }
   }
 
-  const renderTopbarSpaceSwitcher = () => (
-    <div className="topbar-space">
+  const navigateFromMenu = (path) => {
+    setUserMenuOpen(false)
+    navigate(path)
+  }
+
+  const renderTopbarSpaceSwitcher = (className = '') => (
+    <div className={`topbar-space ${className}`.trim()}>
       <label className="space-switcher">
         <span>空间</span>
         <select
@@ -658,204 +814,368 @@ export default function DashboardPage({ user, onLogout }) {
     </section>
   )
 
-  const renderSpacesSection = () => (
+  const renderLearningSection = () => (
+    <main className="panel">
+      {!selectedSpace ? (
+        <p className="muted">{spaces.length === 0 ? '暂无可访问空间，请先创建或加入空间。' : '请选择一个空间。'}</p>
+      ) : (
+        <>
+          {spaceTab === 'problems' && (
+            <div className="tab-body">
+              {spaceProblems.length === 0 && <p className="muted">当前空间暂无题目。</p>}
+              {spaceProblems.map((problem) => (
+                <div className="list-item" key={problem.id}>
+                  <div>
+                    <strong>#{problem.id} {problem.title}</strong>
+                    <p>{problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB</p>
+                  </div>
+                  <div className="inline-form list-item-actions">
+                    <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} className="ghost-btn">去做题</Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {spaceTab === 'training' && (
+            <div className="tab-body">
+              {canManageSelectedSpace && (
+                <div className="inline-form">
+                  <input
+                    placeholder="训练计划标题"
+                    value={planTitle}
+                    onChange={(event) => setPlanTitle(event.target.value)}
+                  />
+                  <button onClick={createTrainingPlan}>创建训练计划</button>
+                </div>
+              )}
+              {trainingPlans.length === 0 && <p className="muted">暂无训练计划。</p>}
+              {trainingPlans.map((plan) => (
+                <div className="list-item" key={plan.id}>
+                  <div>
+                    <strong>{plan.title}</strong>
+                    <p>{plan.allowSelfJoin ? '允许主动参加' : '仅管理员分配'}</p>
+                  </div>
+                  <button onClick={() => joinTrainingPlan(plan.id)}>参加</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {spaceTab === 'homework' && (
+            <div className="tab-body">
+              {canManageSelectedSpace && (
+                <div className="inline-form">
+                  <input
+                    placeholder="作业标题"
+                    value={homeworkTitle}
+                    onChange={(event) => setHomeworkTitle(event.target.value)}
+                  />
+                  <button onClick={createHomework}>创建作业</button>
+                </div>
+              )}
+              {homeworks.length === 0 && <p className="muted">暂无作业。</p>}
+              {homeworks.map((hw) => {
+                const detail = homeworkDetails[hw.id]
+                const expanded = expandedHomeworkId === hw.id
+                return (
+                  <div className="list-item homework-item" key={hw.id}>
+                    <div>
+                      <strong>{hw.title}</strong>
+                      <p>{hw.published ? '已发布' : '草稿'} {hw.dueAt ? `| 截止：${hw.dueAt}` : ''}</p>
+                    </div>
+                    <button className="ghost-btn" onClick={() => toggleHomeworkDetail(hw.id)}>
+                      {expanded ? '收起详情' : '查看详情'}
+                    </button>
+
+                    {expanded && (
+                      <div className="homework-detail">
+                        {!detail ? (
+                          <p className="muted">作业详情加载中...</p>
+                        ) : (
+                          <>
+                            <p className="muted">题目数：{detail.items?.length || 0} | 目标用户数：{detail.targets?.length || 0}</p>
+                            <div className="homework-target-list">
+                              {(detail.targets || []).length === 0 ? (
+                                <span className="muted">暂无目标用户</span>
+                              ) : (
+                                detail.targets.map((target) => (
+                                  <span key={target.userId} className="target-chip">
+                                    #{target.userId} {target.username}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          </>
+                        )}
+
+                        {canManageSelectedSpace && (
+                          <div className="inline-form homework-target-form">
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="输入用户ID分配作业"
+                              value={homeworkTargetInputs[hw.id] || ''}
+                              onChange={(event) => handleHomeworkTargetInputChange(hw.id, event.target.value)}
+                            />
+                            <button
+                              disabled={homeworkTargetSubmittingId === hw.id}
+                              onClick={() => handleAddHomeworkTarget(hw.id)}
+                            >
+                              {homeworkTargetSubmittingId === hw.id ? '分配中...' : '添加目标用户'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {homeworkActionMessage && <div className="ok-box">{homeworkActionMessage}</div>}
+            </div>
+          )}
+        </>
+      )}
+    </main>
+  )
+
+  const renderSpaceManageSection = () => (
     <div className="space-content-grid">
-      {isSystemAdmin && (
+      {!hasAnySpaceAdminRole && (
         <section className="panel">
-          <h2>创建空间</h2>
-          <div className="space-create-form">
-            <input
-              placeholder="空间名称"
-              value={newSpaceName}
-              onChange={(event) => setNewSpaceName(event.target.value)}
-            />
-            <textarea
-              placeholder="空间描述"
-              value={newSpaceDesc}
-              onChange={(event) => setNewSpaceDesc(event.target.value)}
-            />
-            <button onClick={createSpace}>创建空间</button>
-          </div>
+          <h2>空间管理</h2>
+          <p className="muted">当前账号没有空间管理员权限。</p>
         </section>
       )}
 
-      <main className="panel">
-        {!selectedSpace ? (
-          <p className="muted">{spaces.length === 0 ? '暂无可访问空间，请先创建或加入空间。' : '请选择一个空间。'}</p>
-        ) : (
-          <>
-            {spaceTab === 'problems' && (
-              <div className="tab-body">
-                {canManageSelectedSpace && (
-                  <>
+      {hasAnySpaceAdminRole && (
+        <>
+          <section className="panel">
+            <h2>选择空间</h2>
+            <div className="space-manage-picker">
+              <input
+                placeholder="搜索空间名称"
+                value={spaceSelectorKeyword}
+                onChange={(event) => setSpaceSelectorKeyword(event.target.value)}
+              />
+              <select
+                value={selectedSpaceId ? String(selectedSpaceId) : ''}
+                onChange={(event) => setSelectedSpaceId(event.target.value ? Number(event.target.value) : null)}
+                disabled={filteredSpacesForManage.length === 0}
+              >
+                {filteredSpacesForManage.length === 0 ? (
+                  <option value="">暂无匹配空间</option>
+                ) : (
+                  filteredSpacesForManage.map((space) => (
+                    <option key={space.id} value={String(space.id)}>
+                      #{space.id} {space.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {isSystemAdmin && (
+              <div className="space-create-form">
+                <h3>创建空间</h3>
+                <input
+                  placeholder="空间名称"
+                  value={newSpaceName}
+                  onChange={(event) => setNewSpaceName(event.target.value)}
+                />
+                <textarea
+                  placeholder="空间描述"
+                  value={newSpaceDesc}
+                  onChange={(event) => setNewSpaceDesc(event.target.value)}
+                />
+                <button onClick={createSpace}>创建空间</button>
+              </div>
+            )}
+          </section>
+
+          {selectedSpace && !canManageSelectedSpace && (
+            <section className="panel">
+              <h2>空间管理</h2>
+              <p className="muted">当前账号不是该空间管理员，请切换到你管理的空间。</p>
+            </section>
+          )}
+
+          {selectedSpace && canManageSelectedSpace && (
+            <>
+              <section className="panel">
+                <h2>空间设置</h2>
+                <div className="space-create-form">
+                  <input
+                    placeholder="空间名称"
+                    value={spaceSettingsName}
+                    onChange={(event) => setSpaceSettingsName(event.target.value)}
+                  />
+                  <textarea
+                    placeholder="空间描述"
+                    value={spaceSettingsDescription}
+                    onChange={(event) => setSpaceSettingsDescription(event.target.value)}
+                  />
+                  <label className="inline-field">
+                    默认编程语言
+                    <select value={spaceDefaultLanguage} onChange={(event) => setSpaceDefaultLanguage(event.target.value)}>
+                      <option value="cpp">C++</option>
+                      <option value="python">Python</option>
+                      <option value="go">Go</option>
+                    </select>
+                  </label>
+                  <button disabled={spaceSettingsSubmitting} onClick={updateSpaceSettings}>
+                    {spaceSettingsSubmitting ? '保存中...' : '保存空间设置'}
+                  </button>
+                </div>
+                {spaceSettingsMessage && <div className="ok-box">{spaceSettingsMessage}</div>}
+              </section>
+
+              <section className="panel">
+                <h2>空间题库设置</h2>
+                <div className="manage-grid">
+                  <div className="problem-form">
+                    <h3>上传新题目（自动加入根题库并关联空间）</h3>
+                    <select
+                      value={spaceProblemType}
+                      onChange={(event) => {
+                        const nextType = event.target.value
+                        setSpaceProblemType(nextType)
+                        setSpaceProblemBodyJson(asPretty(defaultBody(nextType)))
+                        setSpaceProblemAnswerJson(asPretty(defaultAnswer(nextType)))
+                      }}
+                    >
+                      <option value="programming">编程题</option>
+                      <option value="single_choice">单选题</option>
+                      <option value="true_false">判断题</option>
+                    </select>
+                    <input
+                      placeholder="题目标题"
+                      value={spaceProblemTitle}
+                      onChange={(event) => setSpaceProblemTitle(event.target.value)}
+                    />
+                    <textarea
+                      placeholder="题面（Markdown）"
+                      value={spaceProblemStatement}
+                      onChange={(event) => setSpaceProblemStatement(event.target.value)}
+                    />
+                    <textarea
+                      className="mono"
+                      placeholder="bodyJson"
+                      value={spaceProblemBodyJson}
+                      onChange={(event) => setSpaceProblemBodyJson(event.target.value)}
+                    />
+                    <textarea
+                      className="mono"
+                      placeholder="answerJson"
+                      value={spaceProblemAnswerJson}
+                      onChange={(event) => setSpaceProblemAnswerJson(event.target.value)}
+                    />
+                    <button onClick={createSpaceProblem}>上传题目并加入空间</button>
+                  </div>
+
+                  <div className="problem-form">
+                    <h3>从根题库添加到空间</h3>
+                    <input
+                      placeholder="按题目ID或标题搜索"
+                      value={spaceProblemSearch}
+                      onChange={(event) => setSpaceProblemSearch(event.target.value)}
+                    />
+                    <div className="problem-select-list">
+                      {filteredSpaceRootProblems.length === 0 && <p className="muted">没有可显示的根题。</p>}
+                      {filteredSpaceRootProblems.map((problem) => {
+                        const linked = linkedProblemIDSet.has(problem.id)
+                        return (
+                          <div className="problem-select-item" key={problem.id}>
+                            <div>
+                              <strong>#{problem.id} {problem.title}</strong>
+                              <p>{problemTypeText(problem.type)}</p>
+                            </div>
+                            <button disabled={linked} onClick={() => addProblemToSpace(problem.id)}>
+                              {linked ? '已在空间题库' : '添加'}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="problem-form">
+                  <h3>当前空间题目</h3>
+                  {spaceProblems.length === 0 && <p className="muted">当前空间暂无题目。</p>}
+                  {spaceProblems.map((problem) => (
+                    <div className="list-item" key={problem.id}>
+                      <div>
+                        <strong>#{problem.id} {problem.title}</strong>
+                        <p>{problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB</p>
+                      </div>
+                      <div className="inline-form list-item-actions">
+                        <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} className="ghost-btn">去做题</Link>
+                        <button className="ghost-btn btn-link" onClick={() => openEditProblem(problem.id)}>编辑题目</button>
+                        <button className="danger" onClick={() => removeSpaceProblem(problem.id)}>从空间移除</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {editingProblemId && (
+                  <div className="problem-form">
+                    <h3>编辑题目 #{editingProblemId}（全局生效）</h3>
+                    <select value={editingProblemType} onChange={(event) => setEditingProblemType(event.target.value)}>
+                      <option value="programming">编程题</option>
+                      <option value="single_choice">单选题</option>
+                      <option value="true_false">判断题</option>
+                    </select>
+                    <input
+                      placeholder="题目标题"
+                      value={editingProblemTitle}
+                      onChange={(event) => setEditingProblemTitle(event.target.value)}
+                    />
+                    <textarea
+                      placeholder="题面（Markdown）"
+                      value={editingProblemStatement}
+                      onChange={(event) => setEditingProblemStatement(event.target.value)}
+                    />
+                    <textarea
+                      className="mono"
+                      placeholder="bodyJson"
+                      value={editingProblemBodyJson}
+                      onChange={(event) => setEditingProblemBodyJson(event.target.value)}
+                    />
+                    <textarea
+                      className="mono"
+                      placeholder="answerJson"
+                      value={editingProblemAnswerJson}
+                      onChange={(event) => setEditingProblemAnswerJson(event.target.value)}
+                    />
                     <div className="inline-form">
                       <input
-                        placeholder="根题库题目 ID"
-                        value={linkProblemId}
-                        onChange={(event) => setLinkProblemId(event.target.value)}
+                        type="number"
+                        min="1"
+                        placeholder="时间限制(ms)"
+                        value={editingTimeLimitMs}
+                        onChange={(event) => setEditingTimeLimitMs(event.target.value)}
                       />
-                      <button onClick={linkProblem}>从根题库添加到空间</button>
-                    </div>
-
-                    <div className="problem-form">
-                      <h3>上传新题目（自动加入根题库并关联当前空间）</h3>
-                      <select
-                        value={spaceProblemType}
-                        onChange={(event) => {
-                          const nextType = event.target.value
-                          setSpaceProblemType(nextType)
-                          setSpaceProblemBodyJson(asPretty(defaultBody(nextType)))
-                          setSpaceProblemAnswerJson(asPretty(defaultAnswer(nextType)))
-                        }}
-                      >
-                        <option value="programming">编程题</option>
-                        <option value="single_choice">单选题</option>
-                        <option value="true_false">判断题</option>
-                      </select>
                       <input
-                        placeholder="题目标题"
-                        value={spaceProblemTitle}
-                        onChange={(event) => setSpaceProblemTitle(event.target.value)}
+                        type="number"
+                        min="1"
+                        placeholder="内存限制(MiB)"
+                        value={editingMemoryLimitMiB}
+                        onChange={(event) => setEditingMemoryLimitMiB(event.target.value)}
                       />
-                      <textarea
-                        placeholder="题面（Markdown）"
-                        value={spaceProblemStatement}
-                        onChange={(event) => setSpaceProblemStatement(event.target.value)}
-                      />
-                      <textarea
-                        className="mono"
-                        placeholder="bodyJson"
-                        value={spaceProblemBodyJson}
-                        onChange={(event) => setSpaceProblemBodyJson(event.target.value)}
-                      />
-                      <textarea
-                        className="mono"
-                        placeholder="answerJson"
-                        value={spaceProblemAnswerJson}
-                        onChange={(event) => setSpaceProblemAnswerJson(event.target.value)}
-                      />
-                      <button onClick={createSpaceProblem}>上传题目并加入空间</button>
                     </div>
-                  </>
-                )}
-                {spaceProblems.length === 0 && <p className="muted">当前空间暂无题目。</p>}
-                {spaceProblems.map((problem) => (
-                  <div className="list-item" key={problem.id}>
-                    <div>
-                      <strong>#{problem.id} {problem.title}</strong>
-                      <p>{problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB</p>
-                    </div>
-                    <div className="inline-form list-item-actions">
-                      <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} className="ghost-btn">去做题</Link>
-                      {canManageSelectedSpace && (
-                        <button className="danger" onClick={() => removeSpaceProblem(problem.id)}>从空间移除</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {spaceTab === 'training' && (
-              <div className="tab-body">
-                {canManageSelectedSpace && (
-                  <div className="inline-form">
-                    <input
-                      placeholder="训练计划标题"
-                      value={planTitle}
-                      onChange={(event) => setPlanTitle(event.target.value)}
-                    />
-                    <button onClick={createTrainingPlan}>创建训练计划</button>
-                  </div>
-                )}
-                {trainingPlans.length === 0 && <p className="muted">暂无训练计划。</p>}
-                {trainingPlans.map((plan) => (
-                  <div className="list-item" key={plan.id}>
-                    <div>
-                      <strong>{plan.title}</strong>
-                      <p>{plan.allowSelfJoin ? '允许主动参加' : '仅管理员分配'}</p>
-                    </div>
-                    <button onClick={() => joinTrainingPlan(plan.id)}>参加</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {spaceTab === 'homework' && (
-              <div className="tab-body">
-                {canManageSelectedSpace && (
-                  <div className="inline-form">
-                    <input
-                      placeholder="作业标题"
-                      value={homeworkTitle}
-                      onChange={(event) => setHomeworkTitle(event.target.value)}
-                    />
-                    <button onClick={createHomework}>创建作业</button>
-                  </div>
-                )}
-                {homeworks.length === 0 && <p className="muted">暂无作业。</p>}
-                {homeworks.map((hw) => {
-                  const detail = homeworkDetails[hw.id]
-                  const expanded = expandedHomeworkId === hw.id
-                  return (
-                    <div className="list-item homework-item" key={hw.id}>
-                      <div>
-                        <strong>{hw.title}</strong>
-                        <p>{hw.published ? '已发布' : '草稿'} {hw.dueAt ? `| 截止：${hw.dueAt}` : ''}</p>
-                      </div>
-                      <button className="ghost-btn" onClick={() => toggleHomeworkDetail(hw.id)}>
-                        {expanded ? '收起详情' : '查看详情'}
+                    <div className="inline-form">
+                      <button disabled={editingProblemSubmitting} onClick={saveEditedSpaceProblem}>
+                        {editingProblemSubmitting ? '保存中...' : '保存题目修改'}
                       </button>
-
-                      {expanded && (
-                        <div className="homework-detail">
-                          {!detail ? (
-                            <p className="muted">作业详情加载中...</p>
-                          ) : (
-                            <>
-                              <p className="muted">题目数：{detail.items?.length || 0} | 目标用户数：{detail.targets?.length || 0}</p>
-                              <div className="homework-target-list">
-                                {(detail.targets || []).length === 0 ? (
-                                  <span className="muted">暂无目标用户</span>
-                                ) : (
-                                  detail.targets.map((target) => (
-                                    <span key={target.userId} className="target-chip">
-                                      #{target.userId} {target.username}
-                                    </span>
-                                  ))
-                                )}
-                              </div>
-                            </>
-                          )}
-
-                          {canManageSelectedSpace && (
-                            <div className="inline-form homework-target-form">
-                              <input
-                                type="number"
-                                min="1"
-                                placeholder="输入用户ID分配作业"
-                                value={homeworkTargetInputs[hw.id] || ''}
-                                onChange={(event) => handleHomeworkTargetInputChange(hw.id, event.target.value)}
-                              />
-                              <button
-                                disabled={homeworkTargetSubmittingId === hw.id}
-                                onClick={() => handleAddHomeworkTarget(hw.id)}
-                              >
-                                {homeworkTargetSubmittingId === hw.id ? '分配中...' : '添加目标用户'}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <button className="ghost-btn btn-link" onClick={() => setEditingProblemId(null)}>取消编辑</button>
                     </div>
-                  )
-                })}
-                {homeworkActionMessage && <div className="ok-box">{homeworkActionMessage}</div>}
-              </div>
-            )}
+                  </div>
+                )}
+              </section>
 
-            {spaceTab === 'members' && (
-              <div className="tab-body">
+              <section className="panel">
+                <h2>成员管理</h2>
                 <p className="muted">将已注册用户加入当前空间。请输入用户 ID，可设置为成员或空间管理员。</p>
                 <p className="muted">一个空间支持设置多个空间管理员。</p>
                 <div className="inline-form">
@@ -890,11 +1210,11 @@ export default function DashboardPage({ user, onLogout }) {
                   </button>
                 </div>
                 {memberResetMessage && <div className="ok-box">{memberResetMessage}</div>}
-              </div>
-            )}
-          </>
-        )}
-      </main>
+              </section>
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 
@@ -1042,6 +1362,49 @@ export default function DashboardPage({ user, onLogout }) {
     </div>
   )
 
+  const renderCurrentView = () => {
+    if (isLearnView) return renderLearningSection()
+    if (isSpaceManageView) return renderSpaceManageSection()
+
+    if (isRootManageView) {
+      if (!isSystemAdmin) {
+        return (
+          <section className="panel">
+            <h2>根题库管理</h2>
+            <p className="muted">当前账号无系统管理员权限。</p>
+          </section>
+        )
+      }
+      return renderRootProblemSection()
+    }
+
+    if (isSystemManageView) {
+      if (!isSystemAdmin) {
+        return (
+          <section className="panel">
+            <h2>系统管理</h2>
+            <p className="muted">当前账号无系统管理员权限。</p>
+          </section>
+        )
+      }
+      return renderSystemSection()
+    }
+
+    return (
+      <section className="panel">
+        <p className="muted">未知页面。</p>
+      </section>
+    )
+  }
+
+  const pageTitle = isLearnView
+    ? '学习主页'
+    : isSpaceManageView
+      ? '空间管理'
+      : isRootManageView
+        ? '根题库管理'
+        : '系统管理'
+
   return (
     <div className="page-shell">
       <header className="topbar">
@@ -1049,15 +1412,12 @@ export default function DashboardPage({ user, onLogout }) {
           <span className="brand-dot">O</span>
           <h1>OrangeOJ</h1>
         </div>
-        {renderTopbarSpaceSwitcher()}
-        {showSpaceTopTabs && (
+        {isLearnView ? renderTopbarSpaceSwitcher() : <div className="topbar-page-chip">{pageTitle}</div>}
+        {isLearnView && (
           <div className="tabs topbar-center-tabs">
             <button className={spaceTab === 'problems' ? 'active' : ''} onClick={() => setSpaceTab('problems')}>题库</button>
             <button className={spaceTab === 'homework' ? 'active' : ''} onClick={() => setSpaceTab('homework')}>作业</button>
             <button className={spaceTab === 'training' ? 'active' : ''} onClick={() => setSpaceTab('training')}>训练</button>
-            {canManageSelectedSpace && (
-              <button className={spaceTab === 'members' ? 'active' : ''} onClick={() => setSpaceTab('members')}>成员管理</button>
-            )}
           </div>
         )}
         <div className="header-actions" ref={userMenuRef}>
@@ -1071,11 +1431,23 @@ export default function DashboardPage({ user, onLogout }) {
               <strong>{user.username}</strong>
               <small>{roleText}</small>
             </span>
-            <span className="user-menu-caret">{userMenuOpen ? '▴' : '▾'}</span>
+            <span className="user-menu-caret">{userMenuOpen ? '^' : 'v'}</span>
           </button>
           {userMenuOpen && (
             <div className="user-menu-panel" role="menu">
               <div className="user-menu-meta">{user.username} · {roleText}</div>
+              {location.pathname !== '/' && (
+                <button className="user-menu-item" onClick={() => navigateFromMenu('/')}>学习主页</button>
+              )}
+              {hasAnySpaceAdminRole && (
+                <button className="user-menu-item" onClick={() => navigateFromMenu('/manage/space')}>空间管理</button>
+              )}
+              {isSystemAdmin && (
+                <button className="user-menu-item" onClick={() => navigateFromMenu('/manage/root-problems')}>根题库管理</button>
+              )}
+              {isSystemAdmin && (
+                <button className="user-menu-item" onClick={() => navigateFromMenu('/manage/system')}>系统管理</button>
+              )}
               <button
                 className="user-menu-item"
                 onClick={() => {
@@ -1102,19 +1474,8 @@ export default function DashboardPage({ user, onLogout }) {
 
       {error && <div className="error-box">{error}</div>}
       {changePasswordOpen && renderChangePasswordSection()}
-
-      {isSystemAdmin && (
-        <div className="tabs main-tabs">
-          <button className={adminTab === 'space' ? 'active' : ''} onClick={() => setAdminTab('space')}>空间管理</button>
-          <button className={adminTab === 'root' ? 'active' : ''} onClick={() => setAdminTab('root')}>根题库管理</button>
-          <button className={adminTab === 'system' ? 'active' : ''} onClick={() => setAdminTab('system')}>系统设置</button>
-        </div>
-      )}
-
-      {!isSystemAdmin && renderSpacesSection()}
-      {isSystemAdmin && adminTab === 'space' && renderSpacesSection()}
-      {isSystemAdmin && adminTab === 'root' && renderRootProblemSection()}
-      {isSystemAdmin && adminTab === 'system' && renderSystemSection()}
+      {renderCurrentView()}
     </div>
   )
 }
+
