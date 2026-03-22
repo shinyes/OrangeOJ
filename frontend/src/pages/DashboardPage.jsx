@@ -164,6 +164,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changePasswordSubmitting, setChangePasswordSubmitting] = useState(false)
   const [changePasswordMessage, setChangePasswordMessage] = useState('')
+  const [activeConfigModal, setActiveConfigModal] = useState('')
 
   const selectedSpace = useMemo(
     () => spaces.find((space) => space.id === selectedSpaceId) || null,
@@ -318,6 +319,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     setLearningProblemSearch('')
     setLearningTrainingSearch('')
     setLearningHomeworkSearch('')
+    setActiveConfigModal('')
   }, [selectedSpaceId, canManageSelectedSpace])
 
   useEffect(() => {
@@ -330,6 +332,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     const handleEsc = (event) => {
       if (event.key === 'Escape') {
         setUserMenuOpen(false)
+        setActiveConfigModal('')
       }
     }
     document.addEventListener('mousedown', handleDocumentClick)
@@ -361,6 +364,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setNewSpaceName('')
       setNewSpaceDesc('')
       await refreshSpaces()
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     }
@@ -390,6 +394,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       })
       setSpaceSettingsMessage('空间设置已保存')
       await refreshSpaces()
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -419,6 +424,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       if (canManageSelectedSpace && selectedSpaceId) {
         await refreshSpaceRootProblemData(selectedSpaceId)
       }
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     }
@@ -449,6 +455,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       if (isSystemAdmin) {
         await refreshAdminData()
       }
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     }
@@ -495,6 +502,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     setEditingProblemAnswerJson(asPretty(problem.answerJson || {}))
     setEditingTimeLimitMs(String(problem.timeLimitMs || 1000))
     setEditingMemoryLimitMiB(String(problem.memoryLimitMiB || 256))
+    openConfigModal('edit-space-problem')
   }
 
   const saveEditedSpaceProblem = async () => {
@@ -522,6 +530,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
         await refreshAdminData()
       }
       setEditingProblemId(null)
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -670,6 +679,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setMemberUserId('')
       setMemberMessage(`用户 #${userId} 已加入空间，角色：${memberRole === 'space_admin' ? '空间管理员' : '成员'}`)
       await refreshSpaces()
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -693,6 +703,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       await api.resetSpaceMemberPassword(selectedSpaceId, userId)
       setMemberResetUserId('')
       setMemberResetMessage(`用户 #${userId} 密码已重置为 123456`)
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -724,6 +735,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       await api.adminResetUserPassword(userId)
       setAdminResetUserId('')
       setAdminResetMessage(`用户 #${userId} 密码已重置为 123456`)
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -777,6 +789,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setBatchSubmitting(true)
       const result = await api.batchRegisterUsers(payload)
       setBatchResult(result)
+      closeConfigModal()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -793,6 +806,18 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     } catch {
       setError('复制失败，请手动复制结果内容')
     }
+  }
+
+  const openConfigModal = (modalType) => {
+    setError('')
+    setActiveConfigModal(modalType)
+  }
+
+  const closeConfigModal = () => {
+    if (activeConfigModal === 'edit-space-problem') {
+      setEditingProblemId(null)
+    }
+    setActiveConfigModal('')
   }
 
   const navigateFromMenu = (path) => {
@@ -853,6 +878,357 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       </div>
     </section>
   )
+
+  const renderConfigModal = () => {
+    if (!activeConfigModal) return null
+
+    let title = ''
+    let content = null
+
+    if (activeConfigModal === 'create-space') {
+      title = '新建空间'
+      content = (
+        <div className="config-form">
+          <input
+            placeholder="空间名称"
+            value={newSpaceName}
+            onChange={(event) => setNewSpaceName(event.target.value)}
+          />
+          <textarea
+            placeholder="空间描述（可选）"
+            value={newSpaceDesc}
+            onChange={(event) => setNewSpaceDesc(event.target.value)}
+          />
+          <div className="inline-form">
+            <button onClick={createSpace}>创建空间</button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'space-settings') {
+      title = '编辑空间设置'
+      content = (
+        <div className="config-form">
+          <input
+            placeholder="空间名称"
+            value={spaceSettingsName}
+            onChange={(event) => setSpaceSettingsName(event.target.value)}
+          />
+          <textarea
+            placeholder="空间描述"
+            value={spaceSettingsDescription}
+            onChange={(event) => setSpaceSettingsDescription(event.target.value)}
+          />
+          <label className="inline-field">
+            默认编程语言
+            <select value={spaceDefaultLanguage} onChange={(event) => setSpaceDefaultLanguage(event.target.value)}>
+              <option value="cpp">C++</option>
+              <option value="python">Python</option>
+              <option value="go">Go</option>
+            </select>
+          </label>
+          <div className="inline-form">
+            <button disabled={spaceSettingsSubmitting} onClick={updateSpaceSettings}>
+              {spaceSettingsSubmitting ? '保存中...' : '保存设置'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'upload-space-problem') {
+      title = '上传新题目（自动进入根题库并关联本空间）'
+      content = (
+        <div className="config-form">
+          <label className="inline-field">
+            题目类型
+            <select
+              value={spaceProblemType}
+              onChange={(event) => {
+                const nextType = event.target.value
+                setSpaceProblemType(nextType)
+                setSpaceProblemBodyJson(asPretty(defaultBody(nextType)))
+                setSpaceProblemAnswerJson(asPretty(defaultAnswer(nextType)))
+              }}
+            >
+              <option value="programming">编程题</option>
+              <option value="single_choice">单选题</option>
+              <option value="true_false">判断题</option>
+            </select>
+          </label>
+          <input
+            placeholder="题目标题"
+            value={spaceProblemTitle}
+            onChange={(event) => setSpaceProblemTitle(event.target.value)}
+          />
+          <textarea
+            placeholder="题面描述（Markdown）"
+            value={spaceProblemStatement}
+            onChange={(event) => setSpaceProblemStatement(event.target.value)}
+          />
+          <label className="inline-field">
+            题目主体 JSON
+            <textarea
+              className="mono"
+              value={spaceProblemBodyJson}
+              onChange={(event) => setSpaceProblemBodyJson(event.target.value)}
+            />
+          </label>
+          <label className="inline-field">
+            答案 JSON
+            <textarea
+              className="mono"
+              value={spaceProblemAnswerJson}
+              onChange={(event) => setSpaceProblemAnswerJson(event.target.value)}
+            />
+          </label>
+          <div className="inline-form">
+            <button onClick={createSpaceProblem}>上传并关联</button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'edit-space-problem') {
+      title = editingProblemId ? `编辑题目 #${editingProblemId}` : '编辑题目'
+      content = editingProblemId ? (
+        <div className="config-form">
+          <label className="inline-field">
+            题目类型
+            <select value={editingProblemType} onChange={(event) => setEditingProblemType(event.target.value)}>
+              <option value="programming">编程题</option>
+              <option value="single_choice">单选题</option>
+              <option value="true_false">判断题</option>
+            </select>
+          </label>
+          <input
+            placeholder="题目标题"
+            value={editingProblemTitle}
+            onChange={(event) => setEditingProblemTitle(event.target.value)}
+          />
+          <textarea
+            placeholder="题面描述（Markdown）"
+            value={editingProblemStatement}
+            onChange={(event) => setEditingProblemStatement(event.target.value)}
+          />
+          <label className="inline-field">
+            时间限制（ms）
+            <input
+              type="number"
+              min="1"
+              value={editingTimeLimitMs}
+              onChange={(event) => setEditingTimeLimitMs(event.target.value)}
+            />
+          </label>
+          <label className="inline-field">
+            内存限制（MiB）
+            <input
+              type="number"
+              min="1"
+              value={editingMemoryLimitMiB}
+              onChange={(event) => setEditingMemoryLimitMiB(event.target.value)}
+            />
+          </label>
+          <label className="inline-field">
+            题目主体 JSON
+            <textarea
+              className="mono"
+              value={editingProblemBodyJson}
+              onChange={(event) => setEditingProblemBodyJson(event.target.value)}
+            />
+          </label>
+          <label className="inline-field">
+            答案 JSON
+            <textarea
+              className="mono"
+              value={editingProblemAnswerJson}
+              onChange={(event) => setEditingProblemAnswerJson(event.target.value)}
+            />
+          </label>
+          <div className="inline-form">
+            <button disabled={editingProblemSubmitting} onClick={saveEditedSpaceProblem}>
+              {editingProblemSubmitting ? '保存中...' : '保存修改'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      ) : (
+        <p className="muted">请先从空间题目列表中选择需要编辑的题目。</p>
+      )
+    }
+
+    if (activeConfigModal === 'add-space-member') {
+      title = '添加成员/空间管理员'
+      content = (
+        <div className="config-form">
+          <input
+            type="number"
+            min="1"
+            placeholder="用户ID"
+            value={memberUserId}
+            onChange={(event) => setMemberUserId(event.target.value)}
+          />
+          <label className="inline-field">
+            角色
+            <select className="member-role-select" value={memberRole} onChange={(event) => setMemberRole(event.target.value)}>
+              <option value="member">成员</option>
+              <option value="space_admin">空间管理员</option>
+            </select>
+          </label>
+          <div className="inline-form">
+            <button disabled={memberSubmitting} onClick={handleAddMember}>
+              {memberSubmitting ? '提交中...' : '确认添加'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'reset-space-member-password') {
+      title = '重置空间成员密码'
+      content = (
+        <div className="config-form">
+          <input
+            type="number"
+            min="1"
+            placeholder="用户ID"
+            value={memberResetUserId}
+            onChange={(event) => setMemberResetUserId(event.target.value)}
+          />
+          <div className="inline-form">
+            <button disabled={memberResetSubmitting} onClick={handleResetSpaceMemberPassword}>
+              {memberResetSubmitting ? '重置中...' : '重置为 123456'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'create-root-problem') {
+      title = '新建根题'
+      content = (
+        <div className="config-form">
+          <label className="inline-field">
+            题目类型
+            <select
+              value={problemType}
+              onChange={(event) => {
+                const nextType = event.target.value
+                setProblemType(nextType)
+                setProblemBodyJson(asPretty(defaultBody(nextType)))
+                setProblemAnswerJson(asPretty(defaultAnswer(nextType)))
+              }}
+            >
+              <option value="programming">编程题</option>
+              <option value="single_choice">单选题</option>
+              <option value="true_false">判断题</option>
+            </select>
+          </label>
+          <input
+            placeholder="题目标题"
+            value={problemTitle}
+            onChange={(event) => setProblemTitle(event.target.value)}
+          />
+          <textarea
+            placeholder="题面描述（Markdown）"
+            value={problemStatement}
+            onChange={(event) => setProblemStatement(event.target.value)}
+          />
+          <label className="inline-field">
+            题目主体 JSON
+            <textarea
+              className="mono"
+              value={problemBodyJson}
+              onChange={(event) => setProblemBodyJson(event.target.value)}
+            />
+          </label>
+          <label className="inline-field">
+            答案 JSON
+            <textarea
+              className="mono"
+              value={problemAnswerJson}
+              onChange={(event) => setProblemAnswerJson(event.target.value)}
+            />
+          </label>
+          <div className="inline-form">
+            <button onClick={createRootProblem}>创建根题</button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'admin-reset-password') {
+      title = '重置任意用户密码'
+      content = (
+        <div className="config-form">
+          <input
+            type="number"
+            min="1"
+            placeholder="用户ID"
+            value={adminResetUserId}
+            onChange={(event) => setAdminResetUserId(event.target.value)}
+          />
+          <div className="inline-form">
+            <button disabled={adminResetSubmitting} onClick={handleAdminResetPassword}>
+              {adminResetSubmitting ? '重置中...' : '重置为 123456'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'batch-register') {
+      title = '批量注册用户'
+      content = (
+        <div className="config-form">
+          <p className="muted">每行格式：<code>用户名,密码</code>，密码至少 6 位。</p>
+          <textarea
+            className="mono batch-input"
+            value={batchInput}
+            onChange={(event) => setBatchInput(event.target.value)}
+            placeholder={'student01,123456\nstudent02,123456'}
+          />
+          <label className="inline-field">
+            加入空间（可选）
+            <select value={batchSpaceId} onChange={(event) => setBatchSpaceId(event.target.value)}>
+              <option value="">不加入空间</option>
+              {spaces.map((space) => (
+                <option key={space.id} value={String(space.id)}>{space.name}</option>
+              ))}
+            </select>
+          </label>
+          <div className="inline-form">
+            <button disabled={batchSubmitting} onClick={handleBatchRegister}>
+              {batchSubmitting ? '处理中...' : '开始批量注册'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="modal-mask" onClick={closeConfigModal}>
+        <section className="modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-head">
+            <h3>{title || '配置'}</h3>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>关闭</button>
+          </div>
+          <div className="modal-body">
+            {content}
+          </div>
+        </section>
+      </div>
+    )
+  }
 
   const renderLearningSection = () => (
     <main className="panel">
@@ -1056,19 +1432,8 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             </div>
 
             {isSystemAdmin && (
-              <div className="space-create-form">
-                <h3>创建空间</h3>
-                <input
-                  placeholder="空间名称"
-                  value={newSpaceName}
-                  onChange={(event) => setNewSpaceName(event.target.value)}
-                />
-                <textarea
-                  placeholder="空间描述"
-                  value={newSpaceDesc}
-                  onChange={(event) => setNewSpaceDesc(event.target.value)}
-                />
-                <button onClick={createSpace}>创建空间</button>
+              <div className="inline-form section-toolbar">
+                <button onClick={() => openConfigModal('create-space')}>新建空间</button>
               </div>
             )}
           </section>
@@ -1091,28 +1456,22 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
               {spaceManageTab === 'settings' && (
                 <section className="panel">
                   <h2>空间设置</h2>
-                  <div className="space-create-form">
-                    <input
-                      placeholder="空间名称"
-                      value={spaceSettingsName}
-                      onChange={(event) => setSpaceSettingsName(event.target.value)}
-                    />
-                    <textarea
-                      placeholder="空间描述"
-                      value={spaceSettingsDescription}
-                      onChange={(event) => setSpaceSettingsDescription(event.target.value)}
-                    />
-                    <label className="inline-field">
-                      默认编程语言
-                      <select value={spaceDefaultLanguage} onChange={(event) => setSpaceDefaultLanguage(event.target.value)}>
-                        <option value="cpp">C++</option>
-                        <option value="python">Python</option>
-                        <option value="go">Go</option>
-                      </select>
-                    </label>
-                    <button disabled={spaceSettingsSubmitting} onClick={updateSpaceSettings}>
-                      {spaceSettingsSubmitting ? '保存中...' : '保存空间设置'}
-                    </button>
+                  <div className="panel-summary">
+                    <div>
+                      <strong>空间名称</strong>
+                      <p className="muted">{selectedSpace?.name || '-'}</p>
+                    </div>
+                    <div>
+                      <strong>空间描述</strong>
+                      <p className="muted">{selectedSpace?.description || '暂无描述'}</p>
+                    </div>
+                    <div>
+                      <strong>默认编程语言</strong>
+                      <p className="muted">{normalizeLanguage(selectedSpace?.defaultProgrammingLanguage || 'cpp')}</p>
+                    </div>
+                    <div className="inline-form">
+                      <button onClick={() => openConfigModal('space-settings')}>编辑空间设置</button>
+                    </div>
                   </div>
                   {spaceSettingsMessage && <div className="ok-box">{spaceSettingsMessage}</div>}
                 </section>
@@ -1121,47 +1480,10 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
               {spaceManageTab === 'problems' && (
                 <section className="panel">
                   <h2>空间题库设置</h2>
+                  <div className="inline-form section-toolbar">
+                    <button onClick={() => openConfigModal('upload-space-problem')}>上传新题目</button>
+                  </div>
                   <div className="manage-grid">
-                    <div className="problem-form">
-                      <h3>上传新题目（自动加入根题库并关联空间）</h3>
-                      <select
-                        value={spaceProblemType}
-                        onChange={(event) => {
-                          const nextType = event.target.value
-                          setSpaceProblemType(nextType)
-                          setSpaceProblemBodyJson(asPretty(defaultBody(nextType)))
-                          setSpaceProblemAnswerJson(asPretty(defaultAnswer(nextType)))
-                        }}
-                      >
-                        <option value="programming">编程题</option>
-                        <option value="single_choice">单选题</option>
-                        <option value="true_false">判断题</option>
-                      </select>
-                      <input
-                        placeholder="题目标题"
-                        value={spaceProblemTitle}
-                        onChange={(event) => setSpaceProblemTitle(event.target.value)}
-                      />
-                      <textarea
-                        placeholder="题面（Markdown）"
-                        value={spaceProblemStatement}
-                        onChange={(event) => setSpaceProblemStatement(event.target.value)}
-                      />
-                      <textarea
-                        className="mono"
-                        placeholder="bodyJson"
-                        value={spaceProblemBodyJson}
-                        onChange={(event) => setSpaceProblemBodyJson(event.target.value)}
-                      />
-                      <textarea
-                        className="mono"
-                        placeholder="answerJson"
-                        value={spaceProblemAnswerJson}
-                        onChange={(event) => setSpaceProblemAnswerJson(event.target.value)}
-                      />
-                      <button onClick={createSpaceProblem}>上传题目并加入空间</button>
-                    </div>
-
                     <div className="problem-form">
                       <h3>从根题库添加到空间</h3>
                       <input
@@ -1207,60 +1529,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                     ))}
                   </div>
 
-                  {editingProblemId && (
-                    <div className="problem-form">
-                      <h3>编辑题目 #{editingProblemId}（全局生效）</h3>
-                      <select value={editingProblemType} onChange={(event) => setEditingProblemType(event.target.value)}>
-                        <option value="programming">编程题</option>
-                        <option value="single_choice">单选题</option>
-                        <option value="true_false">判断题</option>
-                      </select>
-                      <input
-                        placeholder="题目标题"
-                        value={editingProblemTitle}
-                        onChange={(event) => setEditingProblemTitle(event.target.value)}
-                      />
-                      <textarea
-                        placeholder="题面（Markdown）"
-                        value={editingProblemStatement}
-                        onChange={(event) => setEditingProblemStatement(event.target.value)}
-                      />
-                      <textarea
-                        className="mono"
-                        placeholder="bodyJson"
-                        value={editingProblemBodyJson}
-                        onChange={(event) => setEditingProblemBodyJson(event.target.value)}
-                      />
-                      <textarea
-                        className="mono"
-                        placeholder="answerJson"
-                        value={editingProblemAnswerJson}
-                        onChange={(event) => setEditingProblemAnswerJson(event.target.value)}
-                      />
-                      <div className="inline-form">
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="时间限制(ms)"
-                          value={editingTimeLimitMs}
-                          onChange={(event) => setEditingTimeLimitMs(event.target.value)}
-                        />
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="内存限制(MiB)"
-                          value={editingMemoryLimitMiB}
-                          onChange={(event) => setEditingMemoryLimitMiB(event.target.value)}
-                        />
-                      </div>
-                      <div className="inline-form">
-                        <button disabled={editingProblemSubmitting} onClick={saveEditedSpaceProblem}>
-                          {editingProblemSubmitting ? '保存中...' : '保存题目修改'}
-                        </button>
-                        <button className="ghost-btn btn-link" onClick={() => setEditingProblemId(null)}>取消编辑</button>
-                      </div>
-                    </div>
-                  )}
+                  {editingProblemId && <p className="muted">题目编辑弹窗已打开。</p>}
                 </section>
               )}
 
@@ -1270,36 +1539,10 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                   <p className="muted">将已注册用户加入当前空间。请输入用户 ID，可设置为成员或空间管理员。</p>
                   <p className="muted">一个空间支持设置多个空间管理员。</p>
                   <div className="inline-form">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="用户ID，例如 2"
-                      value={memberUserId}
-                      onChange={(event) => setMemberUserId(event.target.value)}
-                    />
-                    <select className="member-role-select" value={memberRole} onChange={(event) => setMemberRole(event.target.value)}>
-                      <option value="member">成员</option>
-                      <option value="space_admin">空间管理员</option>
-                    </select>
-                    <button disabled={memberSubmitting} onClick={handleAddMember}>
-                      {memberSubmitting ? '添加中...' : '添加成员'}
-                    </button>
+                    <button onClick={() => openConfigModal('add-space-member')}>添加成员/管理员</button>
+                    <button className="ghost-btn btn-link" onClick={() => openConfigModal('reset-space-member-password')}>重置成员密码</button>
                   </div>
                   {memberMessage && <div className="ok-box">{memberMessage}</div>}
-
-                  <p className="muted">重置当前空间内用户密码（重置后为 123456）。</p>
-                  <div className="inline-form">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="需要重置密码的用户ID"
-                      value={memberResetUserId}
-                      onChange={(event) => setMemberResetUserId(event.target.value)}
-                    />
-                    <button disabled={memberResetSubmitting} onClick={handleResetSpaceMemberPassword}>
-                      {memberResetSubmitting ? '重置中...' : '重置密码为 123456'}
-                    </button>
-                  </div>
                   {memberResetMessage && <div className="ok-box">{memberResetMessage}</div>}
                 </section>
               )}
@@ -1319,44 +1562,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           value={rootProblemSearch}
           onChange={(event) => setRootProblemSearch(event.target.value)}
         />
-      </div>
-      <div className="problem-form">
-        <select
-          value={problemType}
-          onChange={(event) => {
-            const nextType = event.target.value
-            setProblemType(nextType)
-            setProblemBodyJson(asPretty(defaultBody(nextType)))
-            setProblemAnswerJson(asPretty(defaultAnswer(nextType)))
-          }}
-        >
-          <option value="programming">编程题</option>
-          <option value="single_choice">单选题</option>
-          <option value="true_false">判断题</option>
-        </select>
-        <input
-          placeholder="题目标题"
-          value={problemTitle}
-          onChange={(event) => setProblemTitle(event.target.value)}
-        />
-        <textarea
-          placeholder="题面（Markdown）"
-          value={problemStatement}
-          onChange={(event) => setProblemStatement(event.target.value)}
-        />
-        <textarea
-          className="mono"
-          placeholder="bodyJson"
-          value={problemBodyJson}
-          onChange={(event) => setProblemBodyJson(event.target.value)}
-        />
-        <textarea
-          className="mono"
-          placeholder="answerJson"
-          value={problemAnswerJson}
-          onChange={(event) => setProblemAnswerJson(event.target.value)}
-        />
-        <button onClick={createRootProblem}>创建题目</button>
+        <button onClick={() => openConfigModal('create-root-problem')}>新建根题</button>
       </div>
 
       <div className="root-list">
@@ -1398,16 +1604,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           <h2>重置用户密码</h2>
           <p className="muted">系统管理员可将任意用户密码重置为 123456。</p>
           <div className="inline-form">
-            <input
-              type="number"
-              min="1"
-              placeholder="用户ID"
-              value={adminResetUserId}
-              onChange={(event) => setAdminResetUserId(event.target.value)}
-            />
-            <button disabled={adminResetSubmitting} onClick={handleAdminResetPassword}>
-              {adminResetSubmitting ? '重置中...' : '重置密码为 123456'}
-            </button>
+            <button onClick={() => openConfigModal('admin-reset-password')}>打开重置弹窗</button>
           </div>
           {adminResetMessage && <div className="ok-box">{adminResetMessage}</div>}
         </section>
@@ -1416,26 +1613,9 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       {systemTab === 'batch' && (
         <section className="panel">
           <h2>批量注册用户</h2>
-          <p className="muted">每行一个账号，格式：<code>用户名,密码</code>，密码至少 6 位。</p>
-          <textarea
-            className="mono batch-input"
-            value={batchInput}
-            onChange={(event) => setBatchInput(event.target.value)}
-            placeholder={'student01,123456\nstudent02,123456'}
-          />
+          <p className="muted">通过弹窗录入批量账号，提交后结果会展示在下方。</p>
           <div className="inline-form">
-            <label className="inline-field">
-              加入空间（可选）
-              <select value={batchSpaceId} onChange={(event) => setBatchSpaceId(event.target.value)}>
-                <option value="">不加入空间</option>
-                {spaces.map((space) => (
-                  <option key={space.id} value={String(space.id)}>{space.name}</option>
-                ))}
-              </select>
-            </label>
-            <button disabled={batchSubmitting} onClick={handleBatchRegister}>
-              {batchSubmitting ? '处理中...' : '开始批量注册'}
-            </button>
+            <button onClick={() => openConfigModal('batch-register')}>打开批量注册弹窗</button>
           </div>
 
           {batchResult && (
@@ -1586,6 +1766,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       {error && <div className="error-box">{error}</div>}
       {changePasswordOpen && renderChangePasswordSection()}
       {renderCurrentView()}
+      {renderConfigModal()}
     </div>
   )
 }

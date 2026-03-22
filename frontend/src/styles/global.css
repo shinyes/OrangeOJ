@@ -1,17 +1,17 @@
 ﻿:root {
-  --bg: #f5f6f8;
+  --bg: #f3f5f8;
   --panel: #ffffff;
-  --panel-muted: #fafbfc;
-  --line: #e3e7ee;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --primary: #f07f13;
-  --primary-dark: #d96a00;
-  --success: #168f4a;
-  --danger: #d04a35;
-  --radius: 12px;
-  --shadow-sm: 0 2px 8px rgba(17, 24, 39, 0.06);
-  --shadow-md: 0 8px 24px rgba(17, 24, 39, 0.08);
+  --panel-muted: #f8fafc;
+  --line: #d9e0ea;
+  --text: #1e293b;
+  --muted: #64748b;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --success: #15803d;
+  --danger: #dc2626;
+  --radius: 10px;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 * {
@@ -23,9 +23,7 @@ body {
   font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: var(--text);
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top right, rgba(240, 127, 19, 0.08), transparent 40%),
-    linear-gradient(180deg, #f9fafb 0%, var(--bg) 100%);
+  background: var(--bg);
 }
 
 button,
@@ -36,27 +34,25 @@ select {
 }
 
 button {
-  border: 1px solid transparent;
-  border-radius: 10px;
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
   padding: 8px 14px;
   cursor: pointer;
   background: var(--primary);
   color: #ffffff;
   font-weight: 600;
-  transition: background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
 }
 
 button:hover {
   background: var(--primary-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  border-color: #1d4ed8;
 }
 
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+  
 }
 
 input,
@@ -64,7 +60,7 @@ textarea,
 select {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 9px 10px;
   background: #fff;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
@@ -74,8 +70,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: #f4a25b;
-  box-shadow: 0 0 0 3px rgba(240, 127, 19, 0.15);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
 }
 
 textarea {
@@ -84,10 +80,10 @@ textarea {
 }
 
 .page-shell {
-  width: min(1240px, 96vw);
-  margin: 18px auto;
+  width: min(1320px, 96vw);
+  margin: 14px auto 20px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .screen-center {
@@ -128,7 +124,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f7a451 0%, var(--primary) 100%);
+  background: #1e3a8a;
   color: #fff;
   font-weight: 700;
   font-size: 14px;
@@ -151,10 +147,10 @@ textarea {
   align-items: center;
   gap: 10px;
   padding: 6px 12px;
-  border: 1px solid #d7deeb;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
 }
 
 .space-switcher span {
@@ -185,13 +181,13 @@ textarea {
 
 .topbar-page-chip {
   flex: 1;
-  max-width: 320px;
+  max-width: 360px;
   text-align: center;
   padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid #e2e8f2;
-  background: #f8fbff;
-  color: #425166;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: #334155;
   font-weight: 600;
 }
 
@@ -250,7 +246,7 @@ textarea {
   min-width: 220px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: var(--shadow-md);
   padding: 8px;
   display: grid;
@@ -288,16 +284,30 @@ textarea {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 14px;
+  padding: 16px;
   display: grid;
   gap: 12px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .panel h2 {
   margin: 0;
   font-size: 17px;
   letter-spacing: 0.2px;
+}
+
+.panel-summary {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.panel-summary > div {
+  display: grid;
+  gap: 4px;
 }
 
 .grid-two {
@@ -324,7 +334,7 @@ textarea {
 
 .problem-select-list {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fdfefe;
   max-height: 320px;
   overflow: auto;
@@ -339,7 +349,7 @@ textarea {
   justify-content: space-between;
   gap: 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--panel-muted);
   padding: 8px 10px;
 }
@@ -373,7 +383,10 @@ textarea {
 }
 
 .section-tabs {
-  padding: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
 }
 
 .section-toolbar {
@@ -389,9 +402,9 @@ textarea {
 }
 
 .summary-card {
-  border: 1px solid #e6ebf3;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
   padding: 10px 12px;
   display: grid;
   gap: 6px;
@@ -415,20 +428,20 @@ textarea {
 }
 
 .tabs button {
-  background: #fff;
-  color: var(--text);
+  background: #f8fafc;
+  color: #334155;
   border: 1px solid var(--line);
   box-shadow: none;
 }
 
 .tabs button:hover {
-  background: #f6f8fb;
+  background: #eef2ff;
 }
 
 .tabs button.active {
-  background: #fff4e8;
-  border-color: #f5bb82;
-  color: #8a4800;
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
 }
 
 .tab-body {
@@ -438,9 +451,9 @@ textarea {
 
 .list-item {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 10px;
-  background: var(--panel-muted);
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -523,7 +536,7 @@ textarea {
 
 .error-box,
 .ok-box {
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 10px;
   border: 1px solid transparent;
 }
@@ -542,7 +555,7 @@ textarea {
 
 .ghost-btn {
   display: inline-block;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   padding: 8px 12px;
   color: var(--text);
@@ -572,6 +585,55 @@ textarea {
   gap: 14px;
 }
 
+.config-form {
+  display: grid;
+  gap: 10px;
+}
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.modal-card {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 44px);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  display: grid;
+  gap: 10px;
+}
+
+.modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-body {
+  padding: 2px 14px 14px;
+}
+
 .inline-field {
   display: grid;
   gap: 6px;
@@ -584,7 +646,7 @@ textarea {
 
 .batch-result-wrap {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   padding: 10px;
   display: grid;
@@ -624,13 +686,13 @@ textarea {
 
 .auth-panel {
   width: min(420px, 100%);
-  border: 1px solid var(--line);
+  border: 1px solid #cbd5e1;
   background: #fff;
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 22px;
   display: grid;
-  gap: 10px;
-  box-shadow: var(--shadow-md);
+  gap: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
 .auth-title {
@@ -660,7 +722,7 @@ textarea {
 }
 
 .auth-footer a {
-  color: #b85c00;
+  color: #1d4ed8;
   text-decoration: none;
   margin-left: 4px;
 }
@@ -670,7 +732,8 @@ textarea {
 }
 
 .danger:hover {
-  background: #ba3f2b;
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .choice-grid {
@@ -702,7 +765,7 @@ textarea {
   gap: 10px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 10px 12px;
 }
 
@@ -727,7 +790,7 @@ textarea {
 .statement-panel,
 .editor-panel {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
 }
 
@@ -788,15 +851,15 @@ textarea {
 }
 
 .run-btn:hover {
-  background: #12773d;
+  background: #166534;
 }
 
 .test-btn {
-  background: #2084d8;
+  background: #0ea5e9;
 }
 
 .test-btn:hover {
-  background: #126cad;
+  background: #0284c7;
 }
 
 .save-btn {
@@ -808,11 +871,11 @@ textarea {
 }
 
 .submit-btn {
-  background: #ff7a00;
+  background: #2563eb;
 }
 
 .submit-btn:hover {
-  background: #dd6a00;
+  background: #1d4ed8;
 }
 
 .editor-wrap {
@@ -914,4 +977,10 @@ textarea {
     max-width: 100%;
     width: 100%;
   }
+
+  .modal-mask {
+    padding: 10px;
+  }
 }
+
+
