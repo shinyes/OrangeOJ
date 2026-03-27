@@ -1,6 +1,13 @@
 ﻿import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import Box from '@mui/material/Box'
+import Container from '@mui/material/Container'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
 
 export default function RegisterPage({ user }) {
   const navigate = useNavigate()
@@ -74,71 +81,135 @@ export default function RegisterPage({ user }) {
   }
 
   if (loadingStatus) {
-    return <div className="screen-center">加载中...</div>
+    return (
+      <Container component="main" maxWidth="xs">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+          <Typography>加载中...</Typography>
+        </Box>
+      </Container>
+    )
   }
 
   if (!enabled) {
     return (
-      <div className="auth-wrap">
-        <div className="auth-panel">
-          <h1 className="auth-title">OrangeOJ</h1>
-          <p className="auth-subtitle">当前未开放注册，请联系管理员开启后再试。</p>
-          <Link className="ghost-btn" to="/login">返回登录</Link>
-        </div>
-      </div>
+      <Container component="main" maxWidth="xs">
+        <Box
+          sx={{
+            marginTop: 8,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <Typography component="h1" variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
+            OrangeOJ
+          </Typography>
+          <Paper elevation={3} sx={{ p: 4, width: '100%', textAlign: 'center' }}>
+            <Typography variant="body1" gutterBottom>
+              当前未开放注册，请联系管理员开启后再试。
+            </Typography>
+            <Button
+              component={Link}
+              to="/login"
+              variant="outlined"
+              sx={{ mt: 2 }}
+            >
+              返回登录
+            </Button>
+          </Paper>
+        </Box>
+      </Container>
     )
   }
 
   return (
-    <div className="auth-wrap">
-      <div className="auth-panel">
-        <h1 className="auth-title">OrangeOJ</h1>
-        <p className="auth-subtitle">创建账号后即可进入系统。</p>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <label>
-            用户名
-            <input
+    <Container component="main" maxWidth="xs">
+      <Box
+        sx={{
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <Typography component="h1" variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
+          OrangeOJ
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+          创建账号后即可进入系统。
+        </Typography>
+        
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <form onSubmit={handleSubmit}>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="username"
+              label="用户名"
+              name="username"
+              autoComplete="username"
+              autoFocus
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="请输入用户名"
-              autoComplete="username"
             />
-          </label>
-          <label>
-            密码
-            <input
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="密码"
               type="password"
+              id="password"
+              autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="至少 6 位"
-              autoComplete="new-password"
             />
-          </label>
-          <label>
-            确认密码
-            <input
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="confirmPassword"
+              label="确认密码"
               type="password"
+              id="confirmPassword"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="请再次输入密码"
-              autoComplete="new-password"
             />
-          </label>
-          {error && <div className="error-box">{error}</div>}
-          {success && <div className="ok-box">{success}</div>}
-          <button type="submit" disabled={submitting}>
-            {submitting ? '提交中...' : '注册'}
-          </button>
-        </form>
-
-        <div className="auth-footer">
-          <span>
-            已有账号？
-            <Link to="/login">返回登录</Link>
-          </span>
-        </div>
-      </div>
-    </div>
+            
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+            
+            {success && (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                {success}
+              </Alert>
+            )}
+            
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={submitting}
+              sx={{ mt: 3, mb: 2 }}
+            >
+              {submitting ? '提交中...' : '注册'}
+            </Button>
+            
+            <Typography variant="body2" align="center">
+              已有账号？{' '}
+              <Link to="/login" style={{ textDecoration: 'none' }}>
+                返回登录
+              </Link>
+            </Typography>
+          </form>
+        </Paper>
+      </Box>
+    </Container>
   )
 }

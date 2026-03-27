@@ -1,12 +1,12 @@
-﻿import { useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { api } from './api'
+﻿import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom'
+import { useAuth } from './hooks/useAuth'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import CodingPage from './pages/CodingPage'
 
-function Protected({ user, loading, children }) {
+function Protected({ children }) {
+  const { user, loading } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -19,34 +19,16 @@ function Protected({ user, loading, children }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { user, login, logout } = useAuth()
   const navigate = useNavigate()
 
-  const refreshMe = async () => {
-    try {
-      const me = await api.me()
-      setUser(me)
-    } catch {
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    refreshMe()
-  }, [])
-
   const handleLogin = async (credentials) => {
-    await api.login(credentials)
-    await refreshMe()
+    await login(credentials)
     navigate('/')
   }
 
   const handleLogout = async () => {
-    await api.logout()
-    setUser(null)
+    await logout()
     navigate('/login')
   }
 
@@ -57,7 +39,7 @@ export default function App() {
       <Route
         path="/"
         element={
-          <Protected user={user} loading={loading}>
+          <Protected>
             <DashboardPage user={user} onLogout={handleLogout} view="learn" />
           </Protected>
         }
@@ -65,7 +47,7 @@ export default function App() {
       <Route
         path="/manage/space"
         element={
-          <Protected user={user} loading={loading}>
+          <Protected>
             <DashboardPage user={user} onLogout={handleLogout} view="space-manage" />
           </Protected>
         }
@@ -73,7 +55,7 @@ export default function App() {
       <Route
         path="/manage/root-problems"
         element={
-          <Protected user={user} loading={loading}>
+          <Protected>
             <DashboardPage user={user} onLogout={handleLogout} view="root-manage" />
           </Protected>
         }
@@ -81,7 +63,7 @@ export default function App() {
       <Route
         path="/manage/system"
         element={
-          <Protected user={user} loading={loading}>
+          <Protected>
             <DashboardPage user={user} onLogout={handleLogout} view="system-manage" />
           </Protected>
         }
@@ -89,7 +71,7 @@ export default function App() {
       <Route
         path="/spaces/:spaceId/problems/:problemId/solve"
         element={
-          <Protected user={user} loading={loading}>
+          <Protected>
             <CodingPage user={user} onLogout={handleLogout} />
           </Protected>
         }
