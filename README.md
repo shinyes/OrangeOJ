@@ -2,6 +2,20 @@
 
 OrangeOJ 是一个基于 Go + Fiber + SQLite + React + Monaco 的在线 OJ 平台。
 
+## 🎉 最新更新 v0.5.0
+
+**全新现代化 UI 系统上线!**
+
+- ✨ 活力橙色主题，视觉更富科技感
+- 🧩 完整组件系统 (Button, Card, Input, Icons)
+- 🎨 流畅动画与过渡效果
+- 📱 完美响应式设计
+- 🖥️ 毛玻璃效果与渐变背景
+
+查看详情：[RELEASE_v0.5.0.md](./RELEASE_v0.5.0.md)
+
+---
+
 ## 服务组成
 
 - `orangeoj`：主服务（Web + API + 队列）

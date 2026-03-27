@@ -825,26 +825,80 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     navigate(path)
   }
 
-  const renderTopbarSpaceSwitcher = (className = '') => (
-    <div className={`topbar-space ${className}`.trim()}>
-      <label className="space-switcher">
-        <span>空间</span>
-        <select
-          value={selectedSpaceId ? String(selectedSpaceId) : ''}
-          onChange={(event) => setSelectedSpaceId(event.target.value ? Number(event.target.value) : null)}
-          disabled={spaces.length === 0}
-        >
-          {spaces.length === 0 ? (
-            <option value="">暂无空间</option>
-          ) : (
-            spaces.map((space) => (
-              <option key={space.id} value={String(space.id)}>{space.name}</option>
-            ))
+  const [spaceMenuOpen, setSpaceMenuOpen] = useState(false)
+
+  const renderTopbarSpaceSwitcher = (className = '') => {
+    const currentSpace = spaces.find(s => s.id === selectedSpaceId)
+    const isAdmin = user?.role === 'admin'
+    const isSpaceAdmin = currentSpace?.myRole === 'admin'
+    const canManage = isAdmin || isSpaceAdmin
+
+    // 获取用户加入的所有空间（系统管理员自动加入所有空间）
+    const mySpaces = isAdmin ? spaces : spaces.filter(s => s.myRole)
+    const otherSpaces = mySpaces.filter(s => s.id !== selectedSpaceId)
+
+    return (
+      <div className={`topbar-space ${className}`.trim()}>
+        <div className="space-dropdown">
+          <button 
+            className={`space-dropdown-trigger ${spaceMenuOpen ? 'open' : ''}`}
+            onClick={() => setSpaceMenuOpen(!spaceMenuOpen)}
+            onBlur={() => setTimeout(() => setSpaceMenuOpen(false), 150)}
+          >
+            <span className="space-dropdown-label">{currentSpace?.name || '选择空间'}</span>
+            <svg className="space-dropdown-caret" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M2 4L6 8L10 4H2Z"/>
+            </svg>
+          </button>
+          
+          {spaceMenuOpen && (
+            <div className="space-dropdown-panel">
+              {/* 管理选项 - 仅管理员可见 */}
+              {canManage && (
+                <>
+                  <div 
+                    className="space-dropdown-item manage-item"
+                    onClick={() => {
+                      setSpaceMenuOpen(false)
+                      navigate('/manage/space')
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M14 2H2v12h12V2zm-1 11H3V3h10v10z"/>
+                      <path d="M7 8H5V6h2v2zm2 0H7V6h2v2zm2 0H9V6h2v2zM7 10H5V8h2v2zm2 0H7V8h2v2zm2 0H9V8h2v2z"/>
+                    </svg>
+                    <span>管理空间</span>
+                  </div>
+                  <div className="space-dropdown-divider"/>
+                </>
+              )}
+              
+              {/* 其他空间列表 */}
+              {otherSpaces.length === 0 ? (
+                <div className="space-dropdown-empty">暂无其他空间</div>
+              ) : (
+                otherSpaces.map((space) => (
+                  <div
+                    key={space.id}
+                    className="space-dropdown-item"
+                    onClick={() => {
+                      setSelectedSpaceId(space.id)
+                      setSpaceMenuOpen(false)
+                    }}
+                  >
+                    <span>{space.name}</span>
+                    {space.myRole === 'admin' && (
+                      <span className="space-role-badge">管理员</span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           )}
-        </select>
-      </label>
-    </div>
-  )
+        </div>
+      </div>
+    )
+  }
 
   const renderChangePasswordSection = () => (
     <section className="panel">
@@ -1699,18 +1753,21 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   return (
     <div className="page-shell">
       <header className="topbar">
-        <div className="topbar-brand">
-          <span className="brand-dot">O</span>
-          <h1>OrangeOJ</h1>
-        </div>
-        {isLearnView ? renderTopbarSpaceSwitcher() : <div className="topbar-page-chip">{pageTitle}</div>}
-        {isLearnView && (
-          <div className="tabs topbar-center-tabs">
-            <button className={spaceTab === 'problems' ? 'active' : ''} onClick={() => setSpaceTab('problems')}>题库</button>
-            <button className={spaceTab === 'homework' ? 'active' : ''} onClick={() => setSpaceTab('homework')}>作业</button>
-            <button className={spaceTab === 'training' ? 'active' : ''} onClick={() => setSpaceTab('training')}>训练</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div className="topbar-brand">
+            <span className="brand-dot">🍊</span>
+            <h1>OrangeOJ</h1>
           </div>
-        )}
+          {isLearnView && renderTopbarSpaceSwitcher()}
+          {isLearnView && (
+            <div className="tabs" style={{ display: 'flex', gap: '8px' }}>
+              <button className={spaceTab === 'problems' ? 'active' : ''} onClick={() => setSpaceTab('problems')}>题库</button>
+              <button className={spaceTab === 'homework' ? 'active' : ''} onClick={() => setSpaceTab('homework')}>作业</button>
+              <button className={spaceTab === 'training' ? 'active' : ''} onClick={() => setSpaceTab('training')}>训练</button>
+            </div>
+          )}
+        </div>
+        {!isLearnView && <div className="topbar-page-chip">{pageTitle}</div>}
         <div className="header-actions" ref={userMenuRef}>
           <button
             className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
@@ -1718,15 +1775,11 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             aria-expanded={userMenuOpen}
             onClick={() => setUserMenuOpen((prev) => !prev)}
           >
-            <span className="user-menu-text">
-              <strong>{user.username}</strong>
-              <small>{roleText}</small>
-            </span>
-            <span className="user-menu-caret">{userMenuOpen ? '^' : 'v'}</span>
+            <span className="user-menu-name">{user.username}</span>
+            <span className="user-menu-caret">{userMenuOpen ? '∧' : '∨'}</span>
           </button>
           {userMenuOpen && (
             <div className="user-menu-panel" role="menu">
-              <div className="user-menu-meta">{user.username} · {roleText}</div>
               {location.pathname !== '/' && (
                 <button className="user-menu-item" onClick={() => navigateFromMenu('/')}>学习主页</button>
               )}
