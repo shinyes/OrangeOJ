@@ -23,6 +23,10 @@ import DialogActions from '@mui/material/DialogActions'
 import Paper from '@mui/material/Paper'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
+import Stack from '@mui/material/Stack'
 
 function asPretty(value) {
   return JSON.stringify(value, null, 2)
@@ -36,7 +40,7 @@ function defaultBody(type) {
       samples: [{ input: '', output: '' }],
       testCases: [{ input: '', output: '' }],
       starterCode: {
-        cpp: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;\n}',
+        cpp: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;}',
         python: 'print("hello")',
         go: 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}'
       }
@@ -73,7 +77,7 @@ function parseBatchLines(text) {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const normalized = line.replace(/，/g, ',')
+      const normalized = line.replace(/,/g, ',')
       const commaIndex = normalized.indexOf(',')
       if (commaIndex < 0) {
         return { username: normalized.trim(), password: '' }
@@ -92,7 +96,7 @@ function toBatchCopyText(batchResult) {
     if (row.success) {
       return `第${row.index}行\t${username}\t成功\t用户ID: ${row.userId}`
     }
-    return `第${row.index}行\t${username}\t失败\t原因: ${toFriendlyError(row.reason || '未知错误')}`
+    return `第${row.index}行\t${username}\t失败\t原因：${toFriendlyError(row.reason || '未知错误')}`
   }).join('\n')
 }
 
@@ -672,7 +676,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setHomeworkTargetSubmittingId(homeworkId)
       await api.addHomeworkTarget(selectedSpaceId, homeworkId, userID)
       setHomeworkTargetInputs((prev) => ({ ...prev, [homeworkId]: '' }))
-      setHomeworkActionMessage(`用户 #${userID} 已加入作业 #${homeworkId} 的目标名单`)
+      setHomeworkActionMessage(`用户 #${userID}已加入作业 #${homeworkId} 的目标名单`)
       await loadHomeworkDetail(homeworkId, true)
     } catch (err) {
       setError(err.message || '分配作业目标用户失败')
@@ -686,7 +690,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     if (!ensureCanManageSpace()) return
     const userId = Number(memberUserId)
     if (!Number.isInteger(userId) || userId <= 0) {
-      setError('请输入有效的用户ID')
+      setError('请输入有效的用户 ID')
       return
     }
     if (memberRole !== 'member' && memberRole !== 'space_admin') {
@@ -700,7 +704,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setMemberSubmitting(true)
       await api.addSpaceMember(selectedSpaceId, userId, memberRole)
       setMemberUserId('')
-      setMemberMessage(`用户 #${userId} 已加入空间，角色：${memberRole === 'space_admin' ? '空间管理员' : '成员'}`)
+      setMemberMessage(`用户 #${userId}已加入空间，角色：${memberRole === 'space_admin' ? '空间管理员' : '成员'}`)
       await refreshSpaces()
       closeConfigModal()
     } catch (err) {
@@ -725,7 +729,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setMemberResetSubmitting(true)
       await api.resetSpaceMemberPassword(selectedSpaceId, userId)
       setMemberResetUserId('')
-      setMemberResetMessage(`用户 #${userId} 密码已重置为 123456`)
+      setMemberResetMessage(`用户 #${userId}密码已重置为 123456`)
       closeConfigModal()
     } catch (err) {
       setError(err.message)
@@ -757,7 +761,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setAdminResetSubmitting(true)
       await api.adminResetUserPassword(userId)
       setAdminResetUserId('')
-      setAdminResetMessage(`用户 #${userId} 密码已重置为 123456`)
+      setAdminResetMessage(`用户 #${userId}密码已重置为123456`)
       closeConfigModal()
     } catch (err) {
       setError(err.message)
@@ -772,7 +776,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       return
     }
     if (newPassword.length < 6) {
-      setError('新密码至少 6 位')
+      setError('新密码至少6 位')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -798,7 +802,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const handleBatchRegister = async () => {
     const items = parseBatchLines(batchInput)
     if (items.length === 0) {
-      setError('请输入批量账号，格式为每行：用户名,密码')
+      setError('请输入批量账号，格式为每行：用户名，密码')
       return
     }
 
@@ -903,7 +907,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
         />
         <TextField
           type="password"
-          placeholder="新密码（至少 6 位）"
+          placeholder="新密码（至少6 位）"
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
           size="small"
@@ -1028,7 +1032,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             onChange={(event) => setSpaceProblemStatement(event.target.value)}
           />
           <label className="inline-field">
-            题目主体 JSON
+            题目主体JSON
             <textarea
               className="mono"
               value={spaceProblemBodyJson}
@@ -1036,7 +1040,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             />
           </label>
           <label className="inline-field">
-            答案 JSON
+            答案JSON
             <textarea
               className="mono"
               value={spaceProblemAnswerJson}
@@ -1092,7 +1096,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             />
           </label>
           <label className="inline-field">
-            题目主体 JSON
+            题目主体JSON
             <textarea
               className="mono"
               value={editingProblemBodyJson}
@@ -1100,7 +1104,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             />
           </label>
           <label className="inline-field">
-            答案 JSON
+            答案JSON
             <textarea
               className="mono"
               value={editingProblemAnswerJson}
@@ -1154,13 +1158,13 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           <input
             type="number"
             min="1"
-            placeholder="用户ID"
+            placeholder="用户 ID"
             value={memberResetUserId}
             onChange={(event) => setMemberResetUserId(event.target.value)}
           />
           <div className="inline-form">
             <button disabled={memberResetSubmitting} onClick={handleResetSpaceMemberPassword}>
-              {memberResetSubmitting ? '重置中...' : '重置为 123456'}
+              {memberResetSubmitting ? '重置中...' : '重置为123456'}
             </button>
             <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
           </div>
@@ -1207,7 +1211,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             />
           </label>
           <label className="inline-field">
-            答案 JSON
+            答案JSON
             <textarea
               className="mono"
               value={problemAnswerJson}
@@ -1247,7 +1251,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       title = '批量注册用户'
       content = (
         <div className="config-form">
-          <p className="muted">每行格式：<code>用户名,密码</code>，密码至少 6 位。</p>
+          <p className="muted">每行格式：<code>用户名，密码</code>，密码至少 6位。</p>
           <textarea
             className="mono batch-input"
             value={batchInput}
@@ -1294,65 +1298,104 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
         <p className="muted">{spaces.length === 0 ? '暂无可访问空间，请先创建或加入空间。' : '请选择一个空间。'}</p>
       ) : (
         <>
-          <div className="summary-grid">
-            <div className="summary-card">
-              <span>题目数</span>
-              <strong>{spaceProblems.length}</strong>
-            </div>
-            <div className="summary-card">
-              <span>训练计划</span>
-              <strong>{trainingPlans.length}</strong>
-            </div>
-            <div className="summary-card">
-              <span>作业</span>
-              <strong>{homeworks.length}</strong>
-            </div>
-            <div className="summary-card">
-              <span>当前身份</span>
-              <strong>{canManageSelectedSpace ? '空间管理员' : '普通成员'}</strong>
-            </div>
-          </div>
-
           {spaceTab === 'problems' && (
             <div className="tab-body">
               <div className="inline-form section-toolbar">
-                <input
+                <TextField
+                  size="small"
                   placeholder="搜索题目（ID/标题）"
                   value={learningProblemSearch}
                   onChange={(event) => setLearningProblemSearch(event.target.value)}
+                  sx={{ width: 180 }}
                 />
               </div>
-              {filteredLearningProblems.length === 0 && <p className="muted">没有匹配题目。</p>}
-              {filteredLearningProblems.map((problem) => (
-                <div className="list-item" key={problem.id}>
-                  <div>
-                    <strong>#{problem.id} {problem.title}</strong>
-                    <p>{problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB</p>
-                  </div>
-                  <div className="inline-form list-item-actions">
-                    <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} className="ghost-btn">去做题</Link>
-                  </div>
-                </div>
-              ))}
+              <Stack spacing={1.5} sx={{ mt: 2, alignItems: 'center' }}>
+                {filteredLearningProblems.length === 0 && (
+                  <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.default' }}>
+                    <Typography color="text.secondary">没有匹配题目</Typography>
+                  </Paper>
+                )}
+                {filteredLearningProblems.map((problem) => (
+                  <Card
+                    key={problem.id}
+                    component={Link}
+                    to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}
+                    sx={{
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        boxShadow: 4,
+                        borderColor: 'primary.main',
+                        transform: 'translateY(-3px)'
+                      },
+                      width: '100%',
+                      maxWidth: '900px'
+                    }}
+                  >
+                    <CardContent sx={{ py: '8px !important', px: '12px !important' }}>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: '600',
+                            width: '50px',
+                            color: 'primary.main',
+                            fontSize: '14px'
+                          }}
+                        >
+                          #{problem.id}
+                        </Typography>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            flex: 1,
+                            fontWeight: 500,
+                            color: 'text.primary',
+                            fontSize: '14px'
+                          }}
+                        >
+                          {problem.title}
+                        </Typography>
+                        <Chip
+                          label={problemTypeText(problem.type)}
+                          size="small"
+                          sx={{
+                            bgcolor: 'primary.light',
+                            color: 'primary.contrastText',
+                            fontWeight: 500,
+                            height: '26px',
+                            fontSize: '12px'
+                          }}
+                        />
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
             </div>
           )}
 
           {spaceTab === 'training' && (
             <div className="tab-body">
               <div className="inline-form section-toolbar">
-                <input
+                <TextField
+                  size="small"
                   placeholder="搜索训练计划标题"
                   value={learningTrainingSearch}
                   onChange={(event) => setLearningTrainingSearch(event.target.value)}
+                  sx={{ minWidth: 200 }}
                 />
                 {canManageSelectedSpace && (
                   <>
-                    <input
+                    <TextField
+                      size="small"
                       placeholder="训练计划标题"
                       value={planTitle}
                       onChange={(event) => setPlanTitle(event.target.value)}
+                      sx={{ minWidth: 200 }}
                     />
-                    <button onClick={createTrainingPlan}>创建训练计划</button>
+                    <Button variant="contained" onClick={createTrainingPlan}>创建训练计划</Button>
                   </>
                 )}
               </div>
@@ -1363,7 +1406,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                     <strong>{plan.title}</strong>
                     <p>{plan.allowSelfJoin ? '允许主动参加' : '仅管理员分配'}</p>
                   </div>
-                  <button onClick={() => joinTrainingPlan(plan.id)}>参加</button>
+                  <Button size="small" variant="outlined" onClick={() => joinTrainingPlan(plan.id)}>参加</Button>
                 </div>
               ))}
             </div>
@@ -1372,19 +1415,23 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           {spaceTab === 'homework' && (
             <div className="tab-body">
               <div className="inline-form section-toolbar">
-                <input
+                <TextField
+                  size="small"
                   placeholder="搜索作业标题"
                   value={learningHomeworkSearch}
                   onChange={(event) => setLearningHomeworkSearch(event.target.value)}
+                  sx={{ minWidth: 200 }}
                 />
                 {canManageSelectedSpace && (
                   <>
-                    <input
+                    <TextField
+                      size="small"
                       placeholder="作业标题"
                       value={homeworkTitle}
                       onChange={(event) => setHomeworkTitle(event.target.value)}
+                      sx={{ minWidth: 200 }}
                     />
-                    <button onClick={createHomework}>创建作业</button>
+                    <Button variant="contained" onClick={createHomework}>创建作业</Button>
                   </>
                 )}
               </div>
@@ -1398,9 +1445,9 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                       <strong>{hw.title}</strong>
                       <p>{hw.published ? '已发布' : '草稿'} {hw.dueAt ? `| 截止：${hw.dueAt}` : ''}</p>
                     </div>
-                    <button className="ghost-btn" onClick={() => toggleHomeworkDetail(hw.id)}>
+                    <Button size="small" variant="outlined" onClick={() => toggleHomeworkDetail(hw.id)}>
                       {expanded ? '收起详情' : '查看详情'}
-                    </button>
+                    </Button>
 
                     {expanded && (
                       <div className="homework-detail">
@@ -1425,19 +1472,23 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
 
                         {canManageSelectedSpace && (
                           <div className="inline-form homework-target-form">
-                            <input
+                            <TextField
+                              size="small"
                               type="number"
-                              min="1"
+                              inputProps={{ min: 1 }}
                               placeholder="输入用户ID分配作业"
                               value={homeworkTargetInputs[hw.id] || ''}
                               onChange={(event) => handleHomeworkTargetInputChange(hw.id, event.target.value)}
+                              sx={{ minWidth: 200 }}
                             />
-                            <button
+                            <Button
+                              size="small"
+                              variant="contained"
                               disabled={homeworkTargetSubmittingId === hw.id}
                               onClick={() => handleAddHomeworkTarget(hw.id)}
                             >
                               {homeworkTargetSubmittingId === hw.id ? '分配中...' : '添加目标用户'}
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -1545,7 +1596,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                     <div className="problem-form">
                       <h3>从根题库添加到空间</h3>
                       <input
-                        placeholder="按题目ID或标题搜索"
+                        placeholder="按题目ID 或标题搜索"
                         value={spaceProblemSearch}
                         onChange={(event) => setSpaceProblemSearch(event.target.value)}
                       />
@@ -1680,7 +1731,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             <div className="batch-result-wrap">
               <div className="result-head">
                 <strong>
-                  总计 {batchResult.total} 条，成功 {batchResult.successCount} 条，失败 {batchResult.failureCount} 条
+                  总计 {batchResult.total}条，成功{batchResult.successCount}条，失败{batchResult.failureCount}条
                 </strong>
                 <button className="ghost-btn" onClick={copyBatchResult}>复制结果</button>
               </div>
@@ -1699,7 +1750,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                       <td>{row.index}</td>
                       <td>{row.username || '(空)'}</td>
                       <td>{row.success ? '成功' : '失败'}</td>
-                      <td>{row.success ? `用户ID: ${row.userId}` : toFriendlyError(row.reason || '未知错误')}</td>
+                      <td>{row.success ? `用户 ID: ${row.userId}` : toFriendlyError(row.reason || '未知错误')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1863,4 +1914,3 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     </Box>
   )
 }
-
