@@ -148,7 +148,7 @@ export default function CodingPage() {
             console.log('Fetching submissions for space:', spaceId, 'problem:', problemId)
             const result = await api.listSubmissions(spaceId, problemId)
             console.log('Submission result:', result)
-            const submissions = result.data?.submissions || []
+            const submissions = result?.submissions || []
             console.log('Submissions loaded:', submissions.length)
             setSubmissions(submissions)
           } catch (subErr) {
@@ -235,7 +235,7 @@ export default function CodingPage() {
       // Reload submission history after successful submission
       if (spaceId) {
         const historyResult = await api.listSubmissions(spaceId, problemId)
-        setSubmissions(historyResult.data.submissions || [])
+        setSubmissions(historyResult?.submissions || [])
       }
     } catch (err) {
       setError(err.message)
