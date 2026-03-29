@@ -85,22 +85,31 @@ type RootProblem struct {
 }
 
 type Submission struct {
-	ID            int64            `json:"id"`
-	UserID        int64            `json:"userId"`
-	SpaceID       int64            `json:"spaceId"`
-	ProblemID     int64            `json:"problemId"`
-	QuestionType  ProblemType      `json:"questionType"`
-	Language      string           `json:"language"`
-	SourceCode    string           `json:"sourceCode"`
-	InputData     string           `json:"inputData"`
-	SubmitType    SubmitType       `json:"submitType"`
-	Status        SubmissionStatus `json:"status"`
-	Verdict       Verdict          `json:"verdict"`
-	TimeMS        int              `json:"timeMs"`
-	MemoryKiB     int              `json:"memoryKiB"`
-	Score         int              `json:"score"`
-	Stdout        string           `json:"stdout"`
-	Stderr        string           `json:"stderr"`
-	CreatedAt     time.Time        `json:"createdAt"`
-	FinishedAtRaw *time.Time       `json:"finishedAt,omitempty"`
+	ID           int64            `json:"id"`
+	UserID       int64            `json:"userId"`
+	SpaceID      int64            `json:"spaceId"`
+	ProblemID    int64            `json:"problemId"`
+	QuestionType ProblemType      `json:"questionType"`
+	Language     string           `json:"language"`
+	SourceCode   string           `json:"sourceCode"`
+	InputData    string           `json:"inputData"`
+	SubmitType   SubmitType       `json:"submitType"`
+	Status       SubmissionStatus `json:"status"`
+	Verdict      Verdict          `json:"verdict"`
+	TimeMS       int              `json:"timeMs"`
+	MemoryKiB    int              `json:"memoryKiB"`
+}
+
+type ImageTag struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
+	CreatedBy int64     `json:"createdBy"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type ImageTagLink struct {
+	ImageURL  string    `json:"imageUrl"`
+	TagID     int64     `json:"tagId"`
+	CreatedAt time.Time `json:"createdAt"`
 }

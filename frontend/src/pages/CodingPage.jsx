@@ -8,7 +8,6 @@ import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
-import Grid from '@mui/material/Grid'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Divider from '@mui/material/Divider'
@@ -23,6 +22,22 @@ import RadioGroup from '@mui/material/RadioGroup'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import FormLabel from '@mui/material/FormLabel'
 import TextField from '@mui/material/TextField'
+import IconButton from '@mui/material/IconButton'
+import CloseIcon from '@mui/icons-material/Close'
+import HistoryIcon from '@mui/icons-material/History'
+import ContentCopy from '@mui/icons-material/ContentCopy'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Slide from '@mui/material/Slide'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import Snackbar from '@mui/material/Snackbar'
 
 const editorLang = {
   cpp: 'cpp',
@@ -66,12 +81,39 @@ export default function CodingPage() {
   const [language, setLanguage] = useState('cpp')
   const [code, setCode] = useState('')
   const [customInput, setCustomInput] = useState('')
+  const [showCustomInputDialog, setShowCustomInputDialog] = useState(false)
+  const [tempCustomInput, setTempCustomInput] = useState('')
   const [consoleText, setConsoleText] = useState('控制台已就绪')
   const [running, setRunning] = useState(false)
+  const [submissions, setSubmissions] = useState([])
+  const [showSubmissionHistory, setShowSubmissionHistory] = useState(false)
+  const [selectedSubmission, setSelectedSubmission] = useState(null)
+  const [submissionDetailTab, setSubmissionDetailTab] = useState('code')
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
 
   const [objectiveAnswer, setObjectiveAnswer] = useState('')
 
   const body = useMemo(() => problem?.bodyJson || {}, [problem])
+
+  async function copyToClipboard(text, message) {
+    try {
+      await navigator.clipboard.writeText(text || '')
+      setSnackbar({ open: true, message: `${message}已复制`, severity: 'success' })
+    } catch (err) {
+      console.error('复制失败:', err)
+      setSnackbar({ open: true, message: '复制失败', severity: 'error' })
+    }
+  }
+
+  // Auto-close snackbar after 2 seconds, unaffected by mouse interaction
+  useEffect(() => {
+    if (snackbar.open) {
+      const timer = setTimeout(() => {
+        setSnackbar({ ...snackbar, open: false })
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [snackbar.open])
 
   useEffect(() => {
     ;(async () => {
@@ -116,6 +158,15 @@ export default function CodingPage() {
     setCode(cached || pickStarter(problem.bodyJson, language))
   }, [language, problem, spaceId, problemId])
 
+  const handleRunClick = () => {
+    setShowCustomInputDialog(true)
+    setTempCustomInput(customInput)
+  }
+
+  const handleTestClick = () => {
+    handleCodeSubmit('test')
+  }
+
   const saveDraft = () => {
     const key = spaceId
       ? `orangeoj:code:${spaceId}:${problemId}:${language}`
@@ -143,7 +194,7 @@ export default function CodingPage() {
 
     setRunning(true)
     setError('')
-    const actionText = mode === 'run' ? '运行' : mode === 'test' ? '测试' : '提交'
+    const actionText = mode === 'run' ? '运行' : '测试'
     setConsoleText(`[${nowTimeText()}] 开始${actionText}...`)
 
     try {
@@ -156,19 +207,32 @@ export default function CodingPage() {
       const created = spaceId
         ? mode === 'run'
           ? await api.run(spaceId, problemId, payload)
-          : mode === 'test'
-            ? await api.test(spaceId, problemId, payload)
-            : await api.submit(spaceId, problemId, payload)
+          : await api.test(spaceId, problemId, payload)
         : mode === 'run'
           ? await api.runRoot(problemId, payload)
-          : mode === 'test'
-            ? await api.testRoot(problemId, payload)
-            : await api.submitRoot(problemId, payload)
+          : await api.testRoot(problemId, payload)
 
       const result = await pollSubmission(created.submissionId)
       setConsoleText(
         (prev) => `${prev}\n\n最终结果：${result.verdict || '-'} | ${(result.timeMs || 0)}ms | ${(result.memoryKiB || 0)}KiB`
       )
+      
+      // Track submission for test mode with full snapshot
+      if (mode === 'test') {
+        setSubmissions(prev => [...prev, {
+          id: created.submissionId,
+          status: result.verdict || 'Unknown',
+          timestamp: Date.now(),
+          code: code,
+          input: customInput,
+          output: result.stdout || '',
+          expectedOutput: result.expectedOutput || '',
+          error: result.stderr || '',
+          timeMs: result.timeMs || 0,
+          memoryKiB: result.memoryKiB || 0,
+          result
+        }])
+      }
     } catch (err) {
       setError(err.message)
       setConsoleText((prev) => `${prev}\n错误：${err.message}`)
@@ -301,158 +365,467 @@ export default function CodingPage() {
   const samples = body.samples || []
 
   return (
-    <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static" color="default" elevation={1}>
-        <Toolbar>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6">{problem.title}</Typography>
-          </Box>
-          <Button color="inherit" component={Link} to="/">
-            返回首页
-          </Button>
+        <Toolbar sx={{ minHeight: '48px !important', py: 0.5 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: '600', flexGrow: 1 }}>{problem.title}</Typography>
+          <IconButton 
+            color="inherit" 
+            component={Link} 
+            to="/"
+            sx={{ ml: 1 }}
+          >
+            <CloseIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
 
       {error && <Alert severity="error" sx={{ mx: 2, mt: 2 }}>{error}</Alert>}
 
-      <Grid container spacing={2} sx={{ p: 2 }}>
-        <Grid item xs={12} lg={5}>
-          <Card sx={{ maxHeight: 'calc(100vh - 140px)', overflow: 'auto' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>题目描述</Typography>
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: 'grey.50',
-                  borderRadius: 1,
-                  fontFamily: 'monospace',
-                  whiteSpace: 'pre-wrap',
-                  mb: 2
-                }}
-              >
-                {problem.statementMd}
-              </Box>
+      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', p: 2, gap: 2 }}>
+        {/* Left Panel - Problem Description */}
+        <Card sx={{ 
+          width: '40%', 
+          minWidth: 400,
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          <CardContent sx={{ 
+            flexGrow: 1, 
+            overflow: 'auto',
+            '&::-webkit-scrollbar': { width: '8px' },
+            '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.2)', borderRadius: '4px' }
+          }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>题目描述</Typography>
+            
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: 'grey.50',
+                borderRadius: 1,
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap',
+                mb: 3
+              }}
+            >
+              {problem.statementMd}
+            </Box>
 
-              <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 2 }} />
 
-              <Typography variant="subtitle1" gutterBottom>输入格式</Typography>
-              <Typography variant="body2" paragraph>
-                {body.inputFormat || '见题目描述'}
-              </Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>输入格式</Typography>
+            <Typography variant="body2" paragraph sx={{ ml: 1 }}>
+              {body.inputFormat || '见题目描述'}
+            </Typography>
 
-              <Typography variant="subtitle1" gutterBottom>输出格式</Typography>
-              <Typography variant="body2" paragraph>
-                {body.outputFormat || '见题目描述'}
-              </Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>输出格式</Typography>
+            <Typography variant="body2" paragraph sx={{ ml: 1 }}>
+              {body.outputFormat || '见题目描述'}
+            </Typography>
 
-              <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 2 }} />
 
-              <Typography variant="subtitle1" gutterBottom>样例</Typography>
-              {samples.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" paragraph>暂无样例</Typography>
-              ) : (
-                samples.map((sample, index) => (
-                  <Box key={index} sx={{ mb: 2 }}>
-                    <Paper variant="outlined" sx={{ p: 2, mb: 1, bgcolor: 'grey.50' }}>
-                      <Typography variant="subtitle2" gutterBottom>输入样例 {index + 1}</Typography>
-                      <Box sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>样例</Typography>
+            {samples.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" paragraph>暂无样例</Typography>
+            ) : (
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                {samples.map((sample, index) => (
+                  <Box key={index}>
+                    <Paper 
+                      variant="outlined" 
+                      sx={{ 
+                        p: 2, 
+                        mb: 1, 
+                        bgcolor: 'grey.50',
+                        borderRadius: 2,
+                        '&:hover': { bgcolor: 'grey.100' }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: '600', color: 'primary.main' }}>
+                          输入样例 {index + 1}
+                        </Typography>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => copyToClipboard(sample.input, '输入样例')}
+                          sx={{ color: 'primary.main' }}
+                        >
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      </Box>
+                      <Box 
+                        sx={{ 
+                          fontFamily: 'monospace', 
+                          fontSize: '0.875rem',
+                          p: 1,
+                          bgcolor: 'background.paper',
+                          borderRadius: 1
+                        }}
+                      >
                         {sample.input || '(空)'}
                       </Box>
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
-                      <Typography variant="subtitle2" gutterBottom>输出样例 {index + 1}</Typography>
-                      <Box sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                    <Paper 
+                      variant="outlined" 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: 'grey.50',
+                        borderRadius: 2,
+                        '&:hover': { bgcolor: 'grey.100' }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: '600', color: 'success.main' }}>
+                          输出样例 {index + 1}
+                        </Typography>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => copyToClipboard(sample.output, '输出样例')}
+                          sx={{ color: 'success.main' }}
+                        >
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      </Box>
+                      <Box 
+                        sx={{ 
+                          fontFamily: 'monospace', 
+                          fontSize: '0.875rem',
+                          p: 1,
+                          bgcolor: 'background.paper',
+                          borderRadius: 1
+                        }}
+                      >
                         {sample.output || '(空)'}
                       </Box>
                     </Paper>
                   </Box>
-                ))
-              )}
-
-              <Divider sx={{ my: 2 }} />
-
-              <Typography variant="subtitle1" gutterBottom>限制</Typography>
-              <Typography variant="body2">时间限制：{problem.timeLimitMs}ms</Typography>
-              <Typography variant="body2">内存限制：{problem.memoryLimitMiB}MiB</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} lg={7}>
-          <Card sx={{ height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <InputLabel>语言</InputLabel>
-                  <Select
-                    value={language}
-                    label="语言"
-                    onChange={(e) => setLanguage(e.target.value)}
-                  >
-                    <MenuItem value="cpp">C++17</MenuItem>
-                    <MenuItem value="python">Python 3.8</MenuItem>
-                    <MenuItem value="go">Go 1.25</MenuItem>
-                  </Select>
-                </FormControl>
-                <Button variant="contained" color="success" disabled={running} onClick={() => handleCodeSubmit('run')}>
-                  运行
-                </Button>
-                <Button variant="outlined" disabled={running} onClick={() => handleCodeSubmit('test')}>
-                  测试
-                </Button>
-                <Button variant="outlined" onClick={saveDraft}>
-                  保存
-                </Button>
-                <Button variant="contained" disabled={running} onClick={() => handleCodeSubmit('submit')}>
-                  提交
-                </Button>
+                ))}
               </Stack>
+            )}
 
-              <Box sx={{ flexGrow: 1, border: 1, borderColor: 'divider', borderRadius: 1, mb: 2, minHeight: 300 }}>
-                <Editor
-                  theme="vs"
-                  language={editorLang[language]}
-                  value={code}
-                  onChange={(value) => setCode(value || '')}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 15,
-                    tabSize: 2,
-                    automaticLayout: true
-                  }}
-                />
-              </Box>
+            <Divider sx={{ my: 2 }} />
 
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="自定义输入（运行模式）"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="请输入运行模式的输入内容"
-                sx={{ mb: 2 }}
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>限制</Typography>
+            <Stack spacing={1} sx={{ mt: 1 }}>
+              <Typography variant="body2">时间限制：<strong>{problem.timeLimitMs}ms</strong></Typography>
+              <Typography variant="body2">内存限制：<strong>{problem.memoryLimitMiB}MiB</strong></Typography>
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Right Panel - Code Editor */}
+        <Card sx={{ 
+          flexGrow: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          <CardContent sx={{ 
+            flexGrow: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            p: 2
+          }}>
+            {/* Toolbar */}
+            <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel>语言</InputLabel>
+                <Select
+                  value={language}
+                  label="语言"
+                  onChange={(e) => setLanguage(e.target.value)}
+                  sx={{ bgcolor: 'background.paper' }}
+                >
+                  <MenuItem value="cpp">C++17</MenuItem>
+                  <MenuItem value="python">Python 3.8</MenuItem>
+                  <MenuItem value="go">Go 1.25</MenuItem>
+                </Select>
+              </FormControl>
+              <Button variant="contained" color="success" disabled={running} onClick={() => handleRunClick()} sx={{ minWidth: 80 }}>
+                运行
+              </Button>
+              <Button variant="contained" disabled={running} onClick={() => handleTestClick()} sx={{ minWidth: 80 }}>
+                测试
+              </Button>
+              <Button variant="contained" color="info" onClick={saveDraft} sx={{ minWidth: 80 }}>
+                保存
+              </Button>
+              <Box sx={{ flexGrow: 1 }} />
+              {submissions.length > 0 && (
+                <Button 
+                  variant="outlined" 
+                  endIcon={<HistoryIcon />}
+                  onClick={() => setShowSubmissionHistory(true)}
+                >
+                  测评记录
+                </Button>
+              )}
+            </Stack>
+
+            {/* Code Editor */}
+            <Box sx={{ 
+              flexGrow: 1, 
+              border: 1, 
+              borderColor: 'divider', 
+              borderRadius: 1, 
+              mb: 2,
+              overflow: 'hidden',
+              minHeight: 200
+            }}>
+              <Editor
+                theme="vs"
+                language={editorLang[language]}
+                value={code}
+                onChange={(value) => setCode(value || '')}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 15,
+                  lineHeight: 24,
+                  tabSize: 2,
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  padding: { top: 10 },
+                  lineNumbersMinChars: 3,
+                  glyphMargin: false,
+                  folding: false,
+                  lineDecorationsWidth: 8,
+                  renderSideBySide: false,
+                  diffWordWrap: 'off'
+                }}
               />
+            </Box>
 
-              <Typography variant="subtitle2" gutterBottom>控制台输出</Typography>
+            {/* Console Output */}
+            <Box sx={{ 
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: '600', mb: 1 }}>控制台输出</Typography>
               <Box
                 sx={{
-                  flexGrow: 1,
                   p: 2,
                   bgcolor: 'grey.50',
-                  borderRadius: 1,
+                  borderRadius: 2,
                   fontFamily: 'monospace',
                   whiteSpace: 'pre-wrap',
                   overflow: 'auto',
-                  minHeight: 150
+                  minHeight: 120,
+                  maxHeight: 200,
+                  border: 1,
+                  borderColor: 'divider'
                 }}
               >
                 {consoleText || '暂无输出'}
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* Custom Input Dialog */}
+      <Dialog
+        open={showCustomInputDialog}
+        onClose={() => setShowCustomInputDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>自定义输入</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            rows={6}
+            value={tempCustomInput}
+            onChange={(e) => setTempCustomInput(e.target.value)}
+            placeholder="请输入测试数据"
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCustomInputDialog(false)}>取消</Button>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              setCustomInput(tempCustomInput);
+              setShowCustomInputDialog(false);
+              handleCodeSubmit('run');
+            }}
+          >
+            运行
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Submission History Dialog */}
+      <Dialog
+        open={showSubmissionHistory}
+        onClose={() => setShowSubmissionHistory(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            maxHeight: '85vh',
+            width: '80%'
+          }
+        }}
+      >
+        <DialogTitle>测评记录</DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {selectedSubmission ? (
+            /* Detail View */
+            <Box sx={{ width: '100%' }}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={submissionDetailTab} onChange={(e, newValue) => setSubmissionDetailTab(newValue)}>
+                  <Tab label="代码" value="code" />
+                  <Tab label="输入" value="input" />
+                  <Tab label="输出" value="output" />
+                  <Tab label="预期输出" value="expected" />
+                  <Tab label="错误" value="error" />
+                </Tabs>
+              </Box>
+              <Box sx={{ p: 2, maxHeight: '50vh', overflow: 'auto' }}>
+                {submissionDetailTab === 'code' && (
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: '600' }}>代码</Typography>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => copyToClipboard(selectedSubmission.code, '代码')}
+                      >
+                        <ContentCopy fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: 'grey.50',
+                        borderRadius: 1,
+                        fontFamily: 'monospace',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: '0.875rem',
+                        border: 1,
+                        borderColor: 'divider'
+                      }}
+                    >
+                      {selectedSubmission.code || '无代码'}
+                    </Box>
+                  </Box>
+                )}
+                {submissionDetailTab === 'input' && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: 'grey.50',
+                      borderRadius: 1,
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: '0.875rem',
+                      border: 1,
+                      borderColor: 'divider'
+                    }}
+                  >
+                    {selectedSubmission.input || '(空)'}
+                  </Box>
+                )}
+                {submissionDetailTab === 'output' && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: selectedSubmission.error ? 'error.light' : 'grey.50',
+                      borderRadius: 1,
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: '0.875rem',
+                      border: 1,
+                      borderColor: 'divider'
+                    }}
+                  >
+                    {selectedSubmission.output || '(无输出)'}
+                  </Box>
+                )}
+                {submissionDetailTab === 'expected' && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: 'success.light',
+                      borderRadius: 1,
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: '0.875rem',
+                      border: 1,
+                      borderColor: 'divider'
+                    }}
+                  >
+                    {selectedSubmission.expectedOutput || '(无预期输出)'}
+                  </Box>
+                )}
+                {submissionDetailTab === 'error' && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: 'error.light',
+                      borderRadius: 1,
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: '0.875rem',
+                      border: 1,
+                      borderColor: 'divider'
+                    }}
+                  >
+                    {selectedSubmission.error || '(无错误)'}
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          ) : (
+            /* List View */
+            <List sx={{ maxHeight: '50vh', overflow: 'auto' }}>
+              {submissions.map((sub, index) => (
+                <ListItem 
+                  key={index}
+                  divider
+                  onClick={() => {
+                    setSelectedSubmission(sub)
+                    setSubmissionDetailTab('code')
+                  }}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' }
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <HistoryIcon color="action" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={`提交 #${sub.id || index + 1} - ${sub.status}`}
+                    secondary={`${new Date(sub.timestamp).toLocaleString()} | ${(sub.timeMs || 0)}ms | ${(sub.memoryKiB || 0)}KiB`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {selectedSubmission ? (
+            <Button onClick={() => setSelectedSubmission(null)}>返回列表</Button>
+          ) : (
+            <Button onClick={() => setShowSubmissionHistory(false)}>关闭</Button>
+          )}
+        </DialogActions>
+      </Dialog>
+      
+      <Snackbar
+        open={snackbar.open}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

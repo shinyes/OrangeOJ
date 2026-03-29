@@ -1,13 +1,17 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"orangeoj/backend/internal/auth"
 	"orangeoj/backend/internal/db"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type registrationRequest struct {
@@ -94,6 +98,40 @@ ORDER BY id DESC`)
 		})
 	}
 	return respondData(c, items)
+}
+
+func (a *API) handleGetRootProblem(c *fiber.Ctx) error {
+	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid problem id")
+	}
+	row := a.DB.QueryRow(`
+SELECT id, type, title, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by, created_at
+FROM root_problems
+WHERE id = ?`, id)
+	var (
+		idRet, timeLimit, memoryLimit, createdBy        int64
+		typeStr, title, statement, bodyJSON, answerJSON string
+		createdAt                                       time.Time
+	)
+	if err := row.Scan(&idRet, &typeStr, &title, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit, &createdBy, &createdAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return respondError(c, fiber.StatusNotFound, "problem not found")
+		}
+		return err
+	}
+	return respondData(c, fiber.Map{
+		"id":             idRet,
+		"type":           typeStr,
+		"title":          title,
+		"statementMd":    statement,
+		"bodyJson":       json.RawMessage(bodyJSON),
+		"answerJson":     json.RawMessage(answerJSON),
+		"timeLimitMs":    timeLimit,
+		"memoryLimitMiB": memoryLimit,
+		"createdBy":      createdBy,
+		"createdAt":      createdAt,
+	})
 }
 
 func (a *API) handleCreateRootProblem(c *fiber.Ctx) error {

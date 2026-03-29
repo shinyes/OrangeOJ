@@ -6,11 +6,12 @@ import (
 	"log"
 	"strings"
 
+	"orangeoj/backend/internal/auth"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"orangeoj/backend/internal/auth"
 )
 
 func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string) *fiber.App {
@@ -63,6 +64,7 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 	admin.Put("/settings/registration", api.handleSetRegistration)
 	admin.Get("/root-problems", api.handleListRootProblems)
 	admin.Post("/root-problems", api.handleCreateRootProblem)
+	admin.Get("/root-problems/:id", api.handleGetRootProblem)
 	admin.Put("/root-problems/:id", api.handleUpdateRootProblem)
 	admin.Delete("/root-problems/:id", api.handleDeleteRootProblem)
 	admin.Get("/spaces", api.handleAdminListSpaces)
@@ -108,6 +110,15 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 
 	protected.Get("/submissions/:submissionId", api.handleGetSubmission)
 	protected.Get("/submissions/:submissionId/stream", api.handleSubmissionStream)
+
+	// Image tag management routes
+	protected.Get("/image-tags", api.ListImageTags)
+	protected.Post("/image-tags", api.CreateImageTag)
+	protected.Delete("/image-tags/:id", api.DeleteImageTag)
+	protected.Post("/image-tags/link", api.LinkImageTag)
+	protected.Delete("/image-tags/unlink", api.UnlinkImageTag)
+	protected.Get("/image-tags/image/:imageUrl", api.GetImageTags)
+	protected.Get("/image-tags/tag/:id/images", api.GetImagesByTag)
 
 	app.Static("/", "./web")
 	app.Get("*", func(c *fiber.Ctx) error {

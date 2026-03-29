@@ -76,6 +76,14 @@ export default function App() {
           </Protected>
         }
       />
+      <Route
+        path="/problems/:problemId/solve"
+        element={
+          <Protected>
+            <CodingPage user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

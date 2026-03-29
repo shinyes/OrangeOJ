@@ -216,6 +216,22 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			PRIMARY KEY(space_id, user_id, problem_id),
 			FOREIGN KEY(last_submission_id) REFERENCES submissions(id)
 		);`,
+		`CREATE TABLE IF NOT EXISTS image_tags (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			color TEXT NOT NULL DEFAULT '#3498db',
+			created_by INTEGER NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY(created_by) REFERENCES users(id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS image_tag_links (
+			image_url TEXT NOT NULL,
+			tag_id INTEGER NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY(image_url, tag_id),
+			FOREIGN KEY(tag_id) REFERENCES image_tags(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_image_tag_links_tag_id ON image_tag_links(tag_id);`,
 	}
 	for _, stmt := range stmts {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {

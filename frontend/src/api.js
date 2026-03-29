@@ -7,7 +7,7 @@ const errorMessageMap = {
   'username and password required': '请输入用户名和密码',
   'invalid credentials': '用户名或密码错误',
   'registration is disabled': '当前未开放注册',
-  'invalid username or password': '用户名或密码不合法（密码至少 6 位）',
+  'invalid username or password': '用户名或密码不合法（密码至少6 位）',
   'username already exists': '用户名已存在',
   'authentication required': '请先登录',
   'invalid token': '登录状态已失效，请重新登录',
@@ -15,17 +15,17 @@ const errorMessageMap = {
   'space admin required': '当前账号为普通成员，无空间管理权限',
   'space membership required': '需要先加入该空间',
   'invalid spaceId': '空间不存在',
-  'invalid userId': '用户 ID 不合法',
+  'invalid userId': '用户ID不合法',
   'invalid role': '角色不合法',
   'invalid username': '用户名不能为空',
-  'password must be at least 6 characters': '密码至少需要 6 位',
+  'password must be at least 6 characters': '密码至少需要 6位',
   'oldPassword and newPassword required': '请输入旧密码和新密码',
   'old password incorrect': '旧密码不正确',
-  'new password must be at least 6 characters': '新密码至少需要 6 位',
+  'new password must be at least 6 characters': '新密码至少需要 6位',
   'user not found': '用户不存在',
   'user is not in this space': '该用户不在当前空间内',
   'cannot reset system admin password': '不能重置系统管理员密码',
-  'items must contain 1 to 200 entries': '批量注册每次最多 200 条',
+  'items must contain 1 to 200 entries': '批量注册每次最多200条',
   'problem already linked': '该题目已在空间题库中',
   'problem not linked in this space': '该题目未加入当前空间',
   'invalid language': '默认编程语言不合法',
@@ -78,6 +78,7 @@ export const api = {
 
   listRootProblems: () => apiFetch('/api/admin/root-problems'),
   createRootProblem: (body) => apiFetch('/api/admin/root-problems', { method: 'POST', body }),
+  getRootProblem: (problemId) => apiFetch(`/api/root-problems/${problemId}`),
   updateRootProblem: (problemId, body) => apiFetch(`/api/admin/root-problems/${problemId}`, { method: 'PUT', body }),
   batchRegisterUsers: (body) => apiFetch('/api/admin/users/batch-register', { method: 'POST', body }),
 
@@ -113,5 +114,13 @@ export const api = {
   test: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/test`, { method: 'POST', body }),
   submit: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/submit`, { method: 'POST', body }),
   getSubmission: (submissionId) => apiFetch(`/api/submissions/${submissionId}`),
-  pollSubmission: (submissionId) => apiFetch(`/api/submissions/${submissionId}/stream`)
+  pollSubmission: (submissionId) => apiFetch(`/api/submissions/${submissionId}/stream`),
+
+  listImageTags: () => apiFetch('/api/image-tags'),
+  createImageTag: (body) => apiFetch('/api/image-tags', { method: 'POST', body }),
+  deleteImageTag: (tagId) => apiFetch(`/api/image-tags/${tagId}`, { method: 'DELETE' }),
+  linkImageTag: (imageUrl, tagId) => apiFetch('/api/image-tags/link', { method: 'POST', body: { imageUrl, tagId } }),
+  unlinkImageTag: (imageUrl, tagId) => apiFetch('/api/image-tags/unlink', { method: 'DELETE', body: { imageUrl, tagId } }),
+  getImageTags: (imageUrl) => apiFetch(`/api/image-tags/image/${encodeURIComponent(imageUrl)}`),
+  getImagesByTag: (tagId) => apiFetch(`/api/image-tags/tag/${tagId}/images`)
 }
