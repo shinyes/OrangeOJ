@@ -145,14 +145,10 @@ export default function CodingPage() {
         // Fetch submission history for this problem (all problem types)
         if (spaceId) {
           try {
-            console.log('Fetching submissions for space:', spaceId, 'problem:', problemId)
             const result = await api.listSubmissions(spaceId, problemId)
-            console.log('Submission result:', result)
             const submissions = result?.submissions || []
-            console.log('Submissions loaded:', submissions.length)
             setSubmissions(submissions)
           } catch (subErr) {
-            console.error('Failed to load submission history:', subErr)
             // Silently ignore - submission history is optional
           }
         }

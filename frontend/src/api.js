@@ -2,6 +2,8 @@
   'Content-Type': 'application/json'
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
 const errorMessageMap = {
   'invalid request': '请求参数不正确',
   'username and password required': '请输入用户名和密码',
@@ -40,7 +42,9 @@ export function toFriendlyError(message) {
 }
 
 export async function apiFetch(path, options = {}) {
-  const response = await fetch(path, {
+  const fullPath = API_BASE_URL ? `${API_BASE_URL}${path}` : path
+  
+  const response = await fetch(fullPath, {
     method: options.method || 'GET',
     credentials: 'include',
     headers: {
