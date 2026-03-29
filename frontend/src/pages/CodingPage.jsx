@@ -141,6 +141,21 @@ export default function CodingPage() {
           const cached = localStorage.getItem(key)
           setCode(cached || pickStarter(data.bodyJson, defaultLanguage))
         }
+        
+        // Fetch submission history for this problem (all problem types)
+        if (spaceId) {
+          try {
+            console.log('Fetching submissions for space:', spaceId, 'problem:', problemId)
+            const result = await api.listSubmissions(spaceId, problemId)
+            console.log('Submission result:', result)
+            const submissions = result.data?.submissions || []
+            console.log('Submissions loaded:', submissions.length)
+            setSubmissions(submissions)
+          } catch (subErr) {
+            console.error('Failed to load submission history:', subErr)
+            // Silently ignore - submission history is optional
+          }
+        }
       } catch (err) {
         setError(err.message)
       } finally {
@@ -217,21 +232,10 @@ export default function CodingPage() {
         (prev) => `${prev}\n\n最终结果：${result.verdict || '-'} | ${(result.timeMs || 0)}ms | ${(result.memoryKiB || 0)}KiB`
       )
       
-      // Track submission for test mode with full snapshot
-      if (mode === 'test') {
-        setSubmissions(prev => [...prev, {
-          id: created.submissionId,
-          status: result.verdict || 'Unknown',
-          timestamp: Date.now(),
-          code: code,
-          input: customInput,
-          output: result.stdout || '',
-          expectedOutput: result.expectedOutput || '',
-          error: result.stderr || '',
-          timeMs: result.timeMs || 0,
-          memoryKiB: result.memoryKiB || 0,
-          result
-        }])
+      // Reload submission history after successful submission
+      if (spaceId) {
+        const historyResult = await api.listSubmissions(spaceId, problemId)
+        setSubmissions(historyResult.data.submissions || [])
       }
     } catch (err) {
       setError(err.message)
@@ -553,15 +557,13 @@ export default function CodingPage() {
                 保存
               </Button>
               <Box sx={{ flexGrow: 1 }} />
-              {submissions.length > 0 && (
-                <Button 
-                  variant="outlined" 
-                  endIcon={<HistoryIcon />}
-                  onClick={() => setShowSubmissionHistory(true)}
-                >
-                  测评记录
-                </Button>
-              )}
+              <Button 
+                variant="outlined" 
+                endIcon={<HistoryIcon />}
+                onClick={() => setShowSubmissionHistory(true)}
+              >
+                测评记录 {submissions.length > 0 && `(${submissions.length})`}
+              </Button>
             </Stack>
 
             {/* Code Editor */}
@@ -780,15 +782,33 @@ export default function CodingPage() {
                 )}
               </Box>
             </Box>
+          ) : submissions.length === 0 ? (
+            /* Empty State */
+            <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+              <Typography variant="body2">
+                暂无测评记录
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
+                点击"测试"或"运行"按钮提交代码后，测评记录将在这里显示
+              </Typography>
+            </Box>
           ) : (
             /* List View */
             <List sx={{ maxHeight: '50vh', overflow: 'auto' }}>
               {submissions.map((sub, index) => (
                 <ListItem 
-                  key={index}
+                  key={sub.id || index}
                   divider
                   onClick={() => {
-                    setSelectedSubmission(sub)
+                    setSelectedSubmission({
+                      ...sub,
+                      code: sub.sourceCode,
+                      input: sub.inputData,
+                      output: sub.stdout,
+                      expectedOutput: sub.expectedOutput,
+                      error: sub.stderr,
+                      status: sub.verdict
+                    })
                     setSubmissionDetailTab('code')
                   }}
                   sx={{ 
@@ -800,8 +820,8 @@ export default function CodingPage() {
                     <HistoryIcon color="action" />
                   </ListItemIcon>
                   <ListItemText
-                    primary={`提交 #${sub.id || index + 1} - ${sub.status}`}
-                    secondary={`${new Date(sub.timestamp).toLocaleString()} | ${(sub.timeMs || 0)}ms | ${(sub.memoryKiB || 0)}KiB`}
+                    primary={`提交 #${sub.id} - ${sub.verdict || sub.status}`}
+                    secondary={`${new Date(sub.createdAt).toLocaleString()} | ${(sub.timeMs || 0)}ms | ${(sub.memoryKiB || 0)}KiB`}
                   />
                 </ListItem>
               ))}

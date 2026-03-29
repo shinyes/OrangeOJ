@@ -4,11 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	oauth "orangeoj/backend/internal/auth"
 	"orangeoj/backend/internal/model"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type objectiveSubmitRequest struct {
@@ -159,6 +161,77 @@ VALUES(?, 'queued', 0, CURRENT_TIMESTAMP)`, submissionID); err != nil {
 		return err
 	}
 	return respondData(c, fiber.Map{"submissionId": submissionID, "status": "queued"})
+}
+
+func (a *API) handleListSubmissions(c *fiber.Ctx) error {
+	user, err := getUser(c)
+	if err != nil {
+		return err
+	}
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	problemID, err := parseIDParam(c, "problemId")
+	if err != nil {
+		return err
+	}
+
+	// Check permission (allow if space admin or regular user viewing own submissions)
+	_, err = oauth.IsSpaceAdmin(a.DB, spaceID, user.ID)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[DEBUG] Fetching submissions for space=%d, problem=%d, user=%d", spaceID, problemID, user.ID)
+
+	rows, err := a.DB.Query(`
+SELECT id, user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, time_ms, memory_kib, score, stdout, stderr, created_at, finished_at
+FROM submissions
+WHERE space_id=? AND problem_id=? AND user_id=?
+ORDER BY created_at DESC
+LIMIT 50`, spaceID, problemID, user.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var submissions []map[string]interface{}
+	for rows.Next() {
+		var (
+			id, userID, spID, problemID                                         int64
+			qType, language, sourceCode, inputData, submitType, status, verdict string
+			timeMS, memoryKiB, score                                            int
+			stdout, stderr                                                      string
+			createdAt                                                           string
+			finishedAt                                                          sql.NullString
+		)
+		if err := rows.Scan(&id, &userID, &spID, &problemID, &qType, &language, &sourceCode, &inputData, &submitType, &status, &verdict, &timeMS, &memoryKiB, &score, &stdout, &stderr, &createdAt, &finishedAt); err != nil {
+			return err
+		}
+		submissions = append(submissions, fiber.Map{
+			"id":           id,
+			"userId":       userID,
+			"spaceId":      spID,
+			"problemId":    problemID,
+			"questionType": qType,
+			"language":     language,
+			"sourceCode":   sourceCode,
+			"inputData":    inputData,
+			"submitType":   submitType,
+			"status":       status,
+			"verdict":      verdict,
+			"timeMs":       timeMS,
+			"memoryKiB":    memoryKiB,
+			"score":        score,
+			"stdout":       stdout,
+			"stderr":       stderr,
+			"createdAt":    createdAt,
+			"finishedAt":   scanNullString(finishedAt),
+		})
+	}
+
+	return respondData(c, fiber.Map{"submissions": submissions})
 }
 
 func (a *API) handleGetSubmission(c *fiber.Ctx) error {

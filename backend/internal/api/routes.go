@@ -108,6 +108,8 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 	spaceRead.Post("/problems/:problemId/test", api.handleTest)
 	spaceRead.Post("/problems/:problemId/submit", api.handleSubmit)
 
+	// Submission list and detail
+	spaceRead.Get("/problems/:problemId/submissions", api.handleListSubmissions)
 	protected.Get("/submissions/:submissionId", api.handleGetSubmission)
 	protected.Get("/submissions/:submissionId/stream", api.handleSubmissionStream)
 
