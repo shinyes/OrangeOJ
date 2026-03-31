@@ -2,6 +2,7 @@
   'Content-Type': 'application/json'
 }
 
+// Use environment variable if available, otherwise default to empty (relative paths via Vite proxy)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 const errorMessageMap = {
