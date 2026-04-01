@@ -40,6 +40,9 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import RootProblemTable from '../components/dashboard/RootProblemTable'
+import LearningPanel from '../components/dashboard/LearningPanel'
+import SpaceManagePanel from '../components/dashboard/SpaceManagePanel'
+import SystemPanel from '../components/dashboard/SystemPanel'
 
 function asPretty(value) {
   return JSON.stringify(value, null, 2)
@@ -1273,373 +1276,92 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   }
 
   const renderLearningSection = () => (
-    <main className="panel">
-      {!selectedSpace ? (
-        <p className="muted">{spaces.length === 0 ? '暂无可访问空间，请先创建或加入空间。' : '请选择一个空间。'}</p>
-      ) : (
-        <>
-          {spaceTab === 'problems' && (
-            <div className="tab-body">
-              <div className="inline-form section-toolbar">
-                <TextField
-                  size="small"
-                  placeholder="搜索题目（ID/标题）"
-                  value={learningProblemSearch}
-                  onChange={(event) => setLearningProblemSearch(event.target.value)}
-                  sx={{ width: 180 }}
-                />
-              </div>
-              <Stack spacing={1.5} sx={{ mt: 2, alignItems: 'center' }}>
-                {filteredLearningProblems.length === 0 && (
-                  <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.default' }}>
-                    <Typography color="text.secondary">没有匹配题目</Typography>
-                  </Paper>
-                )}
-                {filteredLearningProblems.map((problem) => (
-                  <Card
-                    key={problem.id}
-                    component={Link}
-                    to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}
-                    sx={{
-                      textDecoration: 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        boxShadow: 4,
-                        borderColor: 'primary.main',
-                        transform: 'translateY(-3px)'
-                      },
-                      width: '100%',
-                      maxWidth: '900px'
-                    }}
-                  >
-                    <CardContent sx={{ py: '8px !important', px: '12px !important' }}>
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: '600',
-                            width: '50px',
-                            color: 'primary.main',
-                            fontSize: '14px'
-                          }}
-                        >
-                          #{problem.id}
-                        </Typography>
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            flex: 1,
-                            fontWeight: 500,
-                            color: 'text.primary',
-                            fontSize: '14px'
-                          }}
-                        >
-                          {problem.title}
-                        </Typography>
-                        <Chip
-                          label={problemTypeText(problem.type)}
-                          size="small"
-                          sx={{
-                            bgcolor: 'primary.light',
-                            color: 'primary.contrastText',
-                            fontWeight: 500,
-                            height: '26px',
-                            fontSize: '12px'
-                          }}
-                        />
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Stack>
-            </div>
-          )}
-
-          {spaceTab === 'training' && (
-            <div className="tab-body">
-              <div className="inline-form section-toolbar">
-                <TextField
-                  size="small"
-                  placeholder="搜索训练计划标题"
-                  value={learningTrainingSearch}
-                  onChange={(event) => setLearningTrainingSearch(event.target.value)}
-                  sx={{ minWidth: 200 }}
-                />
-                {canManageSelectedSpace && (
-                  <>
-                    <TextField
-                      size="small"
-                      placeholder="训练计划标题"
-                      value={planTitle}
-                      onChange={(event) => setPlanTitle(event.target.value)}
-                      sx={{ minWidth: 200 }}
-                    />
-                    <Button variant="contained" onClick={createTrainingPlan}>创建训练计划</Button>
-                  </>
-                )}
-              </div>
-              {filteredLearningTrainingPlans.length === 0 && <p className="muted">没有匹配的训练计划。</p>}
-              {filteredLearningTrainingPlans.map((plan) => (
-                <div className="list-item" key={plan.id}>
-                  <div>
-                    <strong>{plan.title}</strong>
-                    <p>{plan.allowSelfJoin ? '允许主动参加' : '仅管理员分配'}</p>
-                  </div>
-                  <Button size="small" variant="outlined" onClick={() => joinTrainingPlan(plan.id)}>参加</Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {spaceTab === 'homework' && (
-            <div className="tab-body">
-              <div className="inline-form section-toolbar">
-                <TextField
-                  size="small"
-                  placeholder="搜索作业标题"
-                  value={learningHomeworkSearch}
-                  onChange={(event) => setLearningHomeworkSearch(event.target.value)}
-                  sx={{ minWidth: 200 }}
-                />
-                {canManageSelectedSpace && (
-                  <>
-                    <TextField
-                      size="small"
-                      placeholder="作业标题"
-                      value={homeworkTitle}
-                      onChange={(event) => setHomeworkTitle(event.target.value)}
-                      sx={{ minWidth: 200 }}
-                    />
-                    <Button variant="contained" onClick={createHomework}>创建作业</Button>
-                  </>
-                )}
-              </div>
-              {filteredLearningHomeworks.length === 0 && <p className="muted">没有匹配的作业。</p>}
-              {filteredLearningHomeworks.map((hw) => {
-                const detail = homeworkDetails[hw.id]
-                const expanded = expandedHomeworkId === hw.id
-                return (
-                  <div className="list-item homework-item" key={hw.id}>
-                    <div>
-                      <strong>{hw.title}</strong>
-                      <p>{hw.published ? '已发布' : '草稿'} {hw.dueAt ? `| 截止：${hw.dueAt}` : ''}</p>
-                    </div>
-                    <Button size="small" variant="outlined" onClick={() => toggleHomeworkDetail(hw.id)}>
-                      {expanded ? '收起详情' : '查看详情'}
-                    </Button>
-
-                    {expanded && (
-                      <div className="homework-detail">
-                        {!detail ? (
-                          <p className="muted">作业详情加载中...</p>
-                        ) : (
-                          <>
-                            <p className="muted">题目数：{detail.items?.length || 0} | 目标用户数：{detail.targets?.length || 0}</p>
-                            <div className="homework-target-list">
-                              {(detail.targets || []).length === 0 ? (
-                                <span className="muted">暂无目标用户</span>
-                              ) : (
-                                detail.targets.map((target) => (
-                                  <span key={target.userId} className="target-chip">
-                                    #{target.userId} {target.username}
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                          </>
-                        )}
-
-                        {canManageSelectedSpace && (
-                          <div className="inline-form homework-target-form">
-                            <TextField
-                              size="small"
-                              type="number"
-                              inputProps={{ min: 1 }}
-                              placeholder="输入用户ID分配作业"
-                              value={homeworkTargetInputs[hw.id] || ''}
-                              onChange={(event) => handleHomeworkTargetInputChange(hw.id, event.target.value)}
-                              sx={{ minWidth: 200 }}
-                            />
-                            <Button
-                              size="small"
-                              variant="contained"
-                              disabled={homeworkTargetSubmittingId === hw.id}
-                              onClick={() => handleAddHomeworkTarget(hw.id)}
-                            >
-                              {homeworkTargetSubmittingId === hw.id ? '分配中...' : '添加目标用户'}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              {homeworkActionMessage && <div className="ok-box">{homeworkActionMessage}</div>}
-            </div>
-          )}
-        </>
-      )}
-    </main>
+    <LearningPanel
+      selectedSpace={selectedSpace}
+      spaces={spaces}
+      spaceTab={spaceTab}
+      learningProblemSearch={learningProblemSearch}
+      onLearningProblemSearchChange={setLearningProblemSearch}
+      filteredLearningProblems={filteredLearningProblems}
+      problemTypeText={problemTypeText}
+      learningTrainingSearch={learningTrainingSearch}
+      onLearningTrainingSearchChange={setLearningTrainingSearch}
+      planTitle={planTitle}
+      onPlanTitleChange={setPlanTitle}
+      canManageSelectedSpace={canManageSelectedSpace}
+      onCreateTrainingPlan={createTrainingPlan}
+      filteredLearningTrainingPlans={filteredLearningTrainingPlans}
+      onJoinTrainingPlan={joinTrainingPlan}
+      learningHomeworkSearch={learningHomeworkSearch}
+      onLearningHomeworkSearchChange={setLearningHomeworkSearch}
+      homeworkTitle={homeworkTitle}
+      onHomeworkTitleChange={setHomeworkTitle}
+      onCreateHomework={createHomework}
+      filteredLearningHomeworks={filteredLearningHomeworks}
+      homeworkDetails={homeworkDetails}
+      expandedHomeworkId={expandedHomeworkId}
+      onToggleHomeworkDetail={toggleHomeworkDetail}
+      homeworkTargetInputs={homeworkTargetInputs}
+      onHomeworkTargetInputChange={handleHomeworkTargetInputChange}
+      homeworkTargetSubmittingId={homeworkTargetSubmittingId}
+      onAddHomeworkTarget={handleAddHomeworkTarget}
+      homeworkActionMessage={homeworkActionMessage}
+    />
   )
 
   const renderSpaceManageSection = () => (
-    <div className="space-content-grid">
-      {!hasAnySpaceAdminRole && (
-        <section className="panel">
-          <h2>空间管理</h2>
-          <p className="muted">当前账号没有空间管理员权限。</p>
-        </section>
-      )}
-
-      {hasAnySpaceAdminRole && (
-        <>
-          <section className="panel">
-            <h2>选择空间</h2>
-            <div className="space-manage-picker">
-              <input
-                placeholder="搜索空间名称"
-                value={spaceSelectorKeyword}
-                onChange={(event) => setSpaceSelectorKeyword(event.target.value)}
-              />
-              <select
-                value={selectedSpaceId ? String(selectedSpaceId) : ''}
-                onChange={(event) => setSelectedSpaceId(event.target.value ? Number(event.target.value) : null)}
-                disabled={filteredSpacesForManage.length === 0}
-              >
-                {filteredSpacesForManage.length === 0 ? (
-                  <option value="">暂无匹配空间</option>
-                ) : (
-                  filteredSpacesForManage.map((space) => (
-                    <option key={space.id} value={String(space.id)}>
-                      #{space.id} {space.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-
-            {isSystemAdmin && (
-              <div className="inline-form section-toolbar">
-                <button onClick={() => openConfigModal('create-space')}>新建空间</button>
-              </div>
-            )}
-          </section>
-
-          {selectedSpace && !canManageSelectedSpace && (
-            <section className="panel">
-              <h2>空间管理</h2>
-              <p className="muted">当前账号不是该空间管理员，请切换到你管理的空间。</p>
-            </section>
-          )}
-
-          {selectedSpace && canManageSelectedSpace && (
-            <>
-              <div className="tabs section-tabs">
-                <button className={spaceManageTab === 'settings' ? 'active' : ''} onClick={() => setSpaceManageTab('settings')}>空间设置</button>
-                <button className={spaceManageTab === 'problems' ? 'active' : ''} onClick={() => setSpaceManageTab('problems')}>题库设置</button>
-                <button className={spaceManageTab === 'members' ? 'active' : ''} onClick={() => setSpaceManageTab('members')}>成员管理</button>
-              </div>
-
-              {spaceManageTab === 'settings' && (
-                <section className="panel">
-                  <h2>空间设置</h2>
-                  <div className="panel-summary">
-                    <div>
-                      <strong>空间名称</strong>
-                      <p className="muted">{selectedSpace?.name || '-'}</p>
-                    </div>
-                    <div>
-                      <strong>空间描述</strong>
-                      <p className="muted">{selectedSpace?.description || '暂无描述'}</p>
-                    </div>
-                    <div>
-                      <strong>默认编程语言</strong>
-                      <p className="muted">{normalizeLanguage(selectedSpace?.defaultProgrammingLanguage || 'cpp')}</p>
-                    </div>
-                    <div className="inline-form">
-                      <button onClick={() => openConfigModal('space-settings')}>编辑空间设置</button>
-                    </div>
-                  </div>
-                  {spaceSettingsMessage && <div className="ok-box">{spaceSettingsMessage}</div>}
-                </section>
-              )}
-
-              {spaceManageTab === 'problems' && (
-                <section className="panel">
-                  <h2>空间题库设置</h2>
-                  <div className="inline-form section-toolbar">
-                    <button onClick={() => openConfigModal('upload-space-problem')}>上传新题目</button>
-                  </div>
-                  <div className="manage-grid">
-                    <div className="problem-form">
-                      <h3>从根题库添加到空间</h3>
-                      <input
-                        placeholder="按题目ID 或标题搜索"
-                        value={spaceProblemSearch}
-                        onChange={(event) => setSpaceProblemSearch(event.target.value)}
-                      />
-                      <div className="problem-select-list">
-                        {filteredSpaceRootProblems.length === 0 && <p className="muted">没有可显示的根题。</p>}
-                        {filteredSpaceRootProblems.map((problem) => {
-                          const linked = linkedProblemIDSet.has(problem.id)
-                          return (
-                            <div className="problem-select-item" key={problem.id}>
-                              <div>
-                                <strong>#{problem.id} {problem.title}</strong>
-                                <p>{problemTypeText(problem.type)}</p>
-                              </div>
-                              <button disabled={linked} onClick={() => addProblemToSpace(problem.id)}>
-                                {linked ? '已在空间题库' : '添加'}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="problem-form">
-                    <h3>当前空间题目</h3>
-                    {spaceProblems.length === 0 && <p className="muted">当前空间暂无题目。</p>}
-                    {spaceProblems.map((problem) => (
-                      <div className="list-item" key={problem.id}>
-                        <div>
-                          <strong>#{problem.id} {problem.title}</strong>
-                          <p>{problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB</p>
-                        </div>
-                        <div className="inline-form list-item-actions">
-                          <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} className="ghost-btn">去做题</Link>
-                          <button className="ghost-btn btn-link" onClick={() => openEditProblem(problem.id)}>编辑题目</button>
-                          <button className="danger" onClick={() => removeSpaceProblem(problem.id)}>从空间移除</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {editingProblemId && <p className="muted">题目编辑弹窗已打开。</p>}
-                </section>
-              )}
-
-              {spaceManageTab === 'members' && (
-                <section className="panel">
-                  <h2>成员管理</h2>
-                  <p className="muted">将已注册用户加入当前空间。请输入用户 ID，可设置为成员或空间管理员。</p>
-                  <p className="muted">一个空间支持设置多个空间管理员。</p>
-                  <div className="inline-form">
-                    <button onClick={() => openConfigModal('add-space-member')}>添加成员/管理员</button>
-                    <button className="ghost-btn btn-link" onClick={() => openConfigModal('reset-space-member-password')}>重置成员密码</button>
-                  </div>
-                  {memberMessage && <div className="ok-box">{memberMessage}</div>}
-                  {memberResetMessage && <div className="ok-box">{memberResetMessage}</div>}
-                </section>
-              )}
-            </>
-          )}
-        </>
-      )}
-    </div>
+    <SpaceManagePanel
+      hasAnySpaceAdminRole={hasAnySpaceAdminRole}
+      selectedSpace={selectedSpace}
+      selectedSpaceId={selectedSpaceId}
+      isSystemAdmin={isSystemAdmin}
+      canManageSelectedSpace={canManageSelectedSpace}
+      spaceSelectorKeyword={spaceSelectorKeyword}
+      onSpaceSelectorKeywordChange={setSpaceSelectorKeyword}
+      filteredSpacesForManage={filteredSpacesForManage}
+      onSelectSpace={setSelectedSpaceId}
+      openCreateSpaceModal={() => openConfigModal('create-space')}
+      spaceManageTab={spaceManageTab}
+      onSpaceManageTabChange={setSpaceManageTab}
+      normalizeLanguage={normalizeLanguage}
+      openSpaceSettingsModal={() => openConfigModal('space-settings')}
+      spaceSettingsName={spaceSettingsName}
+      onSpaceSettingsNameChange={setSpaceSettingsName}
+      spaceSettingsDescription={spaceSettingsDescription}
+      onSpaceSettingsDescriptionChange={setSpaceSettingsDescription}
+      spaceDefaultLanguage={spaceDefaultLanguage}
+      onSpaceDefaultLanguageChange={setSpaceDefaultLanguage}
+      spaceSettingsSubmitting={spaceSettingsSubmitting}
+      onUpdateSpaceSettings={updateSpaceSettings}
+      closeConfigModal={closeConfigModal}
+      spaceSettingsMessage={spaceSettingsMessage}
+      spaceProblemSearch={spaceProblemSearch}
+      onSpaceProblemSearchChange={setSpaceProblemSearch}
+      filteredSpaceRootProblems={filteredSpaceRootProblems}
+      linkedProblemIDSet={linkedProblemIDSet}
+      onAddProblemToSpace={addProblemToSpace}
+      spaceProblems={spaceProblems}
+      problemTypeText={problemTypeText}
+      editingProblemId={editingProblemId}
+      onOpenEditProblem={openEditProblem}
+      onRemoveSpaceProblem={removeSpaceProblem}
+      openAddMemberModal={() => openConfigModal('add-space-member')}
+      openResetMemberPasswordModal={() => openConfigModal('reset-space-member-password')}
+      memberMessage={memberMessage}
+      memberResetMessage={memberResetMessage}
+      spaceProblemType={spaceProblemType}
+      onSpaceProblemTypeChange={setSpaceProblemType}
+      spaceProblemBodyJson={spaceProblemBodyJson}
+      onSpaceProblemBodyJsonChange={setSpaceProblemBodyJson}
+      spaceProblemAnswerJson={spaceProblemAnswerJson}
+      onSpaceProblemAnswerJsonChange={setSpaceProblemAnswerJson}
+      spaceProblemTitle={spaceProblemTitle}
+      onSpaceProblemTitleChange={setSpaceProblemTitle}
+      spaceProblemStatement={spaceProblemStatement}
+      onSpaceProblemStatementChange={setSpaceProblemStatement}
+      onCreateSpaceProblem={createSpaceProblem}
+      openUploadProblemModal={() => openConfigModal('upload-space-problem')}
+    />
   )
 
   const renderRootProblemSection = () => (
@@ -1653,77 +1375,18 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   )
 
   const renderSystemSection = () => (
-    <div className="system-grid">
-      <div className="tabs section-tabs">
-        <button className={systemTab === 'settings' ? 'active' : ''} onClick={() => setSystemTab('settings')}>系统设置</button>
-        <button className={systemTab === 'account' ? 'active' : ''} onClick={() => setSystemTab('account')}>账号维护</button>
-        <button className={systemTab === 'batch' ? 'active' : ''} onClick={() => setSystemTab('batch')}>批量注册</button>
-      </div>
-
-      {systemTab === 'settings' && (
-        <section className="panel">
-          <h2>系统设置</h2>
-          <div className="setting-row">
-            <span>注册开关</span>
-            <button onClick={toggleRegistration}>
-              {registrationEnabled ? '已开启（点击关闭）' : '已关闭（点击开启）'}
-            </button>
-          </div>
-        </section>
-      )}
-
-      {systemTab === 'account' && (
-        <section className="panel">
-          <h2>重置用户密码</h2>
-          <p className="muted">系统管理员可将任意用户密码重置为 123456。</p>
-          <div className="inline-form">
-            <button onClick={() => openConfigModal('admin-reset-password')}>打开重置弹窗</button>
-          </div>
-          {adminResetMessage && <div className="ok-box">{adminResetMessage}</div>}
-        </section>
-      )}
-
-      {systemTab === 'batch' && (
-        <section className="panel">
-          <h2>批量注册用户</h2>
-          <p className="muted">通过弹窗录入批量账号，提交后结果会展示在下方。</p>
-          <div className="inline-form">
-            <button onClick={() => openConfigModal('batch-register')}>打开批量注册弹窗</button>
-          </div>
-
-          {batchResult && (
-            <div className="batch-result-wrap">
-              <div className="result-head">
-                <strong>
-                  总计 {batchResult.total}条，成功{batchResult.successCount}条，失败{batchResult.failureCount}条
-                </strong>
-                <button className="ghost-btn" onClick={copyBatchResult}>复制结果</button>
-              </div>
-              <table className="result-table">
-                <thead>
-                  <tr>
-                    <th>行号</th>
-                    <th>用户名</th>
-                    <th>结果</th>
-                    <th>说明</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {batchResult.results.map((row) => (
-                    <tr key={row.index}>
-                      <td>{row.index}</td>
-                      <td>{row.username || '(空)'}</td>
-                      <td>{row.success ? '成功' : '失败'}</td>
-                      <td>{row.success ? `用户 ID: ${row.userId}` : toFriendlyError(row.reason || '未知错误')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      )}
-    </div>
+    <SystemPanel
+      systemTab={systemTab}
+      onSystemTabChange={setSystemTab}
+      registrationEnabled={registrationEnabled}
+      onToggleRegistration={toggleRegistration}
+      openAdminResetPasswordModal={() => openConfigModal('admin-reset-password')}
+      adminResetMessage={adminResetMessage}
+      openBatchRegisterModal={() => openConfigModal('batch-register')}
+      batchResult={batchResult}
+      onCopyBatchResult={copyBatchResult}
+      toFriendlyError={toFriendlyError}
+    />
   )
 
   const renderCurrentView = () => {
