@@ -169,7 +169,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
         <Stack spacing={2}>
           {/* Basic Info - 紧凑布局 */}
           <Grid container spacing={1}>
-            <Grid item xs={2.5}>
+            <Grid item xs={3}>
               <FormControl fullWidth size="small">
                 <InputLabel shrink>题目类型</InputLabel>
                 <Select
@@ -184,7 +184,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={5.5}>
+            <Grid item xs={6}>
               <TextField
                 fullWidth
                 size="small"
@@ -205,7 +205,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                 onChange={(event) => setProblemDifficulty(Number(event.target.value))}
               />
             </Grid>
-            <Grid item xs={1.5}>
+            <Grid item xs={1}>
               <TextField
                 fullWidth
                 size="small"
@@ -216,7 +216,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                 inputProps={{ min: 100, step: 100 }}
               />
             </Grid>
-            <Grid item xs={1.5}>
+            <Grid item xs={1}>
               <TextField
                 fullWidth
                 size="small"
