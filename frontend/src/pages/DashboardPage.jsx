@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, toFriendlyError } from '../api'
 import Box from '@mui/material/Box'
@@ -27,6 +27,18 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import TableContainer from '@mui/material/TableContainer'
+import Tooltip from '@mui/material/Tooltip'
+import Grid from '@mui/material/Grid'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import AddIcon from '@mui/icons-material/Add'
+import RemoveIcon from '@mui/icons-material/Remove'
 
 function asPretty(value) {
   return JSON.stringify(value, null, 2)
@@ -145,22 +157,28 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
 
   const [problemType, setProblemType] = useState('programming')
   const [problemTitle, setProblemTitle] = useState('')
-  const [problemStatement, setProblemStatement] = useState('')
-  const [problemBodyJson, setProblemBodyJson] = useState(asPretty(defaultBody('programming')))
-  const [problemAnswerJson, setProblemAnswerJson] = useState(asPretty(defaultAnswer('programming')))
+  const [problemDifficulty, setProblemDifficulty] = useState(3)
+  const [problemInputFormat, setProblemInputFormat] = useState('请在此填写输入格式')
+  const [problemOutputFormat, setProblemOutputFormat] = useState('请在此填写输出格式')
+  const [problemSamples, setProblemSamples] = useState([{ input: '', output: '' }])
+  const [problemTestCases, setProblemTestCases] = useState([{ input: '', output: '' }])
+  const [problemOptions, setProblemOptions] = useState(['A', 'B', 'C', 'D'])
+  const [problemAnswer, setProblemAnswer] = useState('')
+  const [createRootProblemOpen, setCreateRootProblemOpen] = useState(false)
+  
   const [spaceProblemType, setSpaceProblemType] = useState('programming')
   const [spaceProblemTitle, setSpaceProblemTitle] = useState('')
-  const [spaceProblemStatement, setSpaceProblemStatement] = useState('')
+  const [spaceProblemDifficulty, setSpaceProblemDifficulty] = useState(3)
   const [spaceProblemBodyJson, setSpaceProblemBodyJson] = useState(asPretty(defaultBody('programming')))
-  const [spaceProblemAnswerJson, setSpaceProblemAnswerJson] = useState(asPretty(defaultAnswer('programming')))
+  
 
   const [spaceProblemSearch, setSpaceProblemSearch] = useState('')
   const [editingProblemId, setEditingProblemId] = useState(null)
   const [editingProblemType, setEditingProblemType] = useState('programming')
   const [editingProblemTitle, setEditingProblemTitle] = useState('')
-  const [editingProblemStatement, setEditingProblemStatement] = useState('')
+  const [editingProblemDifficulty, setEditingProblemDifficulty] = useState(3)
   const [editingProblemBodyJson, setEditingProblemBodyJson] = useState(asPretty(defaultBody('programming')))
-  const [editingProblemAnswerJson, setEditingProblemAnswerJson] = useState(asPretty(defaultAnswer('programming')))
+  
   const [editingTimeLimitMs, setEditingTimeLimitMs] = useState('1000')
   const [editingMemoryLimitMiB, setEditingMemoryLimitMiB] = useState('256')
   const [editingProblemSubmitting, setEditingProblemSubmitting] = useState(false)
@@ -434,27 +452,105 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setError('题目标题不能为空')
       return
     }
+    
+    let bodyJson
+    if (problemType === 'programming') {
+      bodyJson = {
+        inputFormat: problemInputFormat,
+        outputFormat: problemOutputFormat,
+        samples: problemSamples.filter(s => s.input || s.output),
+        testCases: problemTestCases.filter(t => t.input || t.output)
+      }
+    } else if (problemType === 'single_choice') {
+      bodyJson = {
+        options: problemOptions,
+        answer: problemAnswer
+      }
+    } else if (problemType === 'true_false') {
+      bodyJson = {
+        answer: problemAnswer
+      }
+    }
+    
     try {
       setError('')
       await api.createRootProblem({
         type: problemType,
         title: problemTitle.trim(),
-        statementMd: problemStatement,
-        bodyJson: JSON.parse(problemBodyJson || '{}'),
-        answerJson: JSON.parse(problemAnswerJson || '{}'),
+        difficulty: problemDifficulty,
+        bodyJson,
         timeLimitMs: 1000,
         memoryLimitMiB: 256
       })
       setProblemTitle('')
-      setProblemStatement('')
+      setProblemDifficulty(3)
+      resetProblemForm()
       await refreshAdminData()
       if (canManageSelectedSpace && selectedSpaceId) {
         await refreshSpaceRootProblemData(selectedSpaceId)
       }
-      closeConfigModal()
+      setCreateRootProblemOpen(false)
     } catch (err) {
       setError(err.message)
     }
+  }
+
+  const resetProblemForm = () => {
+    setProblemTitle('')
+    setProblemDifficulty(3)
+    setProblemInputFormat('请在此填写输入格式')
+    setProblemOutputFormat('请在此填写输出格式')
+    setProblemSamples([{ input: '', output: '' }])
+    setProblemTestCases([{ input: '', output: '' }])
+    setProblemOptions(['A', 'B', 'C', 'D'])
+    setProblemAnswer('')
+  }
+
+  const addSample = () => {
+    setProblemSamples([...problemSamples, { input: '', output: '' }])
+  }
+
+  const removeSample = (index) => {
+    if (problemSamples.length === 1) return
+    setProblemSamples(problemSamples.filter((_, i) => i !== index))
+  }
+
+  const updateSample = (index, field, value) => {
+    const newSamples = [...problemSamples]
+    newSamples[index][field] = value
+    setProblemSamples(newSamples)
+  }
+
+  const addTestCase = () => {
+    setProblemTestCases([...problemTestCases, { input: '', output: '' }])
+  }
+
+  const removeTestCase = (index) => {
+    if (problemTestCases.length === 1) return
+    setProblemTestCases(problemTestCases.filter((_, i) => i !== index))
+  }
+
+  const updateTestCase = (index, field, value) => {
+    const newTestCases = [...problemTestCases]
+    newTestCases[index][field] = value
+    setProblemTestCases(newTestCases)
+  }
+
+  const addOption = () => {
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F']
+    if (problemOptions.length >= letters.length) return
+    setProblemOptions([...problemOptions, letters[problemOptions.length]])
+  }
+
+  const removeOption = (index) => {
+    if (problemOptions.length <= 2) return
+    setProblemOptions(problemOptions.filter((_, i) => i !== index))
+  }
+
+  const updateOption = (index, value) => {
+    const newOptions = [...problemOptions]
+    newOptions[index] = value
+    setProblemOptions(newOptions)
   }
 
   const createSpaceProblem = async () => {
@@ -1184,7 +1280,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                 const nextType = event.target.value
                 setProblemType(nextType)
                 setProblemBodyJson(asPretty(defaultBody(nextType)))
-                setProblemAnswerJson(asPretty(defaultAnswer(nextType)))
               }}
             >
               <option value="programming">编程题</option>
@@ -1197,11 +1292,16 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             value={problemTitle}
             onChange={(event) => setProblemTitle(event.target.value)}
           />
-          <textarea
-            placeholder="题面描述（Markdown）"
-            value={problemStatement}
-            onChange={(event) => setProblemStatement(event.target.value)}
-          />
+          <label className="inline-field">
+            难度等级（1-5，3 为中等）
+            <input
+              type="number"
+              min="1"
+              max="5"
+              value={problemDifficulty}
+              onChange={(event) => setProblemDifficulty(Number(event.target.value))}
+            />
+          </label>
           <label className="inline-field">
             题目主体 JSON
             <textarea
@@ -1214,8 +1314,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             答案JSON
             <textarea
               className="mono"
-              value={problemAnswerJson}
-              onChange={(event) => setProblemAnswerJson(event.target.value)}
             />
           </label>
           <div className="inline-form">
@@ -1663,29 +1761,301 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   )
 
   const renderRootProblemSection = () => (
-    <section className="panel">
-      <h2>根题库管理</h2>
-      <div className="inline-form section-toolbar">
-        <input
-          placeholder="搜索根题（ID/标题）"
-          value={rootProblemSearch}
-          onChange={(event) => setRootProblemSearch(event.target.value)}
-        />
-        <button onClick={() => openConfigModal('create-root-problem')}>新建根题</button>
-      </div>
+    <Box sx={{ mt: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" component="h2">根题库管理</Typography>
+        <Button variant="contained" color="primary" onClick={() => setCreateRootProblemOpen(true)}>
+          新建根题
+        </Button>
+      </Box>
 
-      <div className="root-list">
-        {filteredRootProblems.length === 0 && <p className="muted">没有匹配的题目。</p>}
-        {filteredRootProblems.map((problem) => (
-          <div className="list-item" key={problem.id}>
-            <div>
-              <strong>#{problem.id} {problem.title}</strong>
-              <p>{problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
+      <TextField
+        fullWidth
+        placeholder="搜索根题（ID/标题）"
+        value={rootProblemSearch}
+        onChange={(event) => setRootProblemSearch(event.target.value)}
+        sx={{ mb: 3 }}
+      />
+
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>ID</TableCell>
+              <TableCell>标题</TableCell>
+              <TableCell>类型</TableCell>
+              <TableCell>难度</TableCell>
+              <TableCell>时限</TableCell>
+              <TableCell>内存</TableCell>
+              <TableCell align="right">操作</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredRootProblems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <Typography color="textSecondary">没有匹配的题目</Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredRootProblems.map((problem) => (
+                <TableRow key={problem.id} hover>
+                  <TableCell>#{problem.id}</TableCell>
+                  <TableCell>{problem.title}</TableCell>
+                  <TableCell><Chip label={problemTypeText(problem.type)} size="small" /></TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={problem.difficulty || 3} 
+                      size="small"
+                      color={problem.difficulty <= 2 ? 'success' : problem.difficulty >= 4 ? 'error' : 'warning'}
+                    />
+                  </TableCell>
+                  <TableCell>{problem.timeLimitMs}ms</TableCell>
+                  <TableCell>{problem.memoryLimitMiB}MiB</TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="编辑">
+                      <IconButton size="small" color="primary">
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="删除">
+                      <IconButton size="small" color="error">
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Create Root Problem Dialog */}
+      <Dialog open={createRootProblemOpen} onClose={() => setCreateRootProblemOpen(false)} maxWidth="md" fullWidth scroll="paper">
+        <DialogTitle>创建根题目</DialogTitle>
+        <DialogContent dividers sx={{ maxHeight: '70vh' }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            {/* Basic Info */}
+            <FormControl fullWidth>
+              <InputLabel>题目类型</InputLabel>
+              <Select
+                value={problemType}
+                label="题目类型"
+                onChange={(event) => {
+                  const nextType = event.target.value
+                  setProblemType(nextType)
+                  resetProblemForm()
+                }}
+              >
+                <MenuItem value="programming">编程题</MenuItem>
+                <MenuItem value="single_choice">单选题</MenuItem>
+                <MenuItem value="true_false">判断题</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              label="题目标题"
+              value={problemTitle}
+              onChange={(event) => setProblemTitle(event.target.value)}
+              placeholder="请输入题目标题"
+            />
+
+            <TextField
+              fullWidth
+              label="难度等级（1-5，3 为中等）"
+              type="number"
+              inputProps={{ min: 1, max: 5 }}
+              value={problemDifficulty}
+              onChange={(event) => setProblemDifficulty(Number(event.target.value))}
+            />
+
+            {/* Programming Problem Fields */}
+            {problemType === 'programming' && (
+              <>
+                <TextField
+                  fullWidth
+                  label="输入格式"
+                  value={problemInputFormat}
+                  onChange={(event) => setProblemInputFormat(event.target.value)}
+                  multiline
+                  rows={2}
+                  helperText="描述程序的输入格式要求"
+                />
+
+                <TextField
+                  fullWidth
+                  label="输出格式"
+                  value={problemOutputFormat}
+                  onChange={(event) => setProblemOutputFormat(event.target.value)}
+                  multiline
+                  rows={2}
+                  helperText="描述程序的输出格式要求"
+                />
+
+                {/* Sample Cases */}
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2">样例输入输出</Typography>
+                    <Button size="small" startIcon={<AddIcon />} onClick={addSample}>
+                      添加样例
+                    </Button>
+                  </Box>
+                  <Stack spacing={2}>
+                    {problemSamples.map((sample, index) => (
+                      <Paper key={index} sx={{ p: 2, bgcolor: 'background.default' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                          <Typography variant="caption" color="textSecondary">样例 {index + 1}</Typography>
+                          <IconButton size="small" onClick={() => removeSample(index)} disabled={problemSamples.length === 1}>
+                            <RemoveIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="样例输入"
+                              value={sample.input}
+                              onChange={(e) => updateSample(index, 'input', e.target.value)}
+                              multiline
+                              rows={2}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="样例输出"
+                              value={sample.output}
+                              onChange={(e) => updateSample(index, 'output', e.target.value)}
+                              multiline
+                              rows={2}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
+
+                {/* Test Cases */}
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2">测试用例（用于自动评测）</Typography>
+                    <Button size="small" startIcon={<AddIcon />} onClick={addTestCase}>
+                      添加测试用例
+                    </Button>
+                  </Box>
+                  <Stack spacing={2}>
+                    {problemTestCases.map((testCase, index) => (
+                      <Paper key={index} sx={{ p: 2, bgcolor: 'background.default' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                          <Typography variant="caption" color="textSecondary">测试用例 {index + 1}</Typography>
+                          <IconButton size="small" onClick={() => removeTestCase(index)} disabled={problemTestCases.length === 1}>
+                            <RemoveIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="输入"
+                              value={testCase.input}
+                              onChange={(e) => updateTestCase(index, 'input', e.target.value)}
+                              multiline
+                              rows={2}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="输出"
+                              value={testCase.output}
+                              onChange={(e) => updateTestCase(index, 'output', e.target.value)}
+                              multiline
+                              rows={2}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
+              </>
+            )}
+
+            {/* Single Choice Problem Fields */}
+            {problemType === 'single_choice' && (
+              <>
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2">选项</Typography>
+                    <Button size="small" startIcon={<AddIcon />} onClick={addOption} disabled={problemOptions.length >= 6}>
+                      添加选项
+                    </Button>
+                  </Box>
+                  <Stack spacing={1}>
+                    {problemOptions.map((option, index) => (
+                      <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Chip label={String.fromCharCode(65 + index)} size="small" sx={{ width: 40 }} />
+                        <TextField
+                          fullWidth
+                          size="small"
+                          value={option}
+                          onChange={(e) => updateOption(index, e.target.value)}
+                          placeholder={`选项${String.fromCharCode(65 + index)}的内容`}
+                        />
+                        <IconButton size="small" onClick={() => removeOption(index)} disabled={problemOptions.length <= 2}>
+                          <RemoveIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+
+                <FormControl fullWidth>
+                  <InputLabel>正确答案</InputLabel>
+                  <Select
+                    value={problemAnswer}
+                    label="正确答案"
+                    onChange={(event) => setProblemAnswer(event.target.value)}
+                  >
+                    {problemOptions.map((_, index) => (
+                      <MenuItem key={index} value={String.fromCharCode(65 + index)}>
+                        {String.fromCharCode(65 + index)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </>
+            )}
+
+            {/* True/False Problem Fields */}
+            {problemType === 'true_false' && (
+              <FormControl fullWidth>
+                <InputLabel>正确答案</InputLabel>
+                <Select
+                  value={problemAnswer}
+                  label="正确答案"
+                  onChange={(event) => setProblemAnswer(event.target.value)}
+                >
+                  <MenuItem value="true">正确（True）</MenuItem>
+                  <MenuItem value="false">错误（False）</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateRootProblemOpen(false)}>取消</Button>
+          <Button variant="contained" onClick={createRootProblem}>创建</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   )
 
   const renderSystemSection = () => (
