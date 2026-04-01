@@ -23,6 +23,9 @@ function ResetProblemForm() {
   return {
     title: '',
     difficulty: 3,
+    statement: '',
+    timeLimitMs: 1000,
+    memoryLimitMiB: 256,
     inputFormat: '请在此填写输入格式',
     outputFormat: '请在此填写输出格式',
     samples: [{ input: '', output: '' }],
@@ -36,6 +39,9 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
   const [problemType, setProblemType] = useState('programming')
   const [problemTitle, setProblemTitle] = useState('')
   const [problemDifficulty, setProblemDifficulty] = useState(3)
+  const [problemStatement, setProblemStatement] = useState('')
+  const [problemTimeLimit, setProblemTimeLimit] = useState(1000)
+  const [problemMemoryLimit, setProblemMemoryLimit] = useState(256)
   const [problemInputFormat, setProblemInputFormat] = useState('请在此填写输入格式')
   const [problemOutputFormat, setProblemOutputFormat] = useState('请在此填写输出格式')
   const [problemSamples, setProblemSamples] = useState([{ input: '', output: '' }])
@@ -47,6 +53,9 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
     const reset = ResetProblemForm()
     setProblemTitle(reset.title)
     setProblemDifficulty(reset.difficulty)
+    setProblemStatement(reset.statement)
+    setProblemTimeLimit(reset.timeLimitMs)
+    setProblemMemoryLimit(reset.memoryLimitMiB)
     setProblemInputFormat(reset.inputFormat)
     setProblemOutputFormat(reset.outputFormat)
     setProblemSamples(reset.samples)
@@ -117,6 +126,9 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
     let bodyJson
     if (problemType === 'programming') {
       bodyJson = {
+        statement: problemStatement,
+        timeLimitMs: problemTimeLimit,
+        memoryLimitMiB: problemMemoryLimit,
         inputFormat: problemInputFormat,
         outputFormat: problemOutputFormat,
         samples: problemSamples.filter(s => s.input || s.output),
@@ -189,6 +201,42 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
           {/* Programming Problem Fields */}
           {problemType === 'programming' && (
             <>
+              <TextField
+                fullWidth
+                label="题目正文"
+                value={problemStatement}
+                onChange={(event) => setProblemStatement(event.target.value)}
+                multiline
+                rows={6}
+                placeholder="请详细描述题目要求、背景故事等"
+                helperText="题目的主要描述内容"
+              />
+
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    label="时间限制 (ms)"
+                    type="number"
+                    value={problemTimeLimit}
+                    onChange={(event) => setProblemTimeLimit(Number(event.target.value))}
+                    inputProps={{ min: 100, step: 100 }}
+                    helperText="程序运行的最大时间"
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    label="内存限制 (MiB)"
+                    type="number"
+                    value={problemMemoryLimit}
+                    onChange={(event) => setProblemMemoryLimit(Number(event.target.value))}
+                    inputProps={{ min: 16, step: 16 }}
+                    helperText="程序运行的最大内存"
+                  />
+                </Grid>
+              </Grid>
+
               <TextField
                 fullWidth
                 label="输入格式"
