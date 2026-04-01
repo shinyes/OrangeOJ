@@ -42,8 +42,8 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
   const [problemStatement, setProblemStatement] = useState('')
   const [problemTimeLimit, setProblemTimeLimit] = useState(1000)
   const [problemMemoryLimit, setProblemMemoryLimit] = useState(256)
-  const [problemInputFormat, setProblemInputFormat] = useState('请在此填写输入格式')
-  const [problemOutputFormat, setProblemOutputFormat] = useState('请在此填写输出格式')
+  const [problemInputFormat, setProblemInputFormat] = useState('')
+  const [problemOutputFormat, setProblemOutputFormat] = useState('')
   const [problemSamples, setProblemSamples] = useState([{ input: '', output: '' }])
   const [problemTestCases, setProblemTestCases] = useState([{ input: '', output: '' }])
   const [problemOptions, setProblemOptions] = useState(['A', 'B', 'C', 'D'])
@@ -240,7 +240,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                 onChange={(event) => setProblemStatement(event.target.value)}
                 multiline
                 minRows={6}
-                maxRows={12}
+                maxRows={20}
                 placeholder="请详细描述题目要求..."
               />
 
@@ -253,8 +253,8 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                     value={problemInputFormat}
                     onChange={(event) => setProblemInputFormat(event.target.value)}
                     multiline
-                    minRows={3}
-                    maxRows={6}
+                    minRows={2}
+                    maxRows={10}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -265,8 +265,8 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                     value={problemOutputFormat}
                     onChange={(event) => setProblemOutputFormat(event.target.value)}
                     multiline
-                    minRows={3}
-                    maxRows={6}
+                    minRows={2}
+                    maxRows={10}
                   />
                 </Grid>
               </Grid>
@@ -298,7 +298,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                             onChange={(e) => updateSample(index, 'input', e.target.value)}
                             multiline
                             minRows={2}
-                            maxRows={6}
+                            maxRows={10}
                           />
                         </Grid>
                         <Grid item xs={6}>
@@ -310,7 +310,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                             onChange={(e) => updateSample(index, 'output', e.target.value)}
                             multiline
                             minRows={2}
-                            maxRows={6}
+                            maxRows={10}
                           />
                         </Grid>
                       </Grid>
@@ -346,7 +346,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                             onChange={(e) => updateTestCase(index, 'input', e.target.value)}
                             multiline
                             minRows={2}
-                            maxRows={6}
+                            maxRows={10}
                           />
                         </Grid>
                         <Grid item xs={6}>
@@ -357,8 +357,8 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                             value={testCase.output}
                             onChange={(e) => updateTestCase(index, 'output', e.target.value)}
                             multiline
-                            minRows={3}
-                            maxRows={8}
+                            minRows={2}
+                            maxRows={10}
                           />
                         </Grid>
                       </Grid>
