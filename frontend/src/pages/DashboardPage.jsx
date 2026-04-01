@@ -157,6 +157,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [spaceSettingsMessage, setSpaceSettingsMessage] = useState('')
 
   const [spaceProblemType, setSpaceProblemType] = useState('programming')
+  const [spaceProblemSearch, setSpaceProblemSearch] = useState('')
   const [editingProblemId, setEditingProblemId] = useState(null)
   const [memberUserId, setMemberUserId] = useState('')
   const [memberRole, setMemberRole] = useState('member')
