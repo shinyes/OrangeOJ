@@ -164,117 +164,128 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle>创建根题目</DialogTitle>
-      <DialogContent dividers sx={{ maxHeight: '70vh' }}>
-        <Stack spacing={3} sx={{ mt: 1 }}>
-          {/* Basic Info */}
-          <FormControl fullWidth>
-            <InputLabel>题目类型</InputLabel>
-            <Select
-              value={problemType}
-              label="题目类型"
-              onChange={handleTypeChange}
-            >
-              <MenuItem value="programming">编程题</MenuItem>
-              <MenuItem value="single_choice">单选题</MenuItem>
-              <MenuItem value="true_false">判断题</MenuItem>
-            </Select>
-          </FormControl>
-
-          <TextField
-            fullWidth
-            label="题目标题"
-            value={problemTitle}
-            onChange={(event) => setProblemTitle(event.target.value)}
-            placeholder="请输入题目标题"
-          />
-
-          <TextField
-            fullWidth
-            label="难度等级（1-5，3 为中等）"
-            type="number"
-            inputProps={{ min: 1, max: 5 }}
-            value={problemDifficulty}
-            onChange={(event) => setProblemDifficulty(Number(event.target.value))}
-          />
+      <DialogTitle sx={{ pb: 2 }}>创建根题目</DialogTitle>
+      <DialogContent dividers sx={{ maxHeight: '70vh', pt: 2 }}>
+        <Stack spacing={2}>
+          {/* Basic Info - 紧凑布局 */}
+          <Grid container spacing={1}>
+            <Grid item xs={2.5}>
+              <FormControl fullWidth size="small">
+                <InputLabel shrink>题目类型</InputLabel>
+                <Select
+                  value={problemType}
+                  label="题目类型"
+                  onChange={handleTypeChange}
+                  sx={{ '& .MuiOutlinedInput-notchedOutline': { borderWidth: '1px !important' } }}
+                >
+                  <MenuItem value="programming">编程题</MenuItem>
+                  <MenuItem value="single_choice">单选题</MenuItem>
+                  <MenuItem value="true_false">判断题</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={5.5}>
+              <TextField
+                fullWidth
+                size="small"
+                label="题目标题"
+                value={problemTitle}
+                onChange={(event) => setProblemTitle(event.target.value)}
+                placeholder="请输入题目标题"
+              />
+            </Grid>
+            <Grid item xs={1}>
+              <TextField
+                fullWidth
+                size="small"
+                label="难度"
+                type="number"
+                inputProps={{ min: 1, max: 5 }}
+                value={problemDifficulty}
+                onChange={(event) => setProblemDifficulty(Number(event.target.value))}
+              />
+            </Grid>
+            <Grid item xs={1.5}>
+              <TextField
+                fullWidth
+                size="small"
+                label="时间 (ms)"
+                type="number"
+                value={problemTimeLimit}
+                onChange={(event) => setProblemTimeLimit(Number(event.target.value))}
+                inputProps={{ min: 100, step: 100 }}
+              />
+            </Grid>
+            <Grid item xs={1.5}>
+              <TextField
+                fullWidth
+                size="small"
+                label="内存 (MiB)"
+                type="number"
+                value={problemMemoryLimit}
+                onChange={(event) => setProblemMemoryLimit(Number(event.target.value))}
+                inputProps={{ min: 16, step: 16 }}
+              />
+            </Grid>
+          </Grid>
 
           {/* Programming Problem Fields */}
           {problemType === 'programming' && (
             <>
               <TextField
                 fullWidth
+                size="small"
                 label="题目正文"
                 value={problemStatement}
                 onChange={(event) => setProblemStatement(event.target.value)}
                 multiline
-                rows={6}
-                placeholder="请详细描述题目要求、背景故事等"
-                helperText="题目的主要描述内容"
+                rows={4}
+                placeholder="请详细描述题目要求..."
               />
 
               <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
-                    label="时间限制 (ms)"
-                    type="number"
-                    value={problemTimeLimit}
-                    onChange={(event) => setProblemTimeLimit(Number(event.target.value))}
-                    inputProps={{ min: 100, step: 100 }}
-                    helperText="程序运行的最大时间"
+                    size="small"
+                    label="输入格式"
+                    value={problemInputFormat}
+                    onChange={(event) => setProblemInputFormat(event.target.value)}
+                    multiline
+                    rows={2}
                   />
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
-                    label="内存限制 (MiB)"
-                    type="number"
-                    value={problemMemoryLimit}
-                    onChange={(event) => setProblemMemoryLimit(Number(event.target.value))}
-                    inputProps={{ min: 16, step: 16 }}
-                    helperText="程序运行的最大内存"
+                    size="small"
+                    label="输出格式"
+                    value={problemOutputFormat}
+                    onChange={(event) => setProblemOutputFormat(event.target.value)}
+                    multiline
+                    rows={2}
                   />
                 </Grid>
               </Grid>
 
-              <TextField
-                fullWidth
-                label="输入格式"
-                value={problemInputFormat}
-                onChange={(event) => setProblemInputFormat(event.target.value)}
-                multiline
-                rows={2}
-                helperText="描述程序的输入格式要求"
-              />
-
-              <TextField
-                fullWidth
-                label="输出格式"
-                value={problemOutputFormat}
-                onChange={(event) => setProblemOutputFormat(event.target.value)}
-                multiline
-                rows={2}
-                helperText="描述程序的输出格式要求"
-              />
-
               {/* Sample Cases */}
               <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="subtitle2">样例输入输出</Typography>
                   <Button size="small" startIcon={<AddIcon />} onClick={addSample}>
                     添加样例
                   </Button>
                 </Box>
-                <Stack spacing={2}>
+                <Stack spacing={1.5}>
                   {problemSamples.map((sample, index) => (
-                    <Paper key={index} sx={{ p: 2, bgcolor: 'background.default' }}>
+                    <Paper key={index} sx={{ p: 1.5, bgcolor: 'background.default' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="caption" color="textSecondary">样例 {index + 1}</Typography>
                         <IconButton size="small" onClick={() => removeSample(index)} disabled={problemSamples.length === 1}>
                           <RemoveIcon fontSize="small" />
                         </IconButton>
                       </Box>
-                      <Grid container spacing={2}>
+                      <Grid container spacing={1.5}>
                         <Grid item xs={6}>
                           <TextField
                             fullWidth
@@ -283,7 +294,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                             value={sample.input}
                             onChange={(e) => updateSample(index, 'input', e.target.value)}
                             multiline
-                            rows={2}
+                            rows={1}
                           />
                         </Grid>
                         <Grid item xs={6}>
@@ -294,7 +305,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                             value={sample.output}
                             onChange={(e) => updateSample(index, 'output', e.target.value)}
                             multiline
-                            rows={2}
+                            rows={1}
                           />
                         </Grid>
                       </Grid>
@@ -305,22 +316,22 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
 
               {/* Test Cases */}
               <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle2">测试用例（用于自动评测）</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle2">测试用例</Typography>
                   <Button size="small" startIcon={<AddIcon />} onClick={addTestCase}>
                     添加测试用例
                   </Button>
                 </Box>
-                <Stack spacing={2}>
+                <Stack spacing={1.5}>
                   {problemTestCases.map((testCase, index) => (
-                    <Paper key={index} sx={{ p: 2, bgcolor: 'background.default' }}>
+                    <Paper key={index} sx={{ p: 1.5, bgcolor: 'background.default' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="caption" color="textSecondary">测试用例 {index + 1}</Typography>
                         <IconButton size="small" onClick={() => removeTestCase(index)} disabled={problemTestCases.length === 1}>
                           <RemoveIcon fontSize="small" />
                         </IconButton>
                       </Box>
-                      <Grid container spacing={2}>
+                      <Grid container spacing={1.5}>
                         <Grid item xs={6}>
                           <TextField
                             fullWidth
@@ -329,7 +340,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                             value={testCase.input}
                             onChange={(e) => updateTestCase(index, 'input', e.target.value)}
                             multiline
-                            rows={2}
+                            rows={1}
                           />
                         </Grid>
                         <Grid item xs={6}>
@@ -361,7 +372,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                     添加选项
                   </Button>
                 </Box>
-                <Stack spacing={1}>
+                <Stack spacing={0.75}>
                   {problemOptions.map((option, index) => (
                     <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Chip label={String.fromCharCode(65 + index)} size="small" sx={{ width: 40 }} />
@@ -370,7 +381,7 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                         size="small"
                         value={option}
                         onChange={(e) => updateOption(index, e.target.value)}
-                        placeholder={`选项${String.fromCharCode(65 + index)}的内容`}
+                        placeholder={`选项${String.fromCharCode(65 + index)}`}
                       />
                       <IconButton size="small" onClick={() => removeOption(index)} disabled={problemOptions.length <= 2}>
                         <RemoveIcon fontSize="small" />
@@ -380,8 +391,8 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
                 </Stack>
               </Box>
 
-              <FormControl fullWidth>
-                <InputLabel>正确答案</InputLabel>
+              <FormControl fullWidth size="small">
+                <InputLabel shrink>正确答案</InputLabel>
                 <Select
                   value={problemAnswer}
                   label="正确答案"
@@ -399,8 +410,8 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
 
           {/* True/False Problem Fields */}
           {problemType === 'true_false' && (
-            <FormControl fullWidth>
-              <InputLabel>正确答案</InputLabel>
+            <FormControl fullWidth size="small">
+              <InputLabel shrink>正确答案</InputLabel>
               <Select
                 value={problemAnswer}
                 label="正确答案"
@@ -413,9 +424,9 @@ export default function RootProblemCreator({ open, onClose, onCreate }) {
           )}
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>取消</Button>
-        <Button variant="contained" onClick={handleSubmit}>创建</Button>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={handleClose} size="medium">取消</Button>
+        <Button variant="contained" onClick={handleSubmit} size="medium">创建</Button>
       </DialogActions>
     </Dialog>
   )
