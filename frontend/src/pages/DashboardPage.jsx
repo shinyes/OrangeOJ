@@ -159,6 +159,9 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [spaceSettingsSubmitting, setSpaceSettingsSubmitting] = useState(false)
   const [spaceSettingsMessage, setSpaceSettingsMessage] = useState('')
 
+  const [planTitle, setPlanTitle] = useState('')
+  const [homeworkTitle, setHomeworkTitle] = useState('')
+
   const [spaceProblemType, setSpaceProblemType] = useState('programming')
   const [spaceProblemSearch, setSpaceProblemSearch] = useState('')
   const [editingProblemId, setEditingProblemId] = useState(null)
