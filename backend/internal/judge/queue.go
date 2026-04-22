@@ -202,7 +202,7 @@ func (q *QueueService) processJob(ctx context.Context, job jobItem) error {
 		}
 	}
 
-	if err := q.finishSubmission(ctx, sub, finalVerdict, result.TimeMS, result.MemoryKiB, score, result.Stdout, result.Stderr); err != nil {
+	if err := q.finishSubmission(ctx, sub, finalVerdict, result.TimeMS, result.MemoryKiB, score, result.Stdout, result.Stderr, result.CaseResults); err != nil {
 		return err
 	}
 	if err := q.completeJob(ctx, job.ID); err != nil {
@@ -226,11 +226,19 @@ WHERE s.id = ?`, submissionID)
 	return s, nil
 }
 
-func (q *QueueService) finishSubmission(ctx context.Context, sub *runtimeSubmission, verdict model.Verdict, timeMS, memoryKiB, score int, stdout, stderr string) error {
+func (q *QueueService) finishSubmission(ctx context.Context, sub *runtimeSubmission, verdict model.Verdict, timeMS, memoryKiB, score int, stdout, stderr string, caseDetails []CaseResult) error {
+	caseDetailsJSON := ""
+	if len(caseDetails) > 0 {
+		raw, err := json.Marshal(caseDetails)
+		if err != nil {
+			return err
+		}
+		caseDetailsJSON = string(raw)
+	}
 	_, err := q.db.ExecContext(ctx, `
 UPDATE submissions
-SET status='done', verdict=?, time_ms=?, memory_kib=?, score=?, stdout=?, stderr=?, finished_at=CURRENT_TIMESTAMP
-WHERE id=?`, string(verdict), timeMS, memoryKiB, score, stdout, stderr, sub.ID)
+SET status='done', verdict=?, time_ms=?, memory_kib=?, score=?, stdout=?, stderr=?, case_details_json=?, finished_at=CURRENT_TIMESTAMP
+WHERE id=?`, string(verdict), timeMS, memoryKiB, score, stdout, stderr, caseDetailsJSON, sub.ID)
 	if err != nil {
 		return err
 	}

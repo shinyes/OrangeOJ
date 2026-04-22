@@ -7,7 +7,7 @@ import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
-import Alert from '@mui/material/Alert'
+import ToastMessage from '../components/ToastMessage'
 
 export default function RegisterPage({ user }) {
   const navigate = useNavigate()
@@ -178,17 +178,9 @@ export default function RegisterPage({ user }) {
               onChange={(event) => setConfirmPassword(event.target.value)}
             />
             
-            {error && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {error}
-              </Alert>
-            )}
+            {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             
-            {success && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                {success}
-              </Alert>
-            )}
+            {success && <ToastMessage message={success} severity="success" onShown={() => setSuccess('')} />}
             
             <Button
               type="submit"

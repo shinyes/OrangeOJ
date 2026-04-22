@@ -125,6 +125,7 @@ func (e *Executor) Execute(ctx context.Context, task judge.JudgeTask) (judge.Run
 	maxTimeMS := 0
 	stdoutBuilder := strings.Builder{}
 	stderrBuilder := strings.Builder{}
+	caseResults := make([]judge.CaseResult, 0, len(task.Cases))
 	verdict := model.VerdictAC
 	if !task.CheckAnswer {
 		verdict = model.VerdictOK
@@ -146,35 +147,99 @@ func (e *Executor) Execute(ctx context.Context, task judge.JudgeTask) (judge.Run
 			stderrBuilder.WriteString(fmt.Sprintf("[case %d stderr]\n%s\n", i+1, runResult.stderr))
 		}
 
+		caseVerdict := model.VerdictAC
+		if !task.CheckAnswer {
+			caseVerdict = model.VerdictOK
+		}
+		caseError := runResult.stderr
+
 		if runResult.timedOut {
 			if task.TimeLimitMS > maxTimeMS {
 				maxTimeMS = task.TimeLimitMS
 			}
 			stderrBuilder.WriteString(fmt.Sprintf("[case %d stderr]\nTime limit exceeded\n", i+1))
+			caseVerdict = model.VerdictTLE
+			caseError = trimTo(runResult.stderr+"\nTime limit exceeded", 8000)
+			caseResults = append(caseResults, judge.CaseResult{
+				CaseNo:         i + 1,
+				Verdict:        caseVerdict,
+				Input:          tc.Input,
+				Output:         runResult.stdout,
+				ExpectedOutput: tc.Expected,
+				Error:          caseError,
+				TimeMS:         task.TimeLimitMS,
+				MemoryKiB:      task.MemoryLimitMiB * 1024,
+			})
 			verdict = model.VerdictTLE
 			break
 		}
 		if isMemoryExceeded(runResult.exitCode, runResult.stderr) {
+			caseVerdict = model.VerdictMLE
+			caseResults = append(caseResults, judge.CaseResult{
+				CaseNo:         i + 1,
+				Verdict:        caseVerdict,
+				Input:          tc.Input,
+				Output:         runResult.stdout,
+				ExpectedOutput: tc.Expected,
+				Error:          caseError,
+				TimeMS:         runResult.durationMS,
+				MemoryKiB:      task.MemoryLimitMiB * 1024,
+			})
 			verdict = model.VerdictMLE
 			break
 		}
 		if runResult.exitCode != 0 {
+			caseVerdict = model.VerdictRE
+			caseResults = append(caseResults, judge.CaseResult{
+				CaseNo:         i + 1,
+				Verdict:        caseVerdict,
+				Input:          tc.Input,
+				Output:         runResult.stdout,
+				ExpectedOutput: tc.Expected,
+				Error:          caseError,
+				TimeMS:         runResult.durationMS,
+				MemoryKiB:      task.MemoryLimitMiB * 1024,
+			})
 			verdict = model.VerdictRE
 			break
 		}
 		if task.CheckAnswer && judge.NormalizeOutput(runResult.stdout) != judge.NormalizeOutput(tc.Expected) {
 			stderrBuilder.WriteString(fmt.Sprintf("[case %d] expected:\n%s\n", i+1, tc.Expected))
+			caseVerdict = model.VerdictWA
+			caseError = trimTo(runResult.stderr+"\nExpected output:\n"+tc.Expected, 8000)
+			caseResults = append(caseResults, judge.CaseResult{
+				CaseNo:         i + 1,
+				Verdict:        caseVerdict,
+				Input:          tc.Input,
+				Output:         runResult.stdout,
+				ExpectedOutput: tc.Expected,
+				Error:          caseError,
+				TimeMS:         runResult.durationMS,
+				MemoryKiB:      task.MemoryLimitMiB * 1024,
+			})
 			verdict = model.VerdictWA
 			break
 		}
+
+		caseResults = append(caseResults, judge.CaseResult{
+			CaseNo:         i + 1,
+			Verdict:        caseVerdict,
+			Input:          tc.Input,
+			Output:         runResult.stdout,
+			ExpectedOutput: tc.Expected,
+			Error:          caseError,
+			TimeMS:         runResult.durationMS,
+			MemoryKiB:      task.MemoryLimitMiB * 1024,
+		})
 	}
 
 	return judge.RunResult{
-		Verdict:   verdict,
-		Stdout:    trimTo(stdoutBuilder.String(), 12000),
-		Stderr:    trimTo(stderrBuilder.String(), 12000),
-		TimeMS:    maxTimeMS,
-		MemoryKiB: task.MemoryLimitMiB * 1024,
+		Verdict:     verdict,
+		Stdout:      trimTo(stdoutBuilder.String(), 12000),
+		Stderr:      trimTo(stderrBuilder.String(), 12000),
+		TimeMS:      maxTimeMS,
+		MemoryKiB:   task.MemoryLimitMiB * 1024,
+		CaseResults: caseResults,
 	}, nil
 }
 

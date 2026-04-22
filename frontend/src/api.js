@@ -26,14 +26,25 @@ const errorMessageMap = {
   'old password incorrect': '旧密码不正确',
   'new password must be at least 6 characters': '新密码至少需要 6位',
   'user not found': '用户不存在',
+  'problem not found': '题目不存在',
   'user is not in this space': '该用户不在当前空间内',
   'cannot reset system admin password': '不能重置系统管理员密码',
   'items must contain 1 to 200 entries': '批量注册每次最多200条',
   'problem already linked': '该题目已在空间题库中',
   'problem not linked in this space': '该题目未加入当前空间',
+  'problem not linked to space': '该题目未加入当前空间',
+  'problem is still referenced': '该题目仍被作业、训练或提交记录引用，无法删除',
   'invalid language': '默认编程语言不合法',
+  'invalid display mode': '作业显示模式不合法',
   'name required': '空间名称不能为空',
-  'space name already exists': '空间名称已存在'
+  'space name already exists': '空间名称已存在',
+  'title required': '标题不能为空',
+  'training plan not found in this space': '当前空间中不存在该训练计划',
+  'self join disabled': '该训练不允许自行加入',
+  'homework not found in this space': '当前空间中不存在该作业',
+  'submission record items required': '当前没有可记录的作业提交内容',
+  'unsupported language': '编程语言不受支持',
+  'language and sourceCode are required': '请先选择语言并填写代码'
 }
 
 export function toFriendlyError(message) {
@@ -70,6 +81,18 @@ export async function apiFetch(path, options = {}) {
   return data?.data
 }
 
+function withQuery(path, params = {}) {
+  const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== false && value !== '')
+  if (entries.length === 0) {
+    return path
+  }
+  const query = new URLSearchParams()
+  entries.forEach(([key, value]) => {
+    query.set(key, String(value))
+  })
+  return `${path}?${query.toString()}`
+}
+
 export const api = {
   registrationStatus: () => apiFetch('/api/auth/registration-status'),
   me: () => apiFetch('/api/auth/me'),
@@ -83,8 +106,9 @@ export const api = {
 
   listRootProblems: () => apiFetch('/api/admin/root-problems'),
   createRootProblem: (body) => apiFetch('/api/admin/root-problems', { method: 'POST', body }),
-  getRootProblem: (problemId) => apiFetch(`/api/root-problems/${problemId}`),
+  getRootProblem: (problemId) => apiFetch(`/api/admin/root-problems/${problemId}`),
   updateRootProblem: (problemId, body) => apiFetch(`/api/admin/root-problems/${problemId}`, { method: 'PUT', body }),
+  deleteRootProblem: (problemId) => apiFetch(`/api/admin/root-problems/${problemId}`, { method: 'DELETE' }),
   batchRegisterUsers: (body) => apiFetch('/api/admin/users/batch-register', { method: 'POST', body }),
 
   listAdminSpaces: () => apiFetch('/api/admin/spaces'),
@@ -107,18 +131,26 @@ export const api = {
 
   listTrainingPlans: (spaceId) => apiFetch(`/api/spaces/${spaceId}/training-plans`),
   createTrainingPlan: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/training-plans`, { method: 'POST', body }),
+  getTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`),
+  updateTrainingPlan: (spaceId, planId, body) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`, { method: 'PUT', body }),
+  deleteTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`, { method: 'DELETE' }),
+  addTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants`, { method: 'POST', body: { userId } }),
   joinTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/join`, { method: 'POST' }),
 
   listHomeworks: (spaceId) => apiFetch(`/api/spaces/${spaceId}/homeworks`),
   createHomework: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks`, { method: 'POST', body }),
   getHomework: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`),
+  listHomeworkSubmissionRecords: (spaceId, homeworkId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`, { all: options.all ? 1 : undefined })),
+  createHomeworkSubmissionRecord: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`, { method: 'POST', body }),
+  updateHomework: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { method: 'PUT', body }),
+  deleteHomework: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { method: 'DELETE' }),
   addHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets`, { method: 'POST', body: { userId } }),
 
   objectiveSubmit: (spaceId, problemId, answer) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/objective-submit`, { method: 'POST', body: { answer } }),
   run: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/run`, { method: 'POST', body }),
   test: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/test`, { method: 'POST', body }),
   submit: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/submit`, { method: 'POST', body }),
-  listSubmissions: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/submissions`),
+  listSubmissions: (spaceId, problemId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/problems/${problemId}/submissions`, { all: options.all ? 1 : undefined })),
   getSubmission: (submissionId) => apiFetch(`/api/submissions/${submissionId}`),
   pollSubmission: (submissionId) => apiFetch(`/api/submissions/${submissionId}/stream`),
 

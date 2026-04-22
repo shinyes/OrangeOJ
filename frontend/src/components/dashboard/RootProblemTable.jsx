@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
 import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
 import Table from '@mui/material/Table'
@@ -11,33 +15,72 @@ import TableRow from '@mui/material/TableRow'
 import TableContainer from '@mui/material/TableContainer'
 import Paper from '@mui/material/Paper'
 import Chip from '@mui/material/Chip'
+import ToastMessage from '../ToastMessage'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RootProblemCreator from './RootProblemCreator'
 
-export default function RootProblemTable({ 
-  rootProblems, 
-  search, 
-  onSearchChange, 
+export default function RootProblemTable({
+  rootProblems,
+  search,
+  onSearchChange,
   onCreate,
-  problemTypeText 
+  onUpdate,
+  onDelete,
+  problemTypeText
 }) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [editingProblem, setEditingProblem] = useState(null)
+  const [deletingProblem, setDeletingProblem] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const filteredRootProblems = useMemo(() => {
-    if (!search.trim()) return rootProblems
-    const term = search.toLowerCase()
-    return rootProblems.filter(p => 
-      p.id.toString().includes(term) || 
-      p.title.toLowerCase().includes(term)
-    )
+    const keyword = search.trim().toLowerCase()
+    if (!keyword) return rootProblems
+
+    return rootProblems.filter((problem) => {
+      return String(problem.id).includes(keyword) || String(problem.title || '').toLowerCase().includes(keyword)
+    })
   }, [rootProblems, search])
 
-  const handleCreate = (problemData) => {
-    onCreate(problemData)
+  const handleCreate = async (problemData) => {
+    await onCreate(problemData)
     setCreateDialogOpen(false)
+  }
+
+  const handleUpdate = async (problemData) => {
+    if (!editingProblem) return
+    await onUpdate(editingProblem.id, problemData)
+    setEditingProblem(null)
+  }
+
+  const openDeleteDialog = (problem) => {
+    setDeleteError('')
+    setDeletingProblem(problem)
+  }
+
+  const closeDeleteDialog = () => {
+    if (deleting) return
+    setDeleteError('')
+    setDeletingProblem(null)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingProblem) return
+
+    try {
+      setDeleting(true)
+      setDeleteError('')
+      await onDelete(deletingProblem.id)
+      setDeletingProblem(null)
+    } catch (err) {
+      setDeleteError(err.message || '删除失败')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -52,7 +95,7 @@ export default function RootProblemTable({
 
         <TextField
           fullWidth
-          placeholder="搜索根题（ID/标题）"
+          placeholder="搜索根题（ID / 标题）"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           sx={{ mb: 3 }}
@@ -65,17 +108,16 @@ export default function RootProblemTable({
                 <TableCell>ID</TableCell>
                 <TableCell>标题</TableCell>
                 <TableCell>类型</TableCell>
-                <TableCell>难度</TableCell>
-                <TableCell>时限</TableCell>
-                <TableCell>内存</TableCell>
+                <TableCell>时间限制</TableCell>
+                <TableCell>内存限制</TableCell>
                 <TableCell align="right">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredRootProblems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                    <Typography color="textSecondary">没有匹配的题目</Typography>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <Typography color="text.secondary">没有匹配的题目</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -86,23 +128,16 @@ export default function RootProblemTable({
                     <TableCell>
                       <Chip label={problemTypeText(problem.type)} size="small" />
                     </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={problem.difficulty || 3} 
-                        size="small"
-                        color={problem.difficulty <= 2 ? 'success' : problem.difficulty >= 4 ? 'error' : 'warning'}
-                      />
-                    </TableCell>
-                    <TableCell>{problem.timeLimitMs}ms</TableCell>
-                    <TableCell>{problem.memoryLimitMiB}MiB</TableCell>
+                    <TableCell>{problem.timeLimitMs} ms</TableCell>
+                    <TableCell>{problem.memoryLimitMiB} MiB</TableCell>
                     <TableCell align="right">
                       <Tooltip title="编辑">
-                        <IconButton size="small" color="primary">
+                        <IconButton size="small" color="primary" onClick={() => setEditingProblem(problem)}>
                           <EditIcon />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="删除">
-                        <IconButton size="small" color="error">
+                        <IconButton size="small" color="error" onClick={() => openDeleteDialog(problem)}>
                           <DeleteIcon />
                         </IconButton>
                       </Tooltip>
@@ -115,11 +150,39 @@ export default function RootProblemTable({
         </TableContainer>
       </Box>
 
-      <RootProblemCreator 
-        open={createDialogOpen} 
+      <RootProblemCreator
+        open={createDialogOpen}
+        mode="create"
         onClose={() => setCreateDialogOpen(false)}
-        onCreate={handleCreate}
+        onSubmit={handleCreate}
       />
+
+      <RootProblemCreator
+        open={Boolean(editingProblem)}
+        mode="edit"
+        problem={editingProblem}
+        onClose={() => setEditingProblem(null)}
+        onSubmit={handleUpdate}
+      />
+
+      <Dialog open={Boolean(deletingProblem)} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>删除题目</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            {deletingProblem ? `确认删除题目 #${deletingProblem.id}「${deletingProblem.title}」吗？` : ''}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            如果该题目仍被作业、训练或提交记录引用，系统会拒绝删除。
+          </Typography>
+          {deleteError && <ToastMessage message={deleteError} severity="error" onShown={() => setDeleteError('')} />}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog} disabled={deleting}>取消</Button>
+          <Button color="error" variant="contained" onClick={confirmDelete} disabled={deleting}>
+            {deleting ? '删除中...' : '确认删除'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }

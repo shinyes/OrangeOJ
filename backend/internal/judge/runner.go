@@ -30,11 +30,23 @@ type JudgeTask struct {
 }
 
 type RunResult struct {
-	Verdict   model.Verdict `json:"verdict"`
-	Stdout    string        `json:"stdout"`
-	Stderr    string        `json:"stderr"`
-	TimeMS    int           `json:"timeMs"`
-	MemoryKiB int           `json:"memoryKiB"`
+	Verdict     model.Verdict `json:"verdict"`
+	Stdout      string        `json:"stdout"`
+	Stderr      string        `json:"stderr"`
+	TimeMS      int           `json:"timeMs"`
+	MemoryKiB   int           `json:"memoryKiB"`
+	CaseResults []CaseResult  `json:"caseResults,omitempty"`
+}
+
+type CaseResult struct {
+	CaseNo         int           `json:"caseNo"`
+	Verdict        model.Verdict `json:"verdict"`
+	Input          string        `json:"input"`
+	Output         string        `json:"output"`
+	ExpectedOutput string        `json:"expectedOutput"`
+	Error          string        `json:"error"`
+	TimeMS         int           `json:"timeMs"`
+	MemoryKiB      int           `json:"memoryKiB"`
 }
 
 type Runner interface {

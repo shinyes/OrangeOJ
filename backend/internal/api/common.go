@@ -55,6 +55,13 @@ func (a *API) ensureSpaceReadable(spaceID, userID int64, globalRole string) erro
 	return nil
 }
 
+func (a *API) isSpaceAdmin(spaceID, userID int64, globalRole string) (bool, error) {
+	if globalRole == "system_admin" {
+		return true, nil
+	}
+	return auth.IsSpaceAdmin(a.DB, spaceID, userID)
+}
+
 func scanNullString(ns sql.NullString) string {
 	if !ns.Valid {
 		return ""
@@ -67,7 +74,15 @@ func isUniqueErr(err error) bool {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "unique constraint failed") || strings.Contains(msg, "constraint failed")
+	return strings.Contains(msg, "unique constraint failed")
+}
+
+func isForeignKeyErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "foreign key constraint failed")
 }
 
 func normalizeProblemType(problemType string) string {

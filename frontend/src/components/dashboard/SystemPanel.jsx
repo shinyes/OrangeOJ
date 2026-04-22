@@ -10,9 +10,9 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
-import Alert from '@mui/material/Alert'
 import IconButton from '@mui/material/IconButton'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import ToastMessage from '../ToastMessage'
 
 export default function SystemPanel({
   systemTab,
@@ -62,9 +62,7 @@ export default function SystemPanel({
           <Button variant="contained" onClick={onOpenAdminResetDialog}>
             打开重置弹窗
           </Button>
-          {adminResetMessage && (
-            <Alert severity="success" sx={{ mt: 2 }}>{adminResetMessage}</Alert>
-          )}
+          {adminResetMessage && <ToastMessage message={adminResetMessage} severity="success" />}
         </Box>
       )}
 

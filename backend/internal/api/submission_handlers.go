@@ -66,10 +66,11 @@ func (a *API) handleObjectiveSubmit(c *fiber.Ctx) error {
 		verdict = model.VerdictAC
 		score = 100
 	}
+	answerText := strings.TrimSpace(fmt.Sprintf("%v", req.Answer))
 
 	res, err := a.DB.Exec(`
 INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
-VALUES(?, ?, ?, ?, '', '', '', 'objective', 'done', ?, ?, '', '', CURRENT_TIMESTAMP)`, user.ID, spaceID, problemID, pType, string(verdict), score)
+VALUES(?, ?, ?, ?, '', '', ?, 'objective', 'done', ?, ?, '', '', CURRENT_TIMESTAMP)`, user.ID, spaceID, problemID, pType, answerText, string(verdict), score)
 	if err != nil {
 		return err
 	}
@@ -176,21 +177,43 @@ func (a *API) handleListSubmissions(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
-	// Check permission (allow if space admin or regular user viewing own submissions)
-	_, err = oauth.IsSpaceAdmin(a.DB, spaceID, user.ID)
-	if err != nil {
+	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
+		return err
+	}
+	if err := a.ensureProblemLinked(spaceID, problemID); err != nil {
 		return err
 	}
 
-	log.Printf("[DEBUG] Fetching submissions for space=%d, problem=%d, user=%d", spaceID, problemID, user.ID)
+	includeAll := false
+	if parseBoolQueryParam(c, "all") {
+		if user.GlobalRole == "system_admin" {
+			includeAll = true
+		} else {
+			spaceAdmin, err := oauth.IsSpaceAdmin(a.DB, spaceID, user.ID)
+			if err != nil {
+				return err
+			}
+			includeAll = spaceAdmin
+		}
+	}
 
-	rows, err := a.DB.Query(`
-SELECT id, user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, time_ms, memory_kib, score, stdout, stderr, created_at, finished_at
-FROM submissions
-WHERE space_id=? AND problem_id=? AND user_id=?
-ORDER BY created_at DESC
-LIMIT 50`, spaceID, problemID, user.ID)
+	log.Printf("[DEBUG] Fetching submissions for space=%d, problem=%d, user=%d, includeAll=%t", spaceID, problemID, user.ID, includeAll)
+
+	query := `
+SELECT s.id, s.user_id, u.username, s.space_id, s.problem_id, s.question_type, s.language, s.source_code, s.input_data, s.submit_type, s.status, s.verdict, s.time_ms, s.memory_kib, s.score, s.stdout, s.stderr, s.case_details_json, s.created_at, s.finished_at
+FROM submissions s
+JOIN users u ON u.id = s.user_id
+WHERE s.space_id=? AND s.problem_id=?`
+	args := []interface{}{spaceID, problemID}
+	if !includeAll {
+		query += ` AND s.user_id=?`
+		args = append(args, user.ID)
+	}
+	query += `
+ORDER BY s.id DESC
+LIMIT 50`
+
+	rows, err := a.DB.Query(query, args...)
 	if err != nil {
 		return err
 	}
@@ -199,19 +222,20 @@ LIMIT 50`, spaceID, problemID, user.ID)
 	var submissions []map[string]interface{}
 	for rows.Next() {
 		var (
-			id, userID, spID, problemID                                         int64
-			qType, language, sourceCode, inputData, submitType, status, verdict string
-			timeMS, memoryKiB, score                                            int
-			stdout, stderr                                                      string
-			createdAt                                                           string
-			finishedAt                                                          sql.NullString
+			id, userID, spID, problemID                                                 int64
+			username, qType, language, sourceCode, inputData, submitType, status, verdict string
+			timeMS, memoryKiB, score                                                    int
+			stdout, stderr, caseDetailsJSON                                             string
+			createdAt                                                                   string
+			finishedAt                                                                  sql.NullString
 		)
-		if err := rows.Scan(&id, &userID, &spID, &problemID, &qType, &language, &sourceCode, &inputData, &submitType, &status, &verdict, &timeMS, &memoryKiB, &score, &stdout, &stderr, &createdAt, &finishedAt); err != nil {
+		if err := rows.Scan(&id, &userID, &username, &spID, &problemID, &qType, &language, &sourceCode, &inputData, &submitType, &status, &verdict, &timeMS, &memoryKiB, &score, &stdout, &stderr, &caseDetailsJSON, &createdAt, &finishedAt); err != nil {
 			return err
 		}
 		submissions = append(submissions, fiber.Map{
 			"id":           id,
 			"userId":       userID,
+			"username":     username,
 			"spaceId":      spID,
 			"problemId":    problemID,
 			"questionType": qType,
@@ -226,12 +250,18 @@ LIMIT 50`, spaceID, problemID, user.ID)
 			"score":        score,
 			"stdout":       stdout,
 			"stderr":       stderr,
+			"caseDetails":  parseCaseDetailsJSON(caseDetailsJSON),
 			"createdAt":    createdAt,
 			"finishedAt":   scanNullString(finishedAt),
 		})
 	}
 
 	return respondData(c, fiber.Map{"submissions": submissions})
+}
+
+func parseBoolQueryParam(c *fiber.Ctx, name string) bool {
+	value := strings.TrimSpace(strings.ToLower(c.Query(name)))
+	return value == "1" || value == "true" || value == "yes"
 }
 
 func (a *API) handleGetSubmission(c *fiber.Ctx) error {
@@ -245,18 +275,18 @@ func (a *API) handleGetSubmission(c *fiber.Ctx) error {
 	}
 
 	row := a.DB.QueryRow(`
-SELECT id, user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, time_ms, memory_kib, score, stdout, stderr, created_at, finished_at
+SELECT id, user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, time_ms, memory_kib, score, stdout, stderr, case_details_json, created_at, finished_at
 FROM submissions
 WHERE id=?`, submissionID)
 	var (
 		id, userID, spaceID, problemID                                      int64
 		qType, language, sourceCode, inputData, submitType, status, verdict string
 		timeMS, memoryKiB, score                                            int
-		stdout, stderr                                                      string
+		stdout, stderr, caseDetailsJSON                                     string
 		createdAt                                                           string
 		finishedAt                                                          sql.NullString
 	)
-	if err := row.Scan(&id, &userID, &spaceID, &problemID, &qType, &language, &sourceCode, &inputData, &submitType, &status, &verdict, &timeMS, &memoryKiB, &score, &stdout, &stderr, &createdAt, &finishedAt); err != nil {
+	if err := row.Scan(&id, &userID, &spaceID, &problemID, &qType, &language, &sourceCode, &inputData, &submitType, &status, &verdict, &timeMS, &memoryKiB, &score, &stdout, &stderr, &caseDetailsJSON, &createdAt, &finishedAt); err != nil {
 		return err
 	}
 	if user.GlobalRole != "system_admin" && user.ID != userID {
@@ -285,9 +315,28 @@ WHERE id=?`, submissionID)
 		"score":        score,
 		"stdout":       stdout,
 		"stderr":       stderr,
+		"caseDetails":  parseCaseDetailsJSON(caseDetailsJSON),
 		"createdAt":    createdAt,
 		"finishedAt":   scanNullString(finishedAt),
 	})
+}
+
+func parseCaseDetailsJSON(raw string) []fiber.Map {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []fiber.Map{}
+	}
+
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return []fiber.Map{}
+	}
+
+	result := make([]fiber.Map, 0, len(items))
+	for _, item := range items {
+		result = append(result, fiber.Map(item))
+	}
+	return result
 }
 
 func (a *API) handleSubmissionStream(c *fiber.Ctx) error {

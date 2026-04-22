@@ -10,9 +10,9 @@ import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
-import Alert from '@mui/material/Alert'
 import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
+import ToastMessage from '../ToastMessage'
 
 export default function SpaceManagePanel({
   hasAnySpaceAdminRole,
@@ -53,17 +53,6 @@ export default function SpaceManagePanel({
   openResetMemberPasswordModal,
   memberMessage,
   memberResetMessage,
-  spaceProblemType,
-  onSpaceProblemTypeChange,
-  spaceProblemBodyJson,
-  onSpaceProblemBodyJsonChange,
-  spaceProblemAnswerJson,
-  onSpaceProblemAnswerJsonChange,
-  spaceProblemTitle,
-  onSpaceProblemTitleChange,
-  spaceProblemStatement,
-  onSpaceProblemStatementChange,
-  onCreateSpaceProblem,
   openUploadProblemModal
 }) {
   const handleTabChange = (event, newValue) => {
@@ -73,8 +62,8 @@ export default function SpaceManagePanel({
   if (!hasAnySpaceAdminRole) {
     return (
       <Paper sx={{ p: 3 }}>
+        <ToastMessage message="当前账号没有空间管理员权限。" severity="info" />
         <Typography variant="h6" gutterBottom>空间管理</Typography>
-        <Alert severity="info">当前账号没有空间管理员权限。</Alert>
       </Paper>
     )
   }
@@ -119,12 +108,7 @@ export default function SpaceManagePanel({
       </Paper>
 
       {!canManageSelectedSpace && selectedSpace && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>空间管理</Typography>
-          <Alert severity="warning">
-            当前账号不是该空间管理员，请切换到你管理的空间。
-          </Alert>
-        </Paper>
+        <ToastMessage message="当前账号不是该空间管理员，请切换到你管理的空间。" severity="warning" />
       )}
 
       {selectedSpace && canManageSelectedSpace && (
@@ -159,9 +143,7 @@ export default function SpaceManagePanel({
                   编辑空间设置
                 </Button>
               </Stack>
-              {spaceSettingsMessage && (
-                <Alert severity="success" sx={{ mt: 2 }}>{spaceSettingsMessage}</Alert>
-              )}
+              {spaceSettingsMessage && <ToastMessage message={spaceSettingsMessage} severity="success" />}
             </Paper>
           )}
 
@@ -287,9 +269,7 @@ export default function SpaceManagePanel({
                     ))}
                   </Stack>
                 )}
-                {editingProblemId && (
-                  <Alert severity="info" sx={{ mt: 2 }}>题目编辑弹窗已打开。</Alert>
-                )}
+                {editingProblemId && <ToastMessage message="题目编辑弹窗已打开。" severity="info" />}
               </Box>
             </Paper>
           )}
@@ -311,12 +291,8 @@ export default function SpaceManagePanel({
                   重置成员密码
                 </Button>
               </Box>
-              {memberMessage && (
-                <Alert severity="success" sx={{ mt: 2 }}>{memberMessage}</Alert>
-              )}
-              {memberResetMessage && (
-                <Alert severity="success" sx={{ mt: 2 }}>{memberResetMessage}</Alert>
-              )}
+              {memberMessage && <ToastMessage message={memberMessage} severity="success" />}
+              {memberResetMessage && <ToastMessage message={memberResetMessage} severity="success" />}
             </Paper>
           )}
         </>

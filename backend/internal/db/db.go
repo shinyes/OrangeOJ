@@ -114,6 +114,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			space_id INTEGER NOT NULL,
 			title TEXT NOT NULL,
 			allow_self_join INTEGER NOT NULL DEFAULT 0,
+			is_public INTEGER NOT NULL DEFAULT 1,
 			published_at DATETIME,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE
@@ -148,6 +149,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			title TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
 			due_at DATETIME,
+			display_mode TEXT NOT NULL DEFAULT 'exam',
 			created_by INTEGER NOT NULL,
 			published INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -170,6 +172,30 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE,
 			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS homework_submission_records (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			homework_id INTEGER NOT NULL,
+			space_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			homework_item_count INTEGER NOT NULL DEFAULT 0,
+			homework_total_score INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE,
+			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS homework_submission_record_items (
+			record_id INTEGER NOT NULL,
+			problem_id INTEGER NOT NULL,
+			submission_id INTEGER NOT NULL,
+			order_no INTEGER NOT NULL,
+			item_score INTEGER NOT NULL DEFAULT 0,
+			problem_title TEXT NOT NULL DEFAULT '',
+			problem_type TEXT NOT NULL DEFAULT '',
+			PRIMARY KEY(record_id, problem_id),
+			FOREIGN KEY(record_id) REFERENCES homework_submission_records(id) ON DELETE CASCADE,
+			FOREIGN KEY(submission_id) REFERENCES submissions(id) ON DELETE CASCADE
+		);`,
 		`CREATE TABLE IF NOT EXISTS submissions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			user_id INTEGER NOT NULL,
@@ -187,6 +213,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			score INTEGER NOT NULL DEFAULT 0,
 			stdout TEXT NOT NULL DEFAULT '',
 			stderr TEXT NOT NULL DEFAULT '',
+			case_details_json TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			finished_at DATETIME,
 			FOREIGN KEY(user_id) REFERENCES users(id),
@@ -205,6 +232,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(submission_id) REFERENCES submissions(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_judge_jobs_status_priority ON judge_jobs(status, priority DESC, id ASC);`,
+		`CREATE INDEX IF NOT EXISTS idx_homework_submission_records_lookup ON homework_submission_records(homework_id, user_id, id DESC);`,
 		`CREATE TABLE IF NOT EXISTS user_problem_progress (
 			space_id INTEGER NOT NULL,
 			user_id INTEGER NOT NULL,
@@ -239,6 +267,15 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	if err := addColumnIfNotExists(ctx, db, "spaces", "default_programming_language", "TEXT NOT NULL DEFAULT 'cpp'"); err != nil {
+		return err
+	}
+	if err := addColumnIfNotExists(ctx, db, "homeworks", "display_mode", "TEXT NOT NULL DEFAULT 'exam'"); err != nil {
+		return err
+	}
+	if err := addColumnIfNotExists(ctx, db, "training_plans", "is_public", "INTEGER NOT NULL DEFAULT 1"); err != nil {
+		return err
+	}
+	if err := addColumnIfNotExists(ctx, db, "submissions", "case_details_json", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
 	return nil

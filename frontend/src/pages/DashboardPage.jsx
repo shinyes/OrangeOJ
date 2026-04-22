@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, toFriendlyError } from '../api'
 import Box from '@mui/material/Box'
@@ -11,7 +11,6 @@ import MenuItem from '@mui/material/MenuItem'
 import IconButton from '@mui/material/IconButton'
 import Divider from '@mui/material/Divider'
 import Container from '@mui/material/Container'
-import Alert from '@mui/material/Alert'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
 import Select from '@mui/material/Select'
@@ -39,46 +38,24 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
+import RootProblemCreator from '../components/dashboard/RootProblemCreator'
+import TrainingPlanEditor from '../components/dashboard/TrainingPlanEditor'
+import HomeworkEditor from '../components/dashboard/HomeworkEditor'
 import RootProblemTable from '../components/dashboard/RootProblemTable'
 import LearningPanel from '../components/dashboard/LearningPanel'
 import SpaceManagePanel from '../components/dashboard/SpaceManagePanel'
 import SystemPanel from '../components/dashboard/SystemPanel'
-
-function asPretty(value) {
-  return JSON.stringify(value, null, 2)
-}
-
-function defaultBody(type) {
-  if (type === 'programming') {
-    return {
-      inputFormat: '请在此填写输入格式',
-      outputFormat: '请在此填写输出格式',
-      samples: [{ input: '', output: '' }],
-      testCases: [{ input: '', output: '' }],
-      starterCode: {
-        cpp: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;}',
-        python: 'print("hello")',
-        go: 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}'
-      }
-    }
-  }
-  if (type === 'single_choice') {
-    return { options: ['A', 'B', 'C', 'D'] }
-  }
-  return {}
-}
-
-function defaultAnswer(type) {
-  if (type === 'single_choice') return { answer: 'A' }
-  if (type === 'true_false') return { answer: true }
-  return {}
-}
+import ToastMessage from '../components/ToastMessage'
 
 function problemTypeText(type) {
   if (type === 'programming') return '编程题'
   if (type === 'single_choice') return '单选题'
   if (type === 'true_false') return '判断题'
   return type
+}
+
+function homeworkDisplayModeText(mode) {
+  return mode === 'list' ? '题单模式' : '试卷模式'
 }
 
 function normalizeLanguage(language) {
@@ -110,9 +87,9 @@ function toBatchCopyText(batchResult) {
   return batchResult.results.map((row) => {
     const username = row.username || '(空)'
     if (row.success) {
-      return `第${row.index}行\t${username}\t成功\t用户ID: ${row.userId}`
+      return `第 ${row.index} 行\t${username}\t成功\t用户 ID: ${row.userId}`
     }
-    return `第${row.index}行\t${username}\t失败\t原因：${toFriendlyError(row.reason || '未知错误')}`
+    return `第 ${row.index} 行\t${username}\t失败\t原因: ${toFriendlyError(row.reason || '未知错误')}`
   }).join('\n')
 }
 
@@ -144,11 +121,8 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
 
   const [spaceProblems, setSpaceProblems] = useState([])
   const [trainingPlans, setTrainingPlans] = useState([])
+  const [trainingActionMessage, setTrainingActionMessage] = useState('')
   const [homeworks, setHomeworks] = useState([])
-  const [homeworkDetails, setHomeworkDetails] = useState({})
-  const [expandedHomeworkId, setExpandedHomeworkId] = useState(null)
-  const [homeworkTargetInputs, setHomeworkTargetInputs] = useState({})
-  const [homeworkTargetSubmittingId, setHomeworkTargetSubmittingId] = useState(null)
   const [homeworkActionMessage, setHomeworkActionMessage] = useState('')
 
   const [newSpaceName, setNewSpaceName] = useState('')
@@ -159,16 +133,17 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [spaceSettingsSubmitting, setSpaceSettingsSubmitting] = useState(false)
   const [spaceSettingsMessage, setSpaceSettingsMessage] = useState('')
 
-  const [planTitle, setPlanTitle] = useState('')
-  const [homeworkTitle, setHomeworkTitle] = useState('')
-
-  const [spaceProblemType, setSpaceProblemType] = useState('programming')
   const [spaceProblemSearch, setSpaceProblemSearch] = useState('')
   const [editingProblemId, setEditingProblemId] = useState(null)
-  const [spaceProblemTitle, setSpaceProblemTitle] = useState('')
-  const [spaceProblemStatement, setSpaceProblemStatement] = useState('')
-  const [spaceProblemBodyJson, setSpaceProblemBodyJson] = useState('')
-  const [spaceProblemAnswerJson, setSpaceProblemAnswerJson] = useState('')
+  const [editingSpaceProblem, setEditingSpaceProblem] = useState(null)
+  const [editingTrainingPlan, setEditingTrainingPlan] = useState(null)
+  const [assigningTrainingPlan, setAssigningTrainingPlan] = useState(null)
+  const [trainingParticipantUserId, setTrainingParticipantUserId] = useState('')
+  const [trainingParticipantSubmitting, setTrainingParticipantSubmitting] = useState(false)
+  const [editingHomework, setEditingHomework] = useState(null)
+  const [assigningHomework, setAssigningHomework] = useState(null)
+  const [homeworkTargetUserId, setHomeworkTargetUserId] = useState('')
+  const [homeworkTargetSubmitting, setHomeworkTargetSubmitting] = useState(false)
   const [memberUserId, setMemberUserId] = useState('')
   const [memberRole, setMemberRole] = useState('member')
   const [memberSubmitting, setMemberSubmitting] = useState(false)
@@ -239,6 +214,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     if (!keyword) return homeworks
     return homeworks.filter((homework) => String(homework.title || '').toLowerCase().includes(keyword))
   }, [learningHomeworkSearch, homeworks])
+  const requestedSpaceId = useMemo(() => {
+    const raw = new URLSearchParams(location.search).get('spaceId')
+    const parsed = Number(raw)
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+  }, [location.search])
+  const requestedSpaceTab = useMemo(() => {
+    const raw = new URLSearchParams(location.search).get('tab')
+    return ['problems', 'training', 'homework'].includes(raw) ? raw : ''
+  }, [location.search])
 
   const refreshSpaces = async () => {
     const list = await api.listSpaces()
@@ -265,6 +249,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     if (!spaceId) {
       setSpaceProblems([])
       setTrainingPlans([])
+      setTrainingActionMessage('')
       setHomeworks([])
       return
     }
@@ -311,6 +296,18 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   }, [selectedSpaceId])
 
   useEffect(() => {
+    if (!isLearnView || !requestedSpaceId) return
+    if (spaces.some((space) => space.id === requestedSpaceId)) {
+      setSelectedSpaceId(requestedSpaceId)
+    }
+  }, [isLearnView, requestedSpaceId, spaces])
+
+  useEffect(() => {
+    if (!isLearnView || !requestedSpaceTab) return
+    setSpaceTab(requestedSpaceTab)
+  }, [isLearnView, requestedSpaceTab])
+
+  useEffect(() => {
     ;(async () => {
       try {
         await refreshSpaceRootProblemData(selectedSpaceId)
@@ -328,9 +325,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     setMemberRole('member')
     setMemberResetUserId('')
     setMemberResetMessage('')
-    setExpandedHomeworkId(null)
-    setHomeworkDetails({})
-    setHomeworkTargetInputs({})
+    setTrainingActionMessage('')
+    setEditingTrainingPlan(null)
+    setAssigningTrainingPlan(null)
+    setTrainingParticipantUserId('')
+    setTrainingParticipantSubmitting(false)
+    setEditingHomework(null)
+    setAssigningHomework(null)
+    setHomeworkTargetUserId('')
+    setHomeworkTargetSubmitting(false)
     setHomeworkActionMessage('')
     setSpaceSettingsName(selectedSpace?.name || '')
     setSpaceSettingsDescription(selectedSpace?.description || '')
@@ -338,6 +341,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     setSpaceSettingsMessage('')
     setSpaceProblemSearch('')
     setEditingProblemId(null)
+    setEditingSpaceProblem(null)
     setSpaceManageTab('settings')
     setLearningProblemSearch('')
     setLearningTrainingSearch('')
@@ -349,12 +353,12 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     const handleDocumentClick = (event) => {
       if (!userMenuRef.current) return
       if (!userMenuRef.current.contains(event.target)) {
-        setUserMenuOpen(false)
+        setUserMenuAnchorEl(null)
       }
     }
     const handleEsc = (event) => {
       if (event.key === 'Escape') {
-        setUserMenuOpen(false)
+        setUserMenuAnchorEl(null)
         setActiveConfigModal('')
       }
     }
@@ -428,51 +432,65 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const handleCreateRootProblem = async (problemData) => {
     try {
       setError('')
-      await api.createRootProblem({
-        type: problemData.type,
-        title: problemData.title,
-        difficulty: problemData.difficulty,
-        bodyJson: problemData.bodyJson,
-        timeLimitMs: 1000,
-        memoryLimitMiB: 256
-      })
+      await api.createRootProblem(problemData)
       await refreshAdminData()
       if (canManageSelectedSpace && selectedSpaceId) {
         await refreshSpaceRootProblemData(selectedSpaceId)
       }
     } catch (err) {
       setError(err.message)
+      throw err
     }
   }
 
-  const createSpaceProblem = async () => {
-    if (!selectedSpaceId) return
-    if (!ensureCanManageSpace()) return
-    if (!spaceProblemTitle.trim()) {
-      setError('题目标题不能为空')
-      return
-    }
+  const handleUpdateRootProblem = async (problemId, problemData) => {
     try {
       setError('')
-      await api.createSpaceProblem(selectedSpaceId, {
-        type: spaceProblemType,
-        title: spaceProblemTitle.trim(),
-        statementMd: spaceProblemStatement,
-        bodyJson: JSON.parse(spaceProblemBodyJson || '{}'),
-        answerJson: JSON.parse(spaceProblemAnswerJson || '{}'),
-        timeLimitMs: 1000,
-        memoryLimitMiB: 256
-      })
-      setSpaceProblemTitle('')
-      setSpaceProblemStatement('')
+      await api.updateRootProblem(problemId, problemData)
+      await refreshAdminData()
+      if (selectedSpaceId) {
+        await refreshSpaceData(selectedSpaceId)
+        if (canManageSelectedSpace) {
+          await refreshSpaceRootProblemData(selectedSpaceId)
+        }
+      }
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const handleDeleteRootProblem = async (problemId) => {
+    try {
+      setError('')
+      await api.deleteRootProblem(problemId)
+      await refreshAdminData()
+      if (selectedSpaceId) {
+        await refreshSpaceData(selectedSpaceId)
+        if (canManageSelectedSpace) {
+          await refreshSpaceRootProblemData(selectedSpaceId)
+        }
+      }
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const createSpaceProblem = async (problemData) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      await api.createSpaceProblem(selectedSpaceId, problemData)
       await refreshSpaceData(selectedSpaceId)
       await refreshSpaceRootProblemData(selectedSpaceId)
       if (isSystemAdmin) {
         await refreshAdminData()
       }
-      closeConfigModal()
     } catch (err) {
       setError(err.message)
+      throw err
     }
   }
 
@@ -497,6 +515,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       await refreshSpaceData(selectedSpaceId)
       if (editingProblemId === problemId) {
         setEditingProblemId(null)
+        setEditingSpaceProblem(null)
       }
     } catch (err) {
       setError(err.message)
@@ -510,72 +529,105 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       return
     }
     setEditingProblemId(problemId)
-    setEditingProblemType(problem.type || 'programming')
-    setEditingProblemTitle(problem.title || '')
-    setEditingProblemStatement(problem.statementMd || '')
-    setEditingProblemBodyJson(asPretty(problem.bodyJson || {}))
-    setEditingProblemAnswerJson(asPretty(problem.answerJson || {}))
-    setEditingTimeLimitMs(String(problem.timeLimitMs || 1000))
-    setEditingMemoryLimitMiB(String(problem.memoryLimitMiB || 256))
+    setEditingSpaceProblem(problem)
     openConfigModal('edit-space-problem')
   }
 
-  const saveEditedSpaceProblem = async () => {
-    if (!selectedSpaceId || !editingProblemId) return
+  const saveEditedSpaceProblem = async (problemData) => {
+    if (!selectedSpaceId || !editingSpaceProblem?.id) return
     if (!ensureCanManageSpace()) return
-    if (!editingProblemTitle.trim()) {
-      setError('题目标题不能为空')
-      return
-    }
     try {
       setError('')
-      setEditingProblemSubmitting(true)
-      await api.updateSpaceProblem(selectedSpaceId, editingProblemId, {
-        type: editingProblemType,
-        title: editingProblemTitle.trim(),
-        statementMd: editingProblemStatement,
-        bodyJson: JSON.parse(editingProblemBodyJson || '{}'),
-        answerJson: JSON.parse(editingProblemAnswerJson || '{}'),
-        timeLimitMs: Number(editingTimeLimitMs) > 0 ? Number(editingTimeLimitMs) : 1000,
-        memoryLimitMiB: Number(editingMemoryLimitMiB) > 0 ? Number(editingMemoryLimitMiB) : 256
-      })
+      await api.updateSpaceProblem(selectedSpaceId, editingSpaceProblem.id, problemData)
       await refreshSpaceData(selectedSpaceId)
       await refreshSpaceRootProblemData(selectedSpaceId)
       if (isSystemAdmin) {
         await refreshAdminData()
       }
-      setEditingProblemId(null)
-      closeConfigModal()
     } catch (err) {
       setError(err.message)
-    } finally {
-      setEditingProblemSubmitting(false)
+      throw err
     }
   }
 
-  const createTrainingPlan = async () => {
+  const openCreateTrainingPlanModal = () => {
     if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
-    if (!planTitle.trim()) {
-      setError('训练计划标题不能为空')
+    setEditingTrainingPlan(null)
+    openConfigModal('create-training-plan')
+  }
+
+  const openAssignTrainingParticipantModal = (planId) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    const plan = trainingPlans.find((item) => item.id === planId)
+    if (!plan) {
+      setError('训练计划不存在')
+      return
+    }
+    setAssigningTrainingPlan(plan)
+    setTrainingParticipantUserId('')
+    openConfigModal('assign-training-participant')
+  }
+
+  const createTrainingPlan = async (planData) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      setTrainingActionMessage('')
+      await api.createTrainingPlan(selectedSpaceId, planData)
+      await refreshSpaceData(selectedSpaceId)
+      setTrainingActionMessage('训练计划创建成功')
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const openEditTrainingPlan = async (planId) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      const detail = await api.getTrainingPlan(selectedSpaceId, planId)
+      setEditingTrainingPlan(detail)
+      openConfigModal('edit-training-plan')
+    } catch (err) {
+      setError(err.message || '加载训练详情失败')
+    }
+  }
+
+  const saveEditedTrainingPlan = async (planData) => {
+    if (!selectedSpaceId || !editingTrainingPlan?.id) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      setTrainingActionMessage('')
+      await api.updateTrainingPlan(selectedSpaceId, editingTrainingPlan.id, planData)
+      await refreshSpaceData(selectedSpaceId)
+      setTrainingActionMessage('训练计划保存成功')
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const deleteTrainingPlan = async (planId) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    if (!window.confirm(`确认删除训练计划 #${planId} 吗？`)) {
       return
     }
     try {
       setError('')
-      await api.createTrainingPlan(selectedSpaceId, {
-        title: planTitle.trim(),
-        allowSelfJoin: true,
-        published: true,
-        chapters: [
-          {
-            title: '第一章',
-            orderNo: 1,
-            problemIds: spaceProblems.slice(0, 3).map((item) => item.id)
-          }
-        ]
-      })
-      setPlanTitle('')
+      setTrainingActionMessage('')
+      await api.deleteTrainingPlan(selectedSpaceId, planId)
+      if (editingTrainingPlan?.id === planId) {
+        setEditingTrainingPlan(null)
+      }
       await refreshSpaceData(selectedSpaceId)
+      setTrainingActionMessage('训练计划删除成功')
     } catch (err) {
       setError(err.message)
     }
@@ -585,91 +637,153 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     if (!selectedSpaceId) return
     try {
       setError('')
+      setTrainingActionMessage('')
       await api.joinTrainingPlan(selectedSpaceId, planId)
       await refreshSpaceData(selectedSpaceId)
+      setTrainingActionMessage('已加入训练计划')
     } catch (err) {
       setError(err.message)
     }
   }
 
-  const createHomework = async () => {
-    if (!selectedSpaceId) return
+  const handleAddTrainingParticipant = async () => {
+    if (!selectedSpaceId || !assigningTrainingPlan?.id) return
     if (!ensureCanManageSpace()) return
-    if (!homeworkTitle.trim()) {
-      setError('作业标题不能为空')
+
+    const userId = Number(trainingParticipantUserId.trim())
+    if (!Number.isInteger(userId) || userId <= 0) {
+      setError('请输入有效的用户 ID')
       return
     }
+
     try {
       setError('')
-      await api.createHomework(selectedSpaceId, {
-        title: homeworkTitle.trim(),
-        description: '系统自动生成作业',
-        published: true,
-        items: spaceProblems.slice(0, 3).map((item, index) => ({
-          problemId: item.id,
-          orderNo: index + 1,
-          score: 100
-        }))
-      })
-      setHomeworkTitle('')
+      setTrainingActionMessage('')
+      setTrainingParticipantSubmitting(true)
+      await api.addTrainingPlanParticipant(selectedSpaceId, assigningTrainingPlan.id, userId)
+      setTrainingParticipantUserId('')
       await refreshSpaceData(selectedSpaceId)
+      setTrainingActionMessage(`已将用户 #${userId} 添加到训练 #${assigningTrainingPlan.id}`)
+      closeConfigModal()
     } catch (err) {
-      setError(err.message)
+      setError(err.message || '分配训练成员失败')
+    } finally {
+      setTrainingParticipantSubmitting(false)
     }
   }
 
-  const loadHomeworkDetail = async (homeworkId, forceReload = false) => {
-    if (!selectedSpaceId || !homeworkId) return null
-    if (!forceReload && homeworkDetails[homeworkId]) {
-      return homeworkDetails[homeworkId]
-    }
-    const detail = await api.getHomework(selectedSpaceId, homeworkId)
-    setHomeworkDetails((prev) => ({ ...prev, [homeworkId]: detail }))
-    return detail
+  const openCreateHomeworkModal = () => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    setEditingHomework(null)
+    openConfigModal('create-homework')
   }
 
-  const toggleHomeworkDetail = async (homeworkId) => {
-    if (expandedHomeworkId === homeworkId) {
-      setExpandedHomeworkId(null)
-      return
-    }
+  const createHomework = async (homeworkData) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
     try {
       setError('')
       setHomeworkActionMessage('')
-      setExpandedHomeworkId(homeworkId)
-      await loadHomeworkDetail(homeworkId)
+      await api.createHomework(selectedSpaceId, homeworkData)
+      await refreshSpaceData(selectedSpaceId)
+      setHomeworkActionMessage('作业创建成功')
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const openEditHomework = async (homeworkId) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      const detail = await api.getHomework(selectedSpaceId, homeworkId)
+      setEditingHomework(detail)
+      openConfigModal('edit-homework')
     } catch (err) {
       setError(err.message || '加载作业详情失败')
     }
   }
 
-  const handleHomeworkTargetInputChange = (homeworkId, value) => {
-    setHomeworkTargetInputs((prev) => ({ ...prev, [homeworkId]: value }))
+  const saveEditedHomework = async (homeworkData) => {
+    if (!selectedSpaceId || !editingHomework?.id) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      setHomeworkActionMessage('')
+      await api.updateHomework(selectedSpaceId, editingHomework.id, homeworkData)
+      const savedHomework = await api.getHomework(selectedSpaceId, editingHomework.id)
+      const expectedMode = homeworkData.displayMode === 'list' ? 'list' : 'exam'
+      const actualMode = savedHomework?.displayMode === 'list' ? 'list' : 'exam'
+      if (actualMode !== expectedMode) {
+        throw new Error(`作业基础信息已保存，但页面模式未生效。期望：${homeworkDisplayModeText(expectedMode)}，实际：${homeworkDisplayModeText(actualMode)}。请重启后端后重试。`)
+      }
+      await refreshSpaceData(selectedSpaceId)
+      setEditingHomework(savedHomework)
+      setHomeworkActionMessage('作业保存成功')
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
   }
 
-  const handleAddHomeworkTarget = async (homeworkId) => {
-    if (!selectedSpaceId || !homeworkId) return
+  const deleteHomework = async (homeworkId) => {
+    if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
+    if (!window.confirm(`确认删除作业 #${homeworkId} 吗？`)) {
+      return
+    }
+    try {
+      setError('')
+      setHomeworkActionMessage('')
+      await api.deleteHomework(selectedSpaceId, homeworkId)
+      if (editingHomework?.id === homeworkId) {
+        setEditingHomework(null)
+      }
+      await refreshSpaceData(selectedSpaceId)
+      setHomeworkActionMessage('作业删除成功')
+    } catch (err) {
+      setError(err.message || '删除作业失败')
+    }
+  }
 
-    const rawUserID = (homeworkTargetInputs[homeworkId] || '').trim()
-    const userID = Number(rawUserID)
-    if (!Number.isInteger(userID) || userID <= 0) {
-      setError('请输入有效的用户ID')
+  const openAssignHomeworkTargetModal = (homeworkId) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    const homework = homeworks.find((item) => item.id === homeworkId)
+    if (!homework) {
+      setError('作业不存在')
+      return
+    }
+    setAssigningHomework(homework)
+    setHomeworkTargetUserId('')
+    openConfigModal('assign-homework-target')
+  }
+
+  const handleAddHomeworkTarget = async () => {
+    if (!selectedSpaceId || !assigningHomework?.id) return
+    if (!ensureCanManageSpace()) return
+    const userId = Number(homeworkTargetUserId.trim())
+    if (!Number.isInteger(userId) || userId <= 0) {
+      setError('请输入有效的用户 ID')
       return
     }
 
     try {
       setError('')
       setHomeworkActionMessage('')
-      setHomeworkTargetSubmittingId(homeworkId)
-      await api.addHomeworkTarget(selectedSpaceId, homeworkId, userID)
-      setHomeworkTargetInputs((prev) => ({ ...prev, [homeworkId]: '' }))
-      setHomeworkActionMessage(`用户 #${userID}已加入作业 #${homeworkId} 的目标名单`)
-      await loadHomeworkDetail(homeworkId, true)
+      setHomeworkTargetSubmitting(true)
+      await api.addHomeworkTarget(selectedSpaceId, assigningHomework.id, userId)
+      setHomeworkTargetUserId('')
+      await refreshSpaceData(selectedSpaceId)
+      setHomeworkActionMessage(`已将用户 #${userId} 添加到作业 #${assigningHomework.id}`)
+      closeConfigModal()
     } catch (err) {
-      setError(err.message || '分配作业目标用户失败')
+      setError(err.message || '分配作业用户失败')
     } finally {
-      setHomeworkTargetSubmittingId(null)
+      setHomeworkTargetSubmitting(false)
     }
   }
 
@@ -692,7 +806,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setMemberSubmitting(true)
       await api.addSpaceMember(selectedSpaceId, userId, memberRole)
       setMemberUserId('')
-      setMemberMessage(`用户 #${userId}已加入空间，角色：${memberRole === 'space_admin' ? '空间管理员' : '成员'}`)
+      setMemberMessage(`用户 #${userId} 已加入空间，角色：${memberRole === 'space_admin' ? '空间管理员' : '成员'}`)
       await refreshSpaces()
       closeConfigModal()
     } catch (err) {
@@ -717,7 +831,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setMemberResetSubmitting(true)
       await api.resetSpaceMemberPassword(selectedSpaceId, userId)
       setMemberResetUserId('')
-      setMemberResetMessage(`用户 #${userId}密码已重置为 123456`)
+      setMemberResetMessage(`鐢ㄦ埛 #${userId}瀵嗙爜宸查噸缃负 123456`)
       closeConfigModal()
     } catch (err) {
       setError(err.message)
@@ -749,7 +863,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setAdminResetSubmitting(true)
       await api.adminResetUserPassword(userId)
       setAdminResetUserId('')
-      setAdminResetMessage(`用户 #${userId}密码已重置为123456`)
+      setAdminResetMessage(`鐢ㄦ埛 #${userId}瀵嗙爜宸查噸缃负123456`)
       closeConfigModal()
     } catch (err) {
       setError(err.message)
@@ -764,7 +878,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       return
     }
     if (newPassword.length < 6) {
-      setError('新密码至少6 位')
+      setError('新密码至少 6 位')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -831,12 +945,29 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const closeConfigModal = () => {
     if (activeConfigModal === 'edit-space-problem') {
       setEditingProblemId(null)
+      setEditingSpaceProblem(null)
+    }
+    if (activeConfigModal === 'create-training-plan' || activeConfigModal === 'edit-training-plan') {
+      setEditingTrainingPlan(null)
+    }
+    if (activeConfigModal === 'assign-training-participant') {
+      setAssigningTrainingPlan(null)
+      setTrainingParticipantUserId('')
+      setTrainingParticipantSubmitting(false)
+    }
+    if (activeConfigModal === 'create-homework' || activeConfigModal === 'edit-homework') {
+      setEditingHomework(null)
+    }
+    if (activeConfigModal === 'assign-homework-target') {
+      setAssigningHomework(null)
+      setHomeworkTargetUserId('')
+      setHomeworkTargetSubmitting(false)
     }
     setActiveConfigModal('')
   }
 
   const navigateFromMenu = (path) => {
-    setUserMenuOpen(false)
+    setUserMenuAnchorEl(null)
     navigate(path)
   }
 
@@ -923,7 +1054,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           </Button>
         </Box>
         {changePasswordMessage && (
-          <Alert severity="success">{changePasswordMessage}</Alert>
+          <ToastMessage message={changePasswordMessage} severity="success" onShown={() => setChangePasswordMessage('')} />
         )}
       </Box>
     </Paper>
@@ -990,135 +1121,135 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     }
 
     if (activeConfigModal === 'upload-space-problem') {
-      title = '上传新题目（自动进入根题库并关联本空间）'
-      content = (
-        <div className="config-form">
-          <label className="inline-field">
-            题目类型
-            <select
-              value={spaceProblemType}
-              onChange={(event) => {
-                const nextType = event.target.value
-                setSpaceProblemType(nextType)
-                setSpaceProblemBodyJson(asPretty(defaultBody(nextType)))
-                setSpaceProblemAnswerJson(asPretty(defaultAnswer(nextType)))
-              }}
-            >
-              <option value="programming">编程题</option>
-              <option value="single_choice">单选题</option>
-              <option value="true_false">判断题</option>
-            </select>
-          </label>
-          <input
-            placeholder="题目标题"
-            value={spaceProblemTitle}
-            onChange={(event) => setSpaceProblemTitle(event.target.value)}
-          />
-          <textarea
-            placeholder="题面描述（Markdown）"
-            value={spaceProblemStatement}
-            onChange={(event) => setSpaceProblemStatement(event.target.value)}
-          />
-          <label className="inline-field">
-            题目主体JSON
-            <textarea
-              className="mono"
-              value={spaceProblemBodyJson}
-              onChange={(event) => setSpaceProblemBodyJson(event.target.value)}
-            />
-          </label>
-          <label className="inline-field">
-            答案JSON
-            <textarea
-              className="mono"
-              value={spaceProblemAnswerJson}
-              onChange={(event) => setSpaceProblemAnswerJson(event.target.value)}
-            />
-          </label>
-          <div className="inline-form">
-            <button onClick={createSpaceProblem}>上传并关联</button>
-            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
-          </div>
-        </div>
+      return (
+        <RootProblemCreator
+          open
+          mode="create"
+          createTitle="上传题目（自动加入根题库并关联到当前空间）"
+          createSubmitText="上传并关联"
+          onClose={closeConfigModal}
+          onSubmit={createSpaceProblem}
+        />
       )
     }
 
     if (activeConfigModal === 'edit-space-problem') {
-      title = editingProblemId ? `编辑题目 #${editingProblemId}` : '编辑题目'
-      content = editingProblemId ? (
-        <div className="config-form">
-          <label className="inline-field">
-            题目类型
-            <select value={editingProblemType} onChange={(event) => setEditingProblemType(event.target.value)}>
-              <option value="programming">编程题</option>
-              <option value="single_choice">单选题</option>
-              <option value="true_false">判断题</option>
-            </select>
-          </label>
-          <input
-            placeholder="题目标题"
-            value={editingProblemTitle}
-            onChange={(event) => setEditingProblemTitle(event.target.value)}
-          />
-          <textarea
-            placeholder="题面描述（Markdown）"
-            value={editingProblemStatement}
-            onChange={(event) => setEditingProblemStatement(event.target.value)}
-          />
-          <label className="inline-field">
-            时间限制（ms）
-            <input
-              type="number"
-              min="1"
-              value={editingTimeLimitMs}
-              onChange={(event) => setEditingTimeLimitMs(event.target.value)}
-            />
-          </label>
-          <label className="inline-field">
-            内存限制（MiB）
-            <input
-              type="number"
-              min="1"
-              value={editingMemoryLimitMiB}
-              onChange={(event) => setEditingMemoryLimitMiB(event.target.value)}
-            />
-          </label>
-          <label className="inline-field">
-            题目主体JSON
-            <textarea
-              className="mono"
-              value={editingProblemBodyJson}
-              onChange={(event) => setEditingProblemBodyJson(event.target.value)}
-            />
-          </label>
-          <label className="inline-field">
-            答案JSON
-            <textarea
-              className="mono"
-              value={editingProblemAnswerJson}
-              onChange={(event) => setEditingProblemAnswerJson(event.target.value)}
-            />
-          </label>
-          <div className="inline-form">
-            <button disabled={editingProblemSubmitting} onClick={saveEditedSpaceProblem}>
-              {editingProblemSubmitting ? '保存中...' : '保存修改'}
-            </button>
-            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
-          </div>
-        </div>
-      ) : (
-        <p className="muted">请先从空间题目列表中选择需要编辑的题目。</p>
+      if (!editingSpaceProblem) return null
+      return (
+        <RootProblemCreator
+          open
+          mode="edit"
+          problem={editingSpaceProblem}
+          editTitle={editingProblemId ? `编辑题目 #${editingProblemId}` : '编辑题目'}
+          editSubmitText="保存修改"
+          onClose={closeConfigModal}
+          onSubmit={saveEditedSpaceProblem}
+        />
       )
     }
 
-    if (activeConfigModal === 'add-space-member') {
-      title = '添加成员/空间管理员'
+    if (activeConfigModal === 'create-training-plan') {
+      return (
+        <TrainingPlanEditor
+          open
+          mode="create"
+          problemOptions={spaceProblems}
+          onClose={closeConfigModal}
+          onSubmit={createTrainingPlan}
+        />
+      )
+    }
+
+    if (activeConfigModal === 'edit-training-plan') {
+      if (!editingTrainingPlan) return null
+      return (
+        <TrainingPlanEditor
+          open
+          mode="edit"
+          plan={editingTrainingPlan}
+          problemOptions={spaceProblems}
+          onClose={closeConfigModal}
+          onSubmit={saveEditedTrainingPlan}
+        />
+      )
+    }
+
+    if (activeConfigModal === 'assign-training-participant') {
+      title = assigningTrainingPlan ? `分配训练成员：${assigningTrainingPlan.title}` : '分配训练成员'
       content = (
         <div className="config-form">
           <input
             type="number"
             min="1"
-            placeholder="用户ID"
+            placeholder="用户 ID"
+            value={trainingParticipantUserId}
+            onChange={(event) => setTrainingParticipantUserId(event.target.value)}
+          />
+          <div className="inline-form">
+            <button disabled={trainingParticipantSubmitting} onClick={handleAddTrainingParticipant}>
+              {trainingParticipantSubmitting ? '分配中...' : '确认分配'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'create-homework') {
+      return (
+        <HomeworkEditor
+          open
+          mode="create"
+          problemOptions={spaceProblems}
+          onClose={closeConfigModal}
+          onSubmit={createHomework}
+        />
+      )
+    }
+
+    if (activeConfigModal === 'edit-homework') {
+      if (!editingHomework) return null
+      return (
+        <HomeworkEditor
+          open
+          mode="edit"
+          homework={editingHomework}
+          problemOptions={spaceProblems}
+          onClose={closeConfigModal}
+          onSubmit={saveEditedHomework}
+        />
+      )
+    }
+
+    if (activeConfigModal === 'assign-homework-target') {
+      title = assigningHomework ? `分配作业成员：${assigningHomework.title}` : '分配作业成员'
+      content = (
+        <div className="config-form">
+          <input
+            type="number"
+            min="1"
+            placeholder="用户 ID"
+            value={homeworkTargetUserId}
+            onChange={(event) => setHomeworkTargetUserId(event.target.value)}
+          />
+          <div className="inline-form">
+            <button disabled={homeworkTargetSubmitting} onClick={handleAddHomeworkTarget}>
+              {homeworkTargetSubmitting ? '分配中...' : '确认分配'}
+            </button>
+            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeConfigModal === 'add-space-member') {
+      title = '添加成员 / 空间管理员'
+      content = (
+        <div className="config-form">
+          <input
+            type="number"
+            min="1"
+            placeholder="用户 ID"
             value={memberUserId}
             onChange={(event) => setMemberUserId(event.target.value)}
           />
@@ -1160,62 +1291,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       )
     }
 
-    if (activeConfigModal === 'create-root-problem') {
-      title = '新建根题'
-      content = (
-        <div className="config-form">
-          <label className="inline-field">
-            题目类型
-            <select
-              value={problemType}
-              onChange={(event) => {
-                const nextType = event.target.value
-                setProblemType(nextType)
-                setProblemBodyJson(asPretty(defaultBody(nextType)))
-              }}
-            >
-              <option value="programming">编程题</option>
-              <option value="single_choice">单选题</option>
-              <option value="true_false">判断题</option>
-            </select>
-          </label>
-          <input
-            placeholder="题目标题"
-            value={problemTitle}
-            onChange={(event) => setProblemTitle(event.target.value)}
-          />
-          <label className="inline-field">
-            难度等级（1-5，3 为中等）
-            <input
-              type="number"
-              min="1"
-              max="5"
-              value={problemDifficulty}
-              onChange={(event) => setProblemDifficulty(Number(event.target.value))}
-            />
-          </label>
-          <label className="inline-field">
-            题目主体 JSON
-            <textarea
-              className="mono"
-              value={problemBodyJson}
-              onChange={(event) => setProblemBodyJson(event.target.value)}
-            />
-          </label>
-          <label className="inline-field">
-            答案JSON
-            <textarea
-              className="mono"
-            />
-          </label>
-          <div className="inline-form">
-            <button onClick={createRootProblem}>创建根题</button>
-            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
-          </div>
-        </div>
-      )
-    }
-
     if (activeConfigModal === 'admin-reset-password') {
       title = '重置任意用户密码'
       content = (
@@ -1223,13 +1298,13 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           <input
             type="number"
             min="1"
-            placeholder="用户ID"
+            placeholder="用户 ID"
             value={adminResetUserId}
             onChange={(event) => setAdminResetUserId(event.target.value)}
           />
           <div className="inline-form">
             <button disabled={adminResetSubmitting} onClick={handleAdminResetPassword}>
-              {adminResetSubmitting ? '重置中...' : '重置为 123456'}
+              {adminResetSubmitting ? '重置中...' : '重置为123456'}
             </button>
             <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
           </div>
@@ -1241,7 +1316,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       title = '批量注册用户'
       content = (
         <div className="config-form">
-          <p className="muted">每行格式：<code>用户名，密码</code>，密码至少 6位。</p>
+          <p className="muted">每行格式：<code>用户名,密码</code>，密码至少 6 位。</p>
           <textarea
             className="mono batch-input"
             value={batchInput}
@@ -1293,25 +1368,21 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       problemTypeText={problemTypeText}
       learningTrainingSearch={learningTrainingSearch}
       onLearningTrainingSearchChange={setLearningTrainingSearch}
-      planTitle={planTitle}
-      onPlanTitleChange={setPlanTitle}
       canManageSelectedSpace={canManageSelectedSpace}
-      onCreateTrainingPlan={createTrainingPlan}
+      onOpenCreateTrainingPlan={openCreateTrainingPlanModal}
       filteredLearningTrainingPlans={filteredLearningTrainingPlans}
+      onOpenEditTrainingPlan={openEditTrainingPlan}
+      onOpenAssignTrainingParticipant={openAssignTrainingParticipantModal}
+      onDeleteTrainingPlan={deleteTrainingPlan}
       onJoinTrainingPlan={joinTrainingPlan}
+      trainingActionMessage={trainingActionMessage}
       learningHomeworkSearch={learningHomeworkSearch}
       onLearningHomeworkSearchChange={setLearningHomeworkSearch}
-      homeworkTitle={homeworkTitle}
-      onHomeworkTitleChange={setHomeworkTitle}
-      onCreateHomework={createHomework}
+      onOpenCreateHomework={openCreateHomeworkModal}
       filteredLearningHomeworks={filteredLearningHomeworks}
-      homeworkDetails={homeworkDetails}
-      expandedHomeworkId={expandedHomeworkId}
-      onToggleHomeworkDetail={toggleHomeworkDetail}
-      homeworkTargetInputs={homeworkTargetInputs}
-      onHomeworkTargetInputChange={handleHomeworkTargetInputChange}
-      homeworkTargetSubmittingId={homeworkTargetSubmittingId}
-      onAddHomeworkTarget={handleAddHomeworkTarget}
+      onOpenEditHomework={openEditHomework}
+      onOpenAssignHomeworkTarget={openAssignHomeworkTargetModal}
+      onDeleteHomework={deleteHomework}
       homeworkActionMessage={homeworkActionMessage}
     />
   )
@@ -1356,17 +1427,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       openResetMemberPasswordModal={() => openConfigModal('reset-space-member-password')}
       memberMessage={memberMessage}
       memberResetMessage={memberResetMessage}
-      spaceProblemType={spaceProblemType}
-      onSpaceProblemTypeChange={setSpaceProblemType}
-      spaceProblemBodyJson={spaceProblemBodyJson}
-      onSpaceProblemBodyJsonChange={setSpaceProblemBodyJson}
-      spaceProblemAnswerJson={spaceProblemAnswerJson}
-      onSpaceProblemAnswerJsonChange={setSpaceProblemAnswerJson}
-      spaceProblemTitle={spaceProblemTitle}
-      onSpaceProblemTitleChange={setSpaceProblemTitle}
-      spaceProblemStatement={spaceProblemStatement}
-      onSpaceProblemStatementChange={setSpaceProblemStatement}
-      onCreateSpaceProblem={createSpaceProblem}
       openUploadProblemModal={() => openConfigModal('upload-space-problem')}
     />
   )
@@ -1377,6 +1437,8 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       search={rootProblemSearch}
       onSearchChange={setRootProblemSearch}
       onCreate={handleCreateRootProblem}
+      onUpdate={handleUpdateRootProblem}
+      onDelete={handleDeleteRootProblem}
       problemTypeText={problemTypeText}
     />
   )
@@ -1457,7 +1519,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                 onClick={() => navigate('/')}
               >
                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                  🍊 OrangeOJ
+                  OrangeOJ
                 </Typography>
               </Box>
               
@@ -1489,7 +1551,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
               <Button
                 color="inherit"
                 onClick={(e) => setUserMenuAnchorEl(e.currentTarget)}
-                startIcon={userMenuOpen ? '∧' : '∨'}
+                startIcon={userMenuOpen ? '^' : 'v'}
               >
                 {user.username}
               </Button>
@@ -1540,7 +1602,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       </AppBar>
       
       <Container maxWidth="xl" sx={{ mt: 2, mb: 3 }}>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
         {changePasswordOpen && renderChangePasswordSection()}
         {renderCurrentView()}
         {renderConfigModal()}
@@ -1548,3 +1610,4 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     </Box>
   )
 }
+

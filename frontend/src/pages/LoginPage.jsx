@@ -7,7 +7,7 @@ import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
-import Alert from '@mui/material/Alert'
+import ToastMessage from '../components/ToastMessage'
 
 export default function LoginPage({ onLogin, user }) {
   const [username, setUsername] = useState('admin')
@@ -102,11 +102,7 @@ export default function LoginPage({ onLogin, user }) {
               onChange={(event) => setPassword(event.target.value)}
             />
             
-            {error && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {error}
-              </Alert>
-            )}
+            {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             
             <Button
               type="submit"

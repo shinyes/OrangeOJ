@@ -1,44 +1,41 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../api'
-import Box from '@mui/material/Box'
+import Alert from '@mui/material/Alert'
 import AppBar from '@mui/material/AppBar'
-import Toolbar from '@mui/material/Toolbar'
-import Typography from '@mui/material/Typography'
+import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Paper from '@mui/material/Paper'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import Divider from '@mui/material/Divider'
-import Stack from '@mui/material/Stack'
-import Alert from '@mui/material/Alert'
-import FormControl from '@mui/material/FormControl'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import InputLabel from '@mui/material/InputLabel'
-import Radio from '@mui/material/Radio'
-import RadioGroup from '@mui/material/RadioGroup'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import FormLabel from '@mui/material/FormLabel'
-import TextField from '@mui/material/TextField'
-import IconButton from '@mui/material/IconButton'
-import CloseIcon from '@mui/icons-material/Close'
-import HistoryIcon from '@mui/icons-material/History'
-import ContentCopy from '@mui/icons-material/ContentCopy'
 import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
-import Slide from '@mui/material/Slide'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
+import Divider from '@mui/material/Divider'
+import FormControl from '@mui/material/FormControl'
+import IconButton from '@mui/material/IconButton'
+import InputLabel from '@mui/material/InputLabel'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
-import ListItemText from '@mui/material/ListItemText'
 import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
+import MenuItem from '@mui/material/MenuItem'
+import Paper from '@mui/material/Paper'
+import Select from '@mui/material/Select'
 import Snackbar from '@mui/material/Snackbar'
-import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
+import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
+import TextField from '@mui/material/TextField'
+import Toolbar from '@mui/material/Toolbar'
+import Typography from '@mui/material/Typography'
+import CloseIcon from '@mui/icons-material/Close'
+import ContentCopy from '@mui/icons-material/ContentCopy'
+import HistoryIcon from '@mui/icons-material/History'
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
+import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
+import MarkdownContent from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
 
@@ -46,6 +43,13 @@ const editorLang = {
   cpp: 'cpp',
   python: 'python',
   go: 'go'
+}
+
+function safeInternalPath(path, fallback) {
+  if (typeof path === 'string' && path.startsWith('/')) {
+    return path
+  }
+  return fallback
 }
 
 function normalizeDefaultLanguage(language) {
@@ -65,53 +69,52 @@ function pickStarter(body, language) {
   return body.starterCode[language] || body.starterCode.cpp || ''
 }
 
-function problemTypeText(type) {
-  if (type === 'single_choice') return '单选题'
-  if (type === 'true_false') return '判断题'
-  return type
+function formatDateTime(value) {
+  if (!value) return '未设置'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '未设置'
+  return date.toLocaleString()
 }
 
-function alphaOptionLabel(index) {
-  return String.fromCharCode(65 + index)
+function formatCountdown(target, now) {
+  if (!target) return '未设置截止时间'
+  const endAt = new Date(target).getTime()
+  if (Number.isNaN(endAt)) return '未设置截止时间'
+  const diff = endAt - now
+  if (diff <= 0) return '已截止'
+  const totalSeconds = Math.floor(diff / 1000)
+  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0')
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0')
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
 }
 
-function renderChoiceOptionLabel(index, option) {
-  return (
-    <MarkdownWithMarker
-      marker={`${alphaOptionLabel(index)}.`}
-      content={String(option || '')}
-      sx={{
-        columnGap: 0.35
-      }}
-      markerSx={{
-        minWidth: '1.8ch'
-      }}
-      contentSx={{
-        fontSize: '0.98rem',
-        '& p': {
-          my: 0.2
-        },
-        '& ul, & ol': {
-          my: 0.3
-        },
-        '& pre': {
-          my: 0.6,
-          fontSize: '0.82rem'
-        }
-      }}
-    />
-  )
-}
-
-function nowTimeText() {
-  return new Date().toLocaleTimeString()
-}
-
-function safeInternalPath(path, fallback = '/') {
-  if (typeof path === 'string' && path.startsWith('/')) {
-    return path
+function loadStoredDraft(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) {
+      return {
+        objectiveAnswers: {},
+        flags: {},
+        programming: {},
+        lastSavedAt: ''
+      }
+    }
+    const parsed = JSON.parse(raw)
+    return {
+      objectiveAnswers: parsed?.objectiveAnswers && typeof parsed.objectiveAnswers === 'object' ? parsed.objectiveAnswers : {},
+      flags: parsed?.flags && typeof parsed.flags === 'object' ? parsed.flags : {},
+      programming: parsed?.programming && typeof parsed.programming === 'object' ? parsed.programming : {},
+      lastSavedAt: String(parsed?.lastSavedAt || '')
+    }
+  } catch {
+    return {
+      objectiveAnswers: {},
+      flags: {},
+      programming: {},
+      lastSavedAt: ''
+    }
   }
-  return fallback
 }
 
 function normalizeSubmissionCaseDetails(caseDetails) {
@@ -140,21 +143,21 @@ function getSubmissionCaseSummary(submission) {
   }
 }
 
-export default function CodingPage() {
+export default function HomeworkProgrammingPage() {
   const { user } = useAuth()
-  const { spaceId, problemId } = useParams()
+  const { spaceId, homeworkId, problemId } = useParams()
   const [searchParams] = useSearchParams()
+  const [space, setSpace] = useState(null)
+  const [homework, setHomework] = useState(null)
   const [problem, setProblem] = useState(null)
+  const [draft, setDraft] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const [language, setLanguage] = useState('cpp')
-  const [code, setCode] = useState('')
-  const [customInput, setCustomInput] = useState('')
-  const [showCustomInputDialog, setShowCustomInputDialog] = useState(false)
-  const [tempCustomInput, setTempCustomInput] = useState('')
-  const [consoleText, setConsoleText] = useState('控制台已就绪')
+  const [actionMessage, setActionMessage] = useState('')
   const [running, setRunning] = useState(false)
+  const [now, setNow] = useState(Date.now())
+  const [consoleText, setConsoleText] = useState('控制台已就绪')
+  const [runInputDialog, setRunInputDialog] = useState({ open: false, value: '' })
   const [submissions, setSubmissions] = useState([])
   const [showSubmissionHistory, setShowSubmissionHistory] = useState(false)
   const [selectedSubmission, setSelectedSubmission] = useState(null)
@@ -162,11 +165,13 @@ export default function CodingPage() {
   const [submissionDetailTab, setSubmissionDetailTab] = useState('code')
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
 
-  const [objectiveAnswer, setObjectiveAnswer] = useState('')
-
-  const body = useMemo(() => problem?.bodyJson || {}, [problem])
-  const backTo = safeInternalPath(searchParams.get('returnTo'))
-  const backLabel = searchParams.get('returnLabel') || '返回首页'
+  const numericProblemId = Number(problemId)
+  const draftStorageKey = `orangeoj:homework:${spaceId}:${homeworkId}:draft`
+  const defaultBackTo = `/spaces/${spaceId}/homeworks/${homeworkId}`
+  const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
+  const backLabel = searchParams.get('returnLabel') || '返回作业'
+  const reviewSubmissionId = Number(searchParams.get('submissionId') || 0)
+  const isReviewMode = Number.isInteger(reviewSubmissionId) && reviewSubmissionId > 0
   const selectedSubmissionCaseDetails = selectedSubmission?.caseDetails || []
   const selectedSubmissionCase = selectedSubmissionCaseDetails[selectedSubmissionCaseIndex] || null
   const selectedSubmissionInput = selectedSubmissionCase?.input ?? selectedSubmission?.input ?? ''
@@ -185,89 +190,154 @@ export default function CodingPage() {
     }
   }
 
-  // Auto-close snackbar after 2 seconds, unaffected by mouse interaction
   useEffect(() => {
-    if (snackbar.open) {
-      const timer = setTimeout(() => {
-        setSnackbar({ ...snackbar, open: false })
-      }, 2000)
-      return () => clearTimeout(timer)
-    }
+    if (!snackbar.open) return undefined
+    const timer = window.setTimeout(() => {
+      setSnackbar((current) => ({ ...current, open: false }))
+    }, 2000)
+    return () => window.clearTimeout(timer)
   }, [snackbar.open])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const persistProgrammingDraft = (updater, message = '') => {
+    if (isReviewMode) return
+    setDraft((current) => {
+      const nextDraft = typeof updater === 'function' ? updater(current) : updater
+      const stored = loadStoredDraft(draftStorageKey)
+      const merged = {
+        ...stored,
+        lastSavedAt: nextDraft.lastSavedAt || stored.lastSavedAt || '',
+        programming: {
+          ...stored.programming,
+          [numericProblemId]: nextDraft
+        }
+      }
+      localStorage.setItem(draftStorageKey, JSON.stringify(merged))
+      return nextDraft
+    })
+    if (message) {
+      setActionMessage(message)
+    }
+  }
+
+  const refreshSubmissionHistory = async () => {
+    try {
+      const result = await api.listSubmissions(spaceId, numericProblemId, { all: true })
+      setSubmissions(result?.submissions || [])
+    } catch {
+      // 测评记录不是阻塞链路
+    }
+  }
 
   useEffect(() => {
     ;(async () => {
       try {
         setLoading(true)
         setError('')
-        let data, space
-        if (spaceId) {
-          // Space problem
-          ;[data, space] = await Promise.all([
-            api.getProblem(spaceId, problemId),
-            api.getSpace(spaceId)
-          ])
-        } else {
-          // Root problem
-          data = await api.getRootProblem(problemId)
+        setActionMessage('')
+
+        const [spaceData, homeworkData, problemData] = await Promise.all([
+          api.getSpace(spaceId),
+          api.getHomework(spaceId, homeworkId),
+          api.getProblem(spaceId, problemId)
+        ])
+
+        const homeworkHasProblem = (homeworkData?.items || []).some((item) => Number(item.problemId) === numericProblemId)
+        if (!homeworkHasProblem) {
+          throw new Error('当前作业不包含这道编程题')
         }
-        const defaultLanguage = normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
-        setLanguage(defaultLanguage)
-        setProblem(data)
-        if (data.type === 'programming') {
-          const key = spaceId
-            ? `orangeoj:code:${spaceId}:${problemId}:${defaultLanguage}`
-            : `orangeoj:code:root:${problemId}:${defaultLanguage}`
-          const cached = localStorage.getItem(key)
-          setCode(cached || pickStarter(data.bodyJson, defaultLanguage))
+        if (problemData?.type !== 'programming') {
+          throw new Error('当前题目不是编程题')
         }
-        
-        // Fetch submission history for this problem (all problem types)
-        if (spaceId) {
-          try {
-            const result = await api.listSubmissions(spaceId, problemId, { all: true })
-            const submissions = result?.submissions || []
-            setSubmissions(submissions)
-          } catch (subErr) {
-            // Silently ignore - submission history is optional
+
+        let nextDraft = null
+        let nextSubmissions = []
+        let nextSelectedSubmission = null
+        let nextConsoleText = '控制台已就绪'
+
+        if (isReviewMode) {
+          const submissionDetail = await api.getSubmission(reviewSubmissionId)
+          if (Number(submissionDetail?.problemId) !== numericProblemId) {
+            throw new Error('当前提交记录不属于这道编程题')
           }
+          const language = normalizeDefaultLanguage(submissionDetail?.language || spaceData?.defaultProgrammingLanguage)
+          nextDraft = {
+            language,
+            code: submissionDetail?.sourceCode || '',
+            customInput: submissionDetail?.inputData || '',
+            touched: false,
+            lastSavedAt: submissionDetail?.createdAt || '',
+            submissionId: Number(submissionDetail?.id || 0)
+          }
+          nextSelectedSubmission = {
+            ...submissionDetail,
+            code: submissionDetail?.sourceCode || '',
+            input: submissionDetail?.inputData || '',
+            output: submissionDetail?.stdout || '',
+            expectedOutput: submissionDetail?.expectedOutput || '',
+            error: submissionDetail?.stderr || '',
+            status: submissionDetail?.verdict || submissionDetail?.status || '',
+            caseDetails: normalizeSubmissionCaseDetails(submissionDetail?.caseDetails)
+          }
+          nextSubmissions = [submissionDetail]
+          nextConsoleText = `正在回看提交 #${submissionDetail?.id || '-'}\n结果：${submissionDetail?.verdict || submissionDetail?.status || '未知'}`
+        } else {
+          const submissionResult = await api.listSubmissions(spaceId, problemId, { all: true }).catch(() => ({ submissions: [] }))
+          const storedDraft = loadStoredDraft(draftStorageKey)
+          const savedProgramming = storedDraft.programming?.[numericProblemId] || {}
+          const latestSubmission = (submissionResult?.submissions || []).find((item) => item.questionType === 'programming' && Number(item.userId) === Number(user?.id)) || null
+          const language = normalizeDefaultLanguage(savedProgramming.language || latestSubmission?.language || spaceData?.defaultProgrammingLanguage)
+          nextDraft = {
+            language,
+            code: savedProgramming.code ?? latestSubmission?.sourceCode ?? pickStarter(problemData?.bodyJson || {}, language),
+            customInput: savedProgramming.customInput ?? latestSubmission?.inputData ?? '',
+            touched: Boolean(savedProgramming.touched),
+            lastSavedAt: savedProgramming.lastSavedAt || ''
+          }
+          nextSubmissions = submissionResult?.submissions || []
         }
+
+        setSpace(spaceData)
+        setHomework(homeworkData)
+        setProblem(problemData)
+        setDraft(nextDraft)
+        setSubmissions(nextSubmissions)
+        setSelectedSubmission(nextSelectedSubmission)
+        setConsoleText(nextConsoleText)
       } catch (err) {
-        setError(err.message)
+        setError(err.message || '编程题加载失败')
       } finally {
         setLoading(false)
       }
     })()
-  }, [spaceId, problemId])
+  }, [spaceId, homeworkId, problemId, reviewSubmissionId])
 
-  useEffect(() => {
-    if (!problem || problem.type !== 'programming') return
-    const key = spaceId
-      ? `orangeoj:code:${spaceId}:${problemId}:${language}`
-      : `orangeoj:code:root:${problemId}:${language}`
-    const cached = localStorage.getItem(key)
-    setCode(cached || pickStarter(problem.bodyJson, language))
-  }, [language, problem, spaceId, problemId])
-
-  const handleRunClick = () => {
-    setShowCustomInputDialog(true)
-    setTempCustomInput(customInput)
-  }
-
-  const handleTestClick = () => {
-    handleCodeSubmit('test')
+  const updateDraft = (patch) => {
+    if (isReviewMode) return
+    persistProgrammingDraft((current) => ({
+      ...current,
+      ...patch,
+      touched: true
+    }))
   }
 
   const saveDraft = () => {
-    const key = spaceId
-      ? `orangeoj:code:${spaceId}:${problemId}:${language}`
-      : `orangeoj:code:root:${problemId}:${language}`
-    localStorage.setItem(key, code)
-    setConsoleText((prev) => `${prev}\n[${nowTimeText()}] 草稿已保存到本地`)
+    if (isReviewMode) return
+    const savedAt = new Date().toISOString()
+    persistProgrammingDraft((current) => ({
+      ...current,
+      lastSavedAt: savedAt
+    }), '代码草稿已保存到本地')
   }
 
   const pollSubmission = async (submissionId) => {
-    for (let i = 0; i < 180; i += 1) {
+    for (let round = 0; round < 180; round += 1) {
       const snapshot = await api.pollSubmission(submissionId)
       setConsoleText(
         `${snapshot.stdout || ''}\n${snapshot.stderr || ''}\n状态：${snapshot.status} / ${snapshot.verdict || ''}`
@@ -280,68 +350,45 @@ export default function CodingPage() {
     throw new Error('判题等待超时，请稍后再试')
   }
 
-  const handleCodeSubmit = async (mode) => {
-    if (!problem || problem.type !== 'programming') return
+  const handleProgrammingRunOrTest = async (mode, programmingOverride = null) => {
+    if (isReviewMode) return
+    const nextDraft = programmingOverride || draft
+    if (!nextDraft) return
 
-    setRunning(true)
-    setError('')
-    const actionText = mode === 'run' ? '运行' : '测试'
-    setConsoleText(`[${nowTimeText()}] 开始${actionText}...`)
-
-    try {
-      const payload = {
-        language,
-        sourceCode: code,
-        inputData: customInput
-      }
-
-      const created = spaceId
-        ? mode === 'run'
-          ? await api.run(spaceId, problemId, payload)
-          : await api.test(spaceId, problemId, payload)
-        : mode === 'run'
-          ? await api.runRoot(problemId, payload)
-          : await api.testRoot(problemId, payload)
-
-      const result = await pollSubmission(created.submissionId)
-      setConsoleText(
-        (prev) => `${prev}\n\n最终结果：${result.verdict || '-'} | ${(result.timeMs || 0)}ms | ${(result.memoryKiB || 0)}KiB`
-      )
-      
-      // Reload submission history after successful submission
-      if (spaceId) {
-        const historyResult = await api.listSubmissions(spaceId, problemId, { all: true })
-        setSubmissions(historyResult?.submissions || [])
-      }
-    } catch (err) {
-      setError(err.message)
-      setConsoleText((prev) => `${prev}\n错误：${err.message}`)
-    } finally {
-      setRunning(false)
-    }
-  }
-
-  const handleObjectiveSubmit = async () => {
     try {
       setRunning(true)
       setError('')
-      const answer = problem.type === 'true_false' ? objectiveAnswer === 'true' : objectiveAnswer
-      const result = spaceId
-        ? await api.objectiveSubmit(spaceId, problemId, answer)
-        : await api.objectiveSubmitRoot(problemId, answer)
-      setConsoleText(`判定结果：${result.verdict} | 得分：${result.score}`)
+      setActionMessage('')
+      setConsoleText(`[${new Date().toLocaleTimeString()}] 开始${mode === 'run' ? '运行' : '测试'}...`)
+
+      const payload = {
+        language: nextDraft.language,
+        sourceCode: nextDraft.code,
+        inputData: nextDraft.customInput || ''
+      }
+
+      const created = mode === 'run'
+        ? await api.run(spaceId, numericProblemId, payload)
+        : await api.test(spaceId, numericProblemId, payload)
+
+      const result = await pollSubmission(created.submissionId)
+      setConsoleText(
+        (current) => `${current}\n\n最终结果：${result.verdict || '-'} | ${(result.timeMs || 0)}ms | ${(result.memoryKiB || 0)}KiB`
+      )
+      await refreshSubmissionHistory()
     } catch (err) {
-      setError(err.message)
+      setError(err.message || '运行失败')
+      setConsoleText((current) => `${current}\n错误：${err.message || '运行失败'}`)
     } finally {
       setRunning(false)
     }
   }
 
   if (loading) {
-    return <div className="screen-center">题目加载中...</div>
+    return <div className="screen-center">编程题加载中...</div>
   }
 
-  if (error && !problem) {
+  if (error && (!problem || !draft)) {
     return (
       <div className="page-shell">
         <div className="error-box">{error}</div>
@@ -350,115 +397,29 @@ export default function CodingPage() {
     )
   }
 
-  if (!problem) {
-    return <div className="screen-center">题目不存在</div>
+  if (!problem || !draft) {
+    return <div className="screen-center">编程题不存在</div>
   }
 
-  if (problem.type !== 'programming') {
-    return (
-      <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
-        <AppBar position="static" color="default" elevation={1}>
-          <Toolbar>
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6">{problem.title}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {problemTypeText(problem.type)}
-              </Typography>
-            </Box>
-            <Button color="inherit" component={Link} to={backTo}>
-              {backLabel}
-            </Button>
-          </Toolbar>
-        </AppBar>
-
-        <Box sx={{ p: 3 }}>
-          {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
-
-          <Card>
-            <CardContent>
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: 'grey.50',
-                  borderRadius: 1,
-                  mb: 3
-                }}
-              >
-                <MarkdownContent content={problem.statementMd} />
-              </Box>
-
-              {problem.type === 'single_choice' ? (
-                <FormControl component="fieldset" sx={{ mb: 3 }}>
-                  <FormLabel component="legend">选项</FormLabel>
-                  <RadioGroup value={objectiveAnswer} onChange={(e) => setObjectiveAnswer(e.target.value)}>
-                    {(body.options || []).map((opt, index) => (
-                      <FormControlLabel
-                        key={`${String(opt)}-${index}`}
-                        value={String(opt)}
-                        control={<Radio />}
-                        disableTypography
-                        label={renderChoiceOptionLabel(index, opt)}
-                        sx={{
-                          alignItems: 'flex-start',
-                          mr: 0,
-                          '.MuiFormControlLabel-label': {
-                            flexGrow: 1
-                          }
-                        }}
-                      />
-                    ))}
-                  </RadioGroup>
-                </FormControl>
-              ) : (
-                <FormControl component="fieldset" sx={{ mb: 3 }}>
-                  <FormLabel component="legend">答案</FormLabel>
-                  <RadioGroup row value={objectiveAnswer} onChange={(e) => setObjectiveAnswer(e.target.value)}>
-                    <FormControlLabel value="true" control={<Radio />} label="正确" />
-                    <FormControlLabel value="false" control={<Radio />} label="错误" />
-                  </RadioGroup>
-                </FormControl>
-              )}
-
-              <Button
-                variant="contained"
-                disabled={running || !objectiveAnswer}
-                onClick={handleObjectiveSubmit}
-              >
-                {running ? '提交中...' : '提交答案'}
-              </Button>
-
-              {consoleText && (
-                <Box
-                  sx={{
-                    mt: 2,
-                    p: 2,
-                    bgcolor: 'grey.50',
-                    borderRadius: 1,
-                    fontFamily: 'monospace',
-                    whiteSpace: 'pre-wrap'
-                  }}
-                >
-                  {consoleText}
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Box>
-      </Box>
-    )
-  }
-
-  const samples = body.samples || []
+  const samples = problem.bodyJson?.samples || []
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static" color="default" elevation={1}>
-        <Toolbar sx={{ minHeight: '48px !important', py: 0.5 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: '600', flexGrow: 1 }}>{problem.title}</Typography>
-          <IconButton 
-            color="inherit" 
-            component={Link} 
+        <Toolbar sx={{ minHeight: '40px !important', py: 0.5, gap: 1.5 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, flexShrink: 0 }} noWrap>
+              {problem.title}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+              {homework?.title ? `${homework.title} | ` : ''}剩余时间：{formatCountdown(homework?.dueAt, now)} | 截止：{formatDateTime(homework?.dueAt)}
+            </Typography>
+          </Box>
+          <IconButton
+            color="inherit"
+            component={Link}
             to={backTo}
+            aria-label={backLabel}
             sx={{ ml: 1 }}
           >
             <CloseIcon />
@@ -467,24 +428,30 @@ export default function CodingPage() {
       </AppBar>
 
       {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
+      {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', p: 2, gap: 2 }}>
-        {/* Left Panel - Problem Description */}
-        <Card sx={{ 
-          width: '40%', 
-          minWidth: 400,
-          display: 'flex', 
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
-          <CardContent sx={{ 
-            flexGrow: 1, 
-            overflow: 'auto',
-            '&::-webkit-scrollbar': { width: '8px' },
-            '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.2)', borderRadius: '4px' }
-          }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>题目描述</Typography>
-            
+        <Card
+          sx={{
+            width: '40%',
+            minWidth: 400,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
+          <CardContent
+            sx={{
+              flexGrow: 1,
+              overflow: 'auto',
+              '&::-webkit-scrollbar': { width: '8px' },
+              '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.2)', borderRadius: '4px' }
+            }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+              题目描述
+            </Typography>
+
             <Box
               sx={{
                 p: 2,
@@ -498,50 +465,58 @@ export default function CodingPage() {
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>输入格式</Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+              输入格式
+            </Typography>
             <Typography variant="body2" paragraph sx={{ ml: 1 }}>
-              {body.inputFormat || '见题目描述'}
+              {problem.bodyJson?.inputFormat || '见题目描述'}
             </Typography>
 
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>输出格式</Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+              输出格式
+            </Typography>
             <Typography variant="body2" paragraph sx={{ ml: 1 }}>
-              {body.outputFormat || '见题目描述'}
+              {problem.bodyJson?.outputFormat || '见题目描述'}
             </Typography>
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>样例</Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+              样例
+            </Typography>
             {samples.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" paragraph>暂无样例</Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                暂无样例
+              </Typography>
             ) : (
               <Stack spacing={2} sx={{ mt: 1 }}>
                 {samples.map((sample, index) => (
                   <Box key={index}>
-                    <Paper 
-                      variant="outlined" 
-                      sx={{ 
-                        p: 2, 
-                        mb: 1, 
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        mb: 1,
                         bgcolor: 'grey.50',
                         borderRadius: 2,
                         '&:hover': { bgcolor: 'grey.100' }
                       }}
                     >
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: '600', color: 'primary.main' }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
                           输入样例 {index + 1}
                         </Typography>
-                        <IconButton 
-                          size="small" 
+                        <IconButton
+                          size="small"
                           onClick={() => copyToClipboard(sample.input, '输入样例')}
                           sx={{ color: 'primary.main' }}
                         >
                           <ContentCopy fontSize="small" />
                         </IconButton>
                       </Box>
-                      <Box 
-                        sx={{ 
-                          fontFamily: 'monospace', 
+                      <Box
+                        sx={{
+                          fontFamily: 'monospace',
                           fontSize: '0.875rem',
                           p: 1,
                           bgcolor: 'background.paper',
@@ -551,30 +526,30 @@ export default function CodingPage() {
                         {sample.input || '(空)'}
                       </Box>
                     </Paper>
-                    <Paper 
-                      variant="outlined" 
-                      sx={{ 
-                        p: 2, 
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
                         bgcolor: 'grey.50',
                         borderRadius: 2,
                         '&:hover': { bgcolor: 'grey.100' }
                       }}
                     >
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: '600', color: 'success.main' }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'success.main' }}>
                           输出样例 {index + 1}
                         </Typography>
-                        <IconButton 
-                          size="small" 
+                        <IconButton
+                          size="small"
                           onClick={() => copyToClipboard(sample.output, '输出样例')}
                           sx={{ color: 'success.main' }}
                         >
                           <ContentCopy fontSize="small" />
                         </IconButton>
                       </Box>
-                      <Box 
-                        sx={{ 
-                          fontFamily: 'monospace', 
+                      <Box
+                        sx={{
+                          fontFamily: 'monospace',
                           fontSize: '0.875rem',
                           p: 1,
                           bgcolor: 'background.paper',
@@ -591,35 +566,46 @@ export default function CodingPage() {
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>限制</Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+              限制
+            </Typography>
             <Stack spacing={1} sx={{ mt: 1 }}>
               <Typography variant="body2">时间限制：<strong>{problem.timeLimitMs}ms</strong></Typography>
               <Typography variant="body2">内存限制：<strong>{problem.memoryLimitMiB}MiB</strong></Typography>
+              <Typography variant="body2">
+                {isReviewMode ? '提交时间：' : '最近保存：'}
+                <strong>{draft.lastSavedAt ? formatDateTime(draft.lastSavedAt) : (isReviewMode ? '未记录' : '尚未保存')}</strong>
+              </Typography>
             </Stack>
           </CardContent>
         </Card>
 
-        {/* Right Panel - Code Editor */}
-        <Card sx={{ 
-          flexGrow: 1, 
-          display: 'flex', 
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
-          <CardContent sx={{ 
-            flexGrow: 1, 
-            display: 'flex', 
+        <Card
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
             flexDirection: 'column',
-            p: 2
-          }}>
-            {/* Toolbar */}
+            overflow: 'hidden'
+          }}
+        >
+          <CardContent
+            sx={{
+              flexGrow: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              p: 2
+            }}
+          >
             <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-              <FormControl size="small" sx={{ minWidth: 130 }}>
+              <FormControl size="small" sx={{ minWidth: 130 }} disabled={isReviewMode}>
                 <InputLabel>语言</InputLabel>
                 <Select
-                  value={language}
+                  value={draft.language}
                   label="语言"
-                  onChange={(e) => setLanguage(e.target.value)}
+                  onChange={(event) => updateDraft({
+                    language: event.target.value,
+                    code: pickStarter(problem.bodyJson || {}, event.target.value)
+                  })}
                   sx={{ bgcolor: 'background.paper' }}
                 >
                   <MenuItem value="cpp">C++17</MenuItem>
@@ -627,40 +613,67 @@ export default function CodingPage() {
                   <MenuItem value="go">Go 1.25</MenuItem>
                 </Select>
               </FormControl>
-              <Button variant="contained" color="success" disabled={running} onClick={() => handleRunClick()} sx={{ minWidth: 80 }}>
-                运行
-              </Button>
-              <Button variant="contained" disabled={running} onClick={() => handleTestClick()} sx={{ minWidth: 80 }}>
-                测试
-              </Button>
-              <Button variant="contained" color="info" onClick={saveDraft} sx={{ minWidth: 80 }}>
-                保存
-              </Button>
+              {!isReviewMode ? (
+                <>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    disabled={running}
+                    onClick={() => setRunInputDialog({ open: true, value: draft.customInput || '' })}
+                    startIcon={<PlayArrowRoundedIcon />}
+                    sx={{ minWidth: 80 }}
+                  >
+                    运行
+                  </Button>
+                  <Button
+                    variant="contained"
+                    disabled={running}
+                    onClick={() => handleProgrammingRunOrTest('test')}
+                    sx={{ minWidth: 80 }}
+                  >
+                    测试
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="info"
+                    onClick={saveDraft}
+                    startIcon={<SaveRoundedIcon />}
+                    sx={{ minWidth: 80 }}
+                  >
+                    保存
+                  </Button>
+                </>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  正在查看提交 #{reviewSubmissionId} 的代码
+                </Typography>
+              )}
               <Box sx={{ flexGrow: 1 }} />
-              <Button 
-                variant="outlined" 
+              <Button
+                variant="outlined"
                 endIcon={<HistoryIcon />}
                 onClick={() => setShowSubmissionHistory(true)}
               >
-                测评记录 {submissions.length > 0 && `(${submissions.length})`}
+                {isReviewMode ? '查看测评详情' : `测评记录 ${submissions.length > 0 ? `(${submissions.length})` : ''}`}
               </Button>
             </Stack>
 
-            {/* Code Editor */}
-            <Box sx={{ 
-              flexGrow: 1, 
-              border: 1, 
-              borderColor: 'divider', 
-              borderRadius: 1, 
-              mb: 2,
-              overflow: 'hidden',
-              minHeight: 200
-            }}>
+            <Box
+              sx={{
+                flexGrow: 1,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+                mb: 2,
+                overflow: 'hidden',
+                minHeight: 200
+              }}
+            >
               <Editor
                 theme="vs"
-                language={editorLang[language]}
-                value={code}
-                onChange={(value) => setCode(value || '')}
+                language={editorLang[draft.language]}
+                value={draft.code}
+                onChange={(value) => updateDraft({ code: value || '' })}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 15,
@@ -674,17 +687,16 @@ export default function CodingPage() {
                   folding: false,
                   lineDecorationsWidth: 8,
                   renderSideBySide: false,
-                  diffWordWrap: 'off'
+                  diffWordWrap: 'off',
+                  readOnly: isReviewMode
                 }}
               />
             </Box>
 
-            {/* Console Output */}
-            <Box sx={{ 
-              display: 'flex',
-              flexDirection: 'column'
-            }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: '600', mb: 1 }}>控制台输出</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                控制台输出
+              </Typography>
               <Box
                 sx={{
                   p: 2,
@@ -706,10 +718,9 @@ export default function CodingPage() {
         </Card>
       </Box>
 
-      {/* Custom Input Dialog */}
       <Dialog
-        open={showCustomInputDialog}
-        onClose={() => setShowCustomInputDialog(false)}
+        open={runInputDialog.open}
+        onClose={() => setRunInputDialog({ open: false, value: '' })}
         maxWidth="sm"
         fullWidth
       >
@@ -720,20 +731,27 @@ export default function CodingPage() {
             fullWidth
             multiline
             rows={6}
-            value={tempCustomInput}
-            onChange={(e) => setTempCustomInput(e.target.value)}
+            value={runInputDialog.value}
+            onChange={(event) => setRunInputDialog({ open: true, value: event.target.value })}
             placeholder="请输入测试数据"
             sx={{ mt: 1 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowCustomInputDialog(false)}>取消</Button>
-          <Button 
-            variant="contained" 
+          <Button onClick={() => setRunInputDialog({ open: false, value: '' })}>取消</Button>
+          <Button
+            variant="contained"
             onClick={() => {
-              setCustomInput(tempCustomInput);
-              setShowCustomInputDialog(false);
-              handleCodeSubmit('run');
+              const nextDraft = {
+                ...draft,
+                customInput: runInputDialog.value,
+                touched: true
+              }
+              persistProgrammingDraft(nextDraft)
+              setRunInputDialog({ open: false, value: '' })
+              setTimeout(() => {
+                handleProgrammingRunOrTest('run', nextDraft)
+              }, 0)
             }}
           >
             运行
@@ -741,7 +759,6 @@ export default function CodingPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Submission History Dialog */}
       <Dialog
         open={showSubmissionHistory}
         onClose={() => setShowSubmissionHistory(false)}
@@ -757,7 +774,6 @@ export default function CodingPage() {
         <DialogTitle>测评记录</DialogTitle>
         <DialogContent sx={{ p: 0 }}>
           {selectedSubmission ? (
-            /* Detail View */
             <Box sx={{ width: '100%' }}>
               {selectedSubmissionCaseDetails.length > 0 && (
                 <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ px: 2, pt: 2 }}>
@@ -779,9 +795,9 @@ export default function CodingPage() {
               {selectedSubmissionCaseDetails.length > 0 && (
                 <Box sx={{ px: 2, pt: 2, pb: 1 }}>
                   <FormControl fullWidth size="small">
-                    <InputLabel id="coding-submission-case-select-label">测试点</InputLabel>
+                    <InputLabel id="homework-submission-case-select-label">测试点</InputLabel>
                     <Select
-                      labelId="coding-submission-case-select-label"
+                      labelId="homework-submission-case-select-label"
                       label="测试点"
                       value={selectedSubmissionCaseIndex}
                       onChange={(event) => setSelectedSubmissionCaseIndex(Number(event.target.value))}
@@ -796,7 +812,7 @@ export default function CodingPage() {
                 </Box>
               )}
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={submissionDetailTab} onChange={(e, newValue) => setSubmissionDetailTab(newValue)}>
+                <Tabs value={submissionDetailTab} onChange={(event, value) => setSubmissionDetailTab(value)}>
                   <Tab label="代码" value="code" />
                   <Tab label="输入" value="input" />
                   <Tab label="输出" value="output" />
@@ -808,11 +824,8 @@ export default function CodingPage() {
                 {submissionDetailTab === 'code' && (
                   <Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: '600' }}>代码</Typography>
-                      <IconButton 
-                        size="small" 
-                        onClick={() => copyToClipboard(selectedSubmission.code, '代码')}
-                      >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>代码</Typography>
+                      <IconButton size="small" onClick={() => copyToClipboard(selectedSubmission.code, '代码')}>
                         <ContentCopy fontSize="small" />
                       </IconButton>
                     </Box>
@@ -899,34 +912,32 @@ export default function CodingPage() {
               </Box>
             </Box>
           ) : submissions.length === 0 ? (
-            /* Empty State */
             <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
               <Typography variant="body2">
                 暂无测评记录
               </Typography>
               <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-                点击"测试"或"运行"按钮提交代码后，测评记录将在这里显示
+                点击“测试”或“运行”后，测评记录会显示在这里
               </Typography>
             </Box>
           ) : (
-            /* List View */
             <List sx={{ maxHeight: '50vh', overflow: 'auto' }}>
-              {submissions.map((sub, index) => {
-                const summary = getSubmissionCaseSummary(sub)
+              {submissions.map((submission, index) => {
+                const summary = getSubmissionCaseSummary(submission)
                 return (
                   <ListItem
-                    key={sub.id || index}
+                    key={submission.id || index}
                     divider
                     onClick={() => {
-                      const caseDetails = normalizeSubmissionCaseDetails(sub.caseDetails)
+                      const caseDetails = normalizeSubmissionCaseDetails(submission.caseDetails)
                       setSelectedSubmission({
-                        ...sub,
-                        code: sub.sourceCode,
-                        input: sub.inputData,
-                        output: sub.stdout,
-                        expectedOutput: sub.expectedOutput,
-                        error: sub.stderr,
-                        status: sub.verdict,
+                        ...submission,
+                        code: submission.sourceCode,
+                        input: submission.inputData,
+                        output: submission.stdout,
+                        expectedOutput: submission.expectedOutput,
+                        error: submission.stderr,
+                        status: submission.verdict,
                         caseDetails
                       })
                       setSelectedSubmissionCaseIndex(0)
@@ -941,8 +952,8 @@ export default function CodingPage() {
                       <HistoryIcon color="action" />
                     </ListItemIcon>
                     <ListItemText
-                      primary={`提交 #${sub.id} - ${sub.verdict || sub.status}`}
-                      secondary={`${sub.userId && sub.userId !== user?.id ? `用户：${sub.username || `#${sub.userId}`} | ` : ''}${new Date(sub.createdAt).toLocaleString()} | ${(sub.timeMs || 0)}ms | ${(sub.memoryKiB || 0)}KiB${summary.totalCaseCount > 0 ? ` | 测试点 ${summary.passedCaseCount}/${summary.totalCaseCount}` : ''}`}
+                      primary={`提交 #${submission.id} - ${submission.verdict || submission.status}`}
+                      secondary={`${submission.userId && submission.userId !== user?.id ? `用户：${submission.username || `#${submission.userId}`} | ` : ''}${new Date(submission.createdAt).toLocaleString()} | ${(submission.timeMs || 0)}ms | ${(submission.memoryKiB || 0)}KiB${summary.totalCaseCount > 0 ? ` | 测试点 ${summary.passedCaseCount}/${summary.totalCaseCount}` : ''}`}
                     />
                   </ListItem>
                 )
@@ -965,10 +976,10 @@ export default function CodingPage() {
           )}
         </DialogActions>
       </Dialog>
-      
+
       <Snackbar
         open={snackbar.open}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        onClose={() => setSnackbar((current) => ({ ...current, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert severity={snackbar.severity} sx={{ width: '100%' }}>

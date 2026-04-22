@@ -217,9 +217,19 @@ func (a *API) handleDeleteRootProblem(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	_, err = a.DB.Exec(`DELETE FROM root_problems WHERE id=?`, problemID)
+	res, err := a.DB.Exec(`DELETE FROM root_problems WHERE id=?`, problemID)
+	if err != nil {
+		if isForeignKeyErr(err) {
+			return respondError(c, fiber.StatusConflict, "problem is still referenced")
+		}
+		return err
+	}
+	affected, err := res.RowsAffected()
 	if err != nil {
 		return err
+	}
+	if affected == 0 {
+		return respondError(c, fiber.StatusNotFound, "problem not found")
 	}
 	return respondData(c, fiber.Map{"deleted": true})
 }

@@ -4,6 +4,10 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import CodingPage from './pages/CodingPage'
+import TrainingPage from './pages/TrainingPage'
+import HomeworkPage from './pages/HomeworkPage'
+import HomeworkProgrammingPage from './pages/HomeworkProgrammingPage'
+import HomeworkSubmissionRecordsPage from './pages/HomeworkSubmissionRecordsPage'
 
 function Protected({ children }) {
   const { user, loading } = useAuth()
@@ -73,6 +77,38 @@ export default function App() {
         element={
           <Protected>
             <CodingPage user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route
+        path="/spaces/:spaceId/training-plans/:planId"
+        element={
+          <Protected>
+            <TrainingPage user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route
+        path="/spaces/:spaceId/homeworks/:homeworkId"
+        element={
+          <Protected>
+            <HomeworkPage user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route
+        path="/spaces/:spaceId/homeworks/:homeworkId/problems/:problemId"
+        element={
+          <Protected>
+            <HomeworkProgrammingPage user={user} onLogout={handleLogout} />
+          </Protected>
+        }
+      />
+      <Route
+        path="/spaces/:spaceId/homeworks/:homeworkId/submission-records"
+        element={
+          <Protected>
+            <HomeworkSubmissionRecordsPage user={user} onLogout={handleLogout} />
           </Protected>
         }
       />

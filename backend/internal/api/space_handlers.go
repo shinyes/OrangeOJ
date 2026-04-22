@@ -139,12 +139,17 @@ func (a *API) handleGetSpace(c *fiber.Ctx) error {
 	}
 
 	var id, createdBy int64
-	var name, description, defaultLanguage string
+	var name, description, defaultLanguage, myRole string
 	var createdAt time.Time
-	if err := a.DB.QueryRow(`SELECT id, name, description, default_programming_language, created_by, created_at FROM spaces WHERE id=?`, spaceID).
-		Scan(&id, &name, &description, &defaultLanguage, &createdBy, &createdAt); err != nil {
+	if err := a.DB.QueryRow(`
+SELECT s.id, s.name, s.description, s.default_programming_language, s.created_by, s.created_at, COALESCE(sm.role, '') AS my_role
+FROM spaces s
+LEFT JOIN space_members sm ON sm.space_id=s.id AND sm.user_id=?
+WHERE s.id=?`, user.ID, spaceID).
+		Scan(&id, &name, &description, &defaultLanguage, &createdBy, &createdAt, &myRole); err != nil {
 		return err
 	}
+	canManage := user.GlobalRole == "system_admin" || myRole == "space_admin"
 	return respondData(c, fiber.Map{
 		"id":                         id,
 		"name":                       name,
@@ -152,6 +157,8 @@ func (a *API) handleGetSpace(c *fiber.Ctx) error {
 		"defaultProgrammingLanguage": normalizeSpaceProgrammingLanguage(defaultLanguage),
 		"createdBy":                  createdBy,
 		"createdAt":                  createdAt,
+		"myRole":                     myRole,
+		"canManage":                  canManage,
 	})
 }
 
