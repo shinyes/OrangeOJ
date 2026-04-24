@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"strconv"
 	"testing"
 )
@@ -56,6 +57,60 @@ func TestSpaceAdminCreateProblemCreatesRootAndLink(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected linked problem in space, count=%d", count)
+	}
+}
+
+func TestSpaceAdminCreateAndUpdateProblemTags(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_admin_problem_tags", "spaceadmintags123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Tags")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+
+	cookie := mustLogin(t, app, "space_admin_problem_tags", "spaceadmintags123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems", cookie, map[string]interface{}{
+		"type":        "single_choice",
+		"title":       "带标签的空间题",
+		"tags":        []string{"语法", "入门", "语法"},
+		"statementMd": "请选择答案",
+		"bodyJson":    map[string]interface{}{"options": []string{"A", "B"}},
+		"answerJson":  map[string]interface{}{"answer": "A"},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	createEnv := decodeEnvelope[map[string]interface{}](t, createResp)
+	problemID := int64(createEnv.Data["id"].(float64))
+
+	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, nil)
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected get 200, got %d", getResp.StatusCode)
+	}
+	getEnv := decodeEnvelope[map[string]interface{}](t, getResp)
+	if !reflect.DeepEqual(interfaceSliceToStringSlice(t, getEnv.Data["tags"]), []string{"语法", "入门"}) {
+		t.Fatalf("unexpected create tags: %+v", getEnv.Data["tags"])
+	}
+
+	updateResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, map[string]interface{}{
+		"type":        "single_choice",
+		"title":       "带标签的空间题（更新）",
+		"tags":        []string{"枚举", "模拟"},
+		"statementMd": "请选择答案",
+		"bodyJson":    map[string]interface{}{"options": []string{"A", "B"}},
+		"answerJson":  map[string]interface{}{"answer": "A"},
+	})
+	if updateResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected update 200, got %d", updateResp.StatusCode)
+	}
+	updateResp.Body.Close()
+
+	verifyResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, nil)
+	if verifyResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected verify 200, got %d", verifyResp.StatusCode)
+	}
+	verifyEnv := decodeEnvelope[map[string]interface{}](t, verifyResp)
+	if !reflect.DeepEqual(interfaceSliceToStringSlice(t, verifyEnv.Data["tags"]), []string{"枚举", "模拟"}) {
+		t.Fatalf("unexpected updated tags: %+v", verifyEnv.Data["tags"])
 	}
 }
 

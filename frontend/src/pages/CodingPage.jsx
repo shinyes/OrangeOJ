@@ -499,14 +499,14 @@ export default function CodingPage() {
             <Divider sx={{ my: 2 }} />
 
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>输入格式</Typography>
-            <Typography variant="body2" paragraph sx={{ ml: 1 }}>
-              {body.inputFormat || '见题目描述'}
-            </Typography>
+            <Box sx={{ ml: 1, mb: 2 }}>
+              <MarkdownContent content={body.inputFormat || '见题目描述'} />
+            </Box>
 
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: '600', mt: 2 }}>输出格式</Typography>
-            <Typography variant="body2" paragraph sx={{ ml: 1 }}>
-              {body.outputFormat || '见题目描述'}
-            </Typography>
+            <Box sx={{ ml: 1, mb: 2 }}>
+              <MarkdownContent content={body.outputFormat || '见题目描述'} />
+            </Box>
 
             <Divider sx={{ my: 2 }} />
 
@@ -539,13 +539,18 @@ export default function CodingPage() {
                           <ContentCopy fontSize="small" />
                         </IconButton>
                       </Box>
-                      <Box 
+                      <Box
+                        component="pre"
                         sx={{ 
+                          m: 0,
                           fontFamily: 'monospace', 
                           fontSize: '0.875rem',
                           p: 1,
                           bgcolor: 'background.paper',
-                          borderRadius: 1
+                          borderRadius: 1,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          overflowX: 'auto'
                         }}
                       >
                         {sample.input || '(空)'}
@@ -572,13 +577,18 @@ export default function CodingPage() {
                           <ContentCopy fontSize="small" />
                         </IconButton>
                       </Box>
-                      <Box 
+                      <Box
+                        component="pre"
                         sx={{ 
+                          m: 0,
                           fontFamily: 'monospace', 
                           fontSize: '0.875rem',
                           p: 1,
                           bgcolor: 'background.paper',
-                          borderRadius: 1
+                          borderRadius: 1,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          overflowX: 'auto'
                         }}
                       >
                         {sample.output || '(空)'}

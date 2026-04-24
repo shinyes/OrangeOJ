@@ -54,7 +54,7 @@ export default function LearningPanel({
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               size="small"
-              placeholder="搜索题目（ID/标题）"
+              placeholder="搜索题目（ID/标题/标签）"
               value={learningProblemSearch}
               onChange={(event) => onLearningProblemSearchChange(event.target.value)}
               sx={{ width: 180 }}
@@ -97,17 +97,52 @@ export default function LearningPanel({
                     >
                       #{problem.id}
                     </Typography>
-                    <Typography
-                      variant="body1"
+                    <Box
                       sx={{
                         flex: 1,
-                        fontWeight: 500,
-                        color: 'text.primary',
-                        fontSize: '14px'
+                        minWidth: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        overflow: 'hidden',
+                        flexWrap: 'nowrap'
                       }}
                     >
-                      {problem.title}
-                    </Typography>
+                      <Typography
+                        variant="body1"
+                        noWrap
+                        sx={{
+                          fontWeight: 500,
+                          color: 'text.primary',
+                          fontSize: '14px',
+                          minWidth: 0
+                        }}
+                      >
+                        {problem.title}
+                      </Typography>
+                      {(problem.tags || []).length > 0 && (
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            flexWrap: 'nowrap',
+                            overflow: 'hidden',
+                            flexShrink: 1
+                          }}
+                        >
+                          {problem.tags.map((tag) => (
+                            <Chip
+                              key={`${problem.id}-${tag}`}
+                              label={tag}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: '22px', fontSize: '11px', flexShrink: 0 }}
+                            />
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
                     <Chip
                       label={problemTypeText(problem.type)}
                       size="small"

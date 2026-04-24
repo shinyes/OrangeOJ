@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -14,6 +15,8 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
@@ -57,6 +60,157 @@ function normalizeOptions(options) {
   return ['A', 'B', 'C', 'D']
 }
 
+function normalizeTagList(tags) {
+  if (!Array.isArray(tags)) return []
+  const seen = new Set()
+  return tags
+    .map((item) => String(item || '').trim())
+    .filter((item) => {
+      if (!item) return false
+      const key = item.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
+function parseTagInput(raw) {
+  return String(raw || '')
+    .split(/[\n,，]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function formatJSON(value) {
+  return JSON.stringify(value ?? {}, null, 2)
+}
+
+function normalizePositiveInteger(value, fallback) {
+  const parsed = Number(value)
+  return parsed > 0 ? parsed : fallback
+}
+
+function buildProblemDataFromForm(form, options = {}) {
+  const strict = options.strict !== false
+  let bodyJson = {}
+  let answerJson = {}
+
+  if (form.type === 'programming') {
+    bodyJson = {
+      inputFormat: form.programming.inputFormat,
+      outputFormat: form.programming.outputFormat,
+      samples: form.programming.samples.filter((item) => item.input || item.output),
+      testCases: form.programming.testCases.filter((item) => item.input || item.output),
+      starterCode: {
+        cpp: form.programming.starterCode.cpp,
+        python: form.programming.starterCode.python,
+        go: form.programming.starterCode.go
+      }
+    }
+    return { bodyJson, answerJson }
+  }
+
+  if (form.type === 'single_choice') {
+    const optionsList = strict
+      ? form.singleChoice.options.map((item) => item.trim())
+      : form.singleChoice.options.map((item) => String(item ?? ''))
+    if (strict) {
+      if (optionsList.length < 2 || optionsList.some((item) => !item)) {
+        throw new Error('单选题至少需要两个非空选项')
+      }
+      const optionSet = new Set(optionsList.map((item) => item.toLowerCase()))
+      if (optionSet.size !== optionsList.length) {
+        throw new Error('单选题选项不能重复')
+      }
+    }
+    bodyJson = { options: optionsList }
+    answerJson = { answer: optionsList[form.singleChoice.answerIndex] || optionsList[0] || '' }
+    return { bodyJson, answerJson }
+  }
+
+  if (form.type === 'true_false') {
+    answerJson = { answer: form.trueFalse.answer === 'true' }
+  }
+
+  return { bodyJson, answerJson }
+}
+
+function buildStorageDraftFromForm(form, options = {}) {
+  const { bodyJson, answerJson } = buildProblemDataFromForm(form, { strict: false })
+  const draft = {
+    type: options.lockedProblemType || form.type,
+    title: form.title,
+    tags: normalizeTagList(form.tags),
+    statementMd: form.statementMd,
+    bodyJson,
+    answerJson,
+    timeLimitMs: normalizePositiveInteger(form.timeLimitMs, DEFAULT_TIME_LIMIT_MS),
+    memoryLimitMiB: normalizePositiveInteger(form.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
+  }
+  return formatJSON(draft)
+}
+
+function parseJSONText(raw, fieldLabel) {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return {}
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    throw new Error(`${fieldLabel} 不是合法 JSON`)
+  }
+}
+
+function parseStorageDraft(raw, options = {}) {
+  const draft = parseJSONText(raw, '题目 JSON')
+  if (!draft || Array.isArray(draft) || typeof draft !== 'object') {
+    throw new Error('题目 JSON 必须是对象')
+  }
+
+  const requestedType = normalizeProblemTypeValue(draft.type)
+  const type = options.lockedProblemType || requestedType || 'programming'
+  if (!PROBLEM_TYPE_LABELS[type]) {
+    throw new Error('题目 JSON 中的 type 不合法')
+  }
+
+  return {
+    type,
+    title: String(draft.title || ''),
+    tags: normalizeTagList(draft.tags),
+    statementMd: String(draft.statementMd || ''),
+    bodyJson: draft.bodyJson && typeof draft.bodyJson === 'object' && !Array.isArray(draft.bodyJson) ? draft.bodyJson : {},
+    answerJson: draft.answerJson && typeof draft.answerJson === 'object' && !Array.isArray(draft.answerJson) ? draft.answerJson : {},
+    timeLimitMs: normalizePositiveInteger(draft.timeLimitMs, DEFAULT_TIME_LIMIT_MS),
+    memoryLimitMiB: normalizePositiveInteger(draft.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
+  }
+}
+
+function normalizeProblemTypeValue(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'single_choice' || normalized === 'single-choice' || normalized === 'singlechoice') {
+    return 'single_choice'
+  }
+  if (normalized === 'true_false' || normalized === 'true-false' || normalized === 'truefalse') {
+    return 'true_false'
+  }
+  if (normalized === 'programming') {
+    return 'programming'
+  }
+  return ''
+}
+
+function buildFormFromStorageDraft(draft) {
+  return buildInitialForm({
+    type: draft.type,
+    title: draft.title,
+    tags: draft.tags,
+    statementMd: draft.statementMd,
+    bodyJson: draft.bodyJson,
+    answerJson: draft.answerJson,
+    timeLimitMs: draft.timeLimitMs,
+    memoryLimitMiB: draft.memoryLimitMiB
+  })
+}
+
 function buildInitialForm(problem) {
   const type = problem?.type || 'programming'
   const body = problem?.bodyJson || {}
@@ -67,6 +221,7 @@ function buildInitialForm(problem) {
   return {
     type,
     title: problem?.title || '',
+    tags: normalizeTagList(problem?.tags),
     statementMd: problem?.statementMd || '',
     timeLimitMs: String(problem?.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS),
     memoryLimitMiB: String(problem?.memoryLimitMiB ?? DEFAULT_MEMORY_LIMIT_MIB),
@@ -147,6 +302,7 @@ export default function RootProblemCreator({
   editTitle = null,
   createSubmitText = '创建题目',
   editSubmitText = '保存修改',
+  tagSuggestions = [],
   onClose,
   onSubmit
 }) {
@@ -155,12 +311,19 @@ export default function RootProblemCreator({
   const lockedProblemType = isEditMode && problem?.type ? problem.type : form.type
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [tagInputValue, setTagInputValue] = useState('')
+  const [editorMode, setEditorMode] = useState('ui')
+  const [jsonDraft, setJSONDraft] = useState(() => buildStorageDraftFromForm(buildInitialForm(problem), { lockedProblemType: isEditMode && problem?.type ? problem.type : undefined }))
 
   useEffect(() => {
     if (!open) return
-    setForm(buildInitialForm(problem))
+    const nextForm = buildInitialForm(problem)
+    setForm(nextForm)
+    setJSONDraft(buildStorageDraftFromForm(nextForm, { lockedProblemType: isEditMode && problem?.type ? problem.type : undefined }))
+    setEditorMode('ui')
     setSubmitting(false)
     setSubmitError('')
+    setTagInputValue('')
   }, [open, problem, mode])
 
   const dialogTitle = useMemo(() => {
@@ -170,12 +333,54 @@ export default function RootProblemCreator({
     }
     return createTitle
   }, [createTitle, editTitle, isEditMode, problem])
+  const normalizedTagSuggestions = useMemo(
+    () => normalizeTagList(tagSuggestions),
+    [tagSuggestions]
+  )
 
   const updateField = (field, value) => {
     setForm((current) => ({
       ...current,
       [field]: value
     }))
+  }
+
+  const mergePendingTags = (rawInput = tagInputValue) => {
+    const nextTags = normalizeTagList([...form.tags, ...parseTagInput(rawInput)])
+    if (nextTags.length !== form.tags.length || nextTags.some((tag, index) => tag !== form.tags[index])) {
+      setForm((current) => ({
+        ...current,
+        tags: nextTags
+      }))
+    }
+    setTagInputValue('')
+    return nextTags
+  }
+
+  const handleEditorModeChange = (event, nextMode) => {
+    if (!nextMode || nextMode === editorMode) return
+    if (nextMode === 'json') {
+      const nextTags = normalizeTagList([...form.tags, ...parseTagInput(tagInputValue)])
+      const snapshot = {
+        ...form,
+        tags: nextTags
+      }
+      setForm(snapshot)
+      setTagInputValue('')
+      setJSONDraft(buildStorageDraftFromForm(snapshot, { lockedProblemType }))
+      setEditorMode('json')
+      setSubmitError('')
+      return
+    }
+
+    try {
+      const draft = parseStorageDraft(jsonDraft, { lockedProblemType })
+      setForm(buildFormFromStorageDraft(draft))
+      setEditorMode('ui')
+      setSubmitError('')
+    } catch (err) {
+      setSubmitError(err.message || 'JSON 模式内容有误')
+    }
   }
 
   const updateNestedField = (section, field, value) => {
@@ -247,13 +452,23 @@ export default function RootProblemCreator({
       return
     }
     const nextType = event.target.value
+    const blankForm = buildInitialForm({ type: nextType })
     setForm((current) => ({
       ...current,
       type: nextType,
-      programming: buildInitialForm(null).programming,
-      singleChoice: buildInitialForm(null).singleChoice,
-      trueFalse: buildInitialForm(null).trueFalse
+      programming: blankForm.programming,
+      singleChoice: blankForm.singleChoice,
+      trueFalse: blankForm.trueFalse
     }))
+    if (editorMode === 'json') {
+      setJSONDraft(buildStorageDraftFromForm({
+        ...form,
+        type: nextType,
+        programming: blankForm.programming,
+        singleChoice: blankForm.singleChoice,
+        trueFalse: blankForm.trueFalse
+      }, { lockedProblemType }))
+    }
   }
 
   const addOption = () => {
@@ -306,63 +521,55 @@ export default function RootProblemCreator({
   }
 
   const handleSubmit = async () => {
-    const title = form.title.trim()
-    if (!title) {
-      setSubmitError('题目标题不能为空')
-      return
-    }
-
-    const timeLimitMs = Number(form.timeLimitMs) > 0 ? Number(form.timeLimitMs) : DEFAULT_TIME_LIMIT_MS
-    const memoryLimitMiB = Number(form.memoryLimitMiB) > 0 ? Number(form.memoryLimitMiB) : DEFAULT_MEMORY_LIMIT_MIB
-
+    let problemType = lockedProblemType
+    let title = form.title.trim()
+    let mergedTags = normalizeTagList([...form.tags, ...parseTagInput(tagInputValue)])
+    let statementMd = form.statementMd
+    let timeLimitMs = Number(form.timeLimitMs) > 0 ? Number(form.timeLimitMs) : DEFAULT_TIME_LIMIT_MS
+    let memoryLimitMiB = Number(form.memoryLimitMiB) > 0 ? Number(form.memoryLimitMiB) : DEFAULT_MEMORY_LIMIT_MIB
     let bodyJson = {}
     let answerJson = {}
 
-    if (form.type === 'programming') {
-      bodyJson = {
-        inputFormat: form.programming.inputFormat,
-        outputFormat: form.programming.outputFormat,
-        samples: form.programming.samples.filter((item) => item.input || item.output),
-        testCases: form.programming.testCases.filter((item) => item.input || item.output),
-        starterCode: {
-          cpp: form.programming.starterCode.cpp,
-          python: form.programming.starterCode.python,
-          go: form.programming.starterCode.go
-        }
+    try {
+      if (editorMode === 'json') {
+        const draft = parseStorageDraft(jsonDraft, { lockedProblemType })
+        problemType = draft.type
+        title = draft.title.trim()
+        mergedTags = draft.tags
+        statementMd = draft.statementMd
+        timeLimitMs = draft.timeLimitMs
+        memoryLimitMiB = draft.memoryLimitMiB
+        bodyJson = draft.bodyJson
+        answerJson = draft.answerJson
+      } else {
+        const payload = buildProblemDataFromForm(form, { strict: true })
+        bodyJson = payload.bodyJson
+        answerJson = payload.answerJson
       }
+    } catch (err) {
+      setSubmitError(err.message || '题目内容格式不正确')
+      return
     }
 
-    if (form.type === 'single_choice') {
-      const options = form.singleChoice.options.map((item) => item.trim())
-      if (options.length < 2 || options.some((item) => !item)) {
-        setSubmitError('单选题至少需要两个非空选项')
-        return
-      }
-      const optionSet = new Set(options.map((item) => item.toLowerCase()))
-      if (optionSet.size !== options.length) {
-        setSubmitError('单选题选项不能重复')
-        return
-      }
-      bodyJson = { options }
-      answerJson = { answer: options[form.singleChoice.answerIndex] || options[0] }
-    }
-
-    if (form.type === 'true_false') {
-      answerJson = { answer: form.trueFalse.answer === 'true' }
+    if (!title) {
+      setSubmitError('题目标题不能为空')
+      return
     }
 
     try {
       setSubmitting(true)
       setSubmitError('')
       await onSubmit({
-        type: lockedProblemType,
+        type: problemType,
         title,
-        statementMd: form.statementMd,
+        tags: mergedTags,
+        statementMd,
         bodyJson,
         answerJson,
         timeLimitMs,
         memoryLimitMiB
       })
+      setTagInputValue('')
       onClose()
     } catch (err) {
       setSubmitError(err.message || '保存失败')
@@ -378,71 +585,155 @@ export default function RootProblemCreator({
         <Stack spacing={2} sx={{ pt: 1 }}>
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} md={3}>
-              {isEditMode ? (
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="题目类型"
-                  value={PROBLEM_TYPE_LABELS[lockedProblemType] || lockedProblemType}
-                  disabled
-                />
-              ) : (
-                <FormControl fullWidth size="small">
-                  <InputLabel>题目类型</InputLabel>
-                  <Select value={form.type} label="题目类型" onChange={handleTypeChange}>
-                    <MenuItem value="programming">编程题</MenuItem>
-                    <MenuItem value="single_choice">单选题</MenuItem>
-                    <MenuItem value="true_false">判断题</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-            </Grid>
-            <Grid item xs={12} md={5}>
-              <TextField
-                fullWidth
-                size="small"
-                label="题目标题"
-                value={form.title}
-                onChange={(event) => updateField('title', event.target.value)}
-              />
-            </Grid>
-            <Grid item xs={6} md={2}>
-              <TextField
-                fullWidth
-                size="small"
-                label="时间限制 (ms)"
-                type="number"
-                value={form.timeLimitMs}
-                onChange={(event) => updateField('timeLimitMs', event.target.value)}
-                inputProps={{ min: 1 }}
-              />
-            </Grid>
-            <Grid item xs={6} md={2}>
-              <TextField
-                fullWidth
-                size="small"
-                label="内存限制 (MiB)"
-                type="number"
-                value={form.memoryLimitMiB}
-                onChange={(event) => updateField('memoryLimitMiB', event.target.value)}
-                inputProps={{ min: 1 }}
-              />
-            </Grid>
-          </Grid>
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              编辑模式
+            </Typography>
+            <Tabs
+              value={editorMode}
+              onChange={handleEditorModeChange}
+              variant="fullWidth"
+              sx={{
+                minHeight: 36,
+                '& .MuiTab-root': {
+                  minHeight: 36
+                }
+              }}
+            >
+              <Tab label="UI 模式" value="ui" />
+              <Tab label="JSON 模式" value="json" />
+            </Tabs>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+              UI 模式适合常规录题；JSON 模式直接编辑整道题提交给后端的完整结构，字段和落库内容一一对应。
+            </Typography>
+          </Box>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="题面 Markdown"
-            value={form.statementMd}
-            onChange={(event) => updateField('statementMd', event.target.value)}
-            multiline
-            minRows={6}
-          />
+          {editorMode === 'json' ? (
+            <>
+              <Typography variant="caption" color="text.secondary">
+                当前 JSON 对应题库接口 payload：`type / title / tags / statementMd / bodyJson / answerJson / timeLimitMs / memoryLimitMiB`。
+                编辑态会强制沿用原题型，不会因为 JSON 里的 `type` 改变题型。
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                label="题目存储 JSON"
+                value={jsonDraft}
+                onChange={(event) => setJSONDraft(event.target.value)}
+                multiline
+                minRows={24}
+                InputProps={{ sx: { fontFamily: 'monospace' } }}
+              />
+            </>
+          ) : (
+            <>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} md={3}>
+                  {isEditMode ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="题目类型"
+                      value={PROBLEM_TYPE_LABELS[lockedProblemType] || lockedProblemType}
+                      disabled
+                    />
+                  ) : (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>题目类型</InputLabel>
+                      <Select value={form.type} label="题目类型" onChange={handleTypeChange}>
+                        <MenuItem value="programming">编程题</MenuItem>
+                        <MenuItem value="single_choice">单选题</MenuItem>
+                        <MenuItem value="true_false">判断题</MenuItem>
+                      </Select>
+                    </FormControl>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="题目标题"
+                    value={form.title}
+                    onChange={(event) => updateField('title', event.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="时间限制 (ms)"
+                    type="number"
+                    value={form.timeLimitMs}
+                    onChange={(event) => updateField('timeLimitMs', event.target.value)}
+                    inputProps={{ min: 1 }}
+                  />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="内存限制 (MiB)"
+                    type="number"
+                    value={form.memoryLimitMiB}
+                    onChange={(event) => updateField('memoryLimitMiB', event.target.value)}
+                    inputProps={{ min: 1 }}
+                  />
+                </Grid>
+              </Grid>
 
-          {form.type === 'programming' && (
+              <Autocomplete
+                multiple
+                freeSolo
+                options={normalizedTagSuggestions}
+                value={form.tags}
+                onChange={(event, value) => updateField('tags', normalizeTagList(value))}
+                inputValue={tagInputValue}
+                onInputChange={(event, value, reason) => {
+                  if (reason === 'reset') {
+                    setTagInputValue('')
+                    return
+                  }
+                  setTagInputValue(value)
+                }}
+                filterSelectedOptions
+                renderTags={(value, getTagProps) => value.map((option, index) => {
+                  const { key, ...tagProps } = getTagProps({ index })
+                  return (
+                    <Chip
+                      key={key || `${option}-${index}`}
+                      size="small"
+                      label={option}
+                      {...tagProps}
+                    />
+                  )
+                })}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    label="题目标签"
+                    placeholder="输入标签后按回车"
+                    helperText="可选。用于按主题、难度、知识点检索题目。"
+                    onBlur={(event) => {
+                      mergePendingTags(event.target.value)
+                    }}
+                  />
+                )}
+              />
+
+              <TextField
+                fullWidth
+                size="small"
+                label="题面 Markdown"
+                value={form.statementMd}
+                onChange={(event) => updateField('statementMd', event.target.value)}
+                multiline
+                minRows={6}
+              />
+            </>
+          )}
+
+          {editorMode === 'ui' && form.type === 'programming' ? (
             <>
               <Grid container spacing={1.5}>
                 <Grid item xs={12} md={6}>
@@ -521,9 +812,9 @@ export default function RootProblemCreator({
                 </Stack>
               </Box>
             </>
-          )}
+          ) : null}
 
-          {form.type === 'single_choice' && (
+          {editorMode === 'ui' && form.type === 'single_choice' && (
             <>
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -577,7 +868,7 @@ export default function RootProblemCreator({
             </>
           )}
 
-          {form.type === 'true_false' && (
+          {editorMode === 'ui' && form.type === 'true_false' && (
             <FormControl fullWidth size="small">
               <InputLabel>正确答案</InputLabel>
               <Select

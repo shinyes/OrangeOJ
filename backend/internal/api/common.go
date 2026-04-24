@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -96,6 +97,47 @@ func isValidProblemType(problemType string) bool {
 	default:
 		return false
 	}
+}
+
+func normalizeProblemTags(tags []string) []string {
+	if len(tags) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(tags))
+	normalized := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		key := strings.ToLower(tag)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, tag)
+	}
+	return normalized
+}
+
+func encodeProblemTags(tags []string) (string, error) {
+	payload, err := json.Marshal(normalizeProblemTags(tags))
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
+}
+
+func decodeProblemTags(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []string{}
+	}
+	var tags []string
+	if err := json.Unmarshal([]byte(raw), &tags); err != nil {
+		return []string{}
+	}
+	return normalizeProblemTags(tags)
 }
 
 func isValidLanguage(language string) bool {

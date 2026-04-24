@@ -20,6 +20,9 @@ import (
 type Executor struct {
 	workRoot       string
 	compileTimeout time.Duration
+	cppCompiler    string
+	pythonRuntime  string
+	goCompiler     string
 }
 
 type sandboxResult struct {
@@ -45,6 +48,9 @@ func NewExecutor(workRoot string, compileTimeout time.Duration) (*Executor, erro
 	executor := &Executor{
 		workRoot:       root,
 		compileTimeout: compileTimeout,
+	}
+	if err := executor.resolveToolchains(); err != nil {
+		return nil, err
 	}
 	if err := executor.selfCheck(); err != nil {
 		return nil, err
@@ -87,7 +93,7 @@ func (e *Executor) Execute(ctx context.Context, task judge.JudgeTask) (judge.Run
 	}
 	defer os.RemoveAll(jobDir)
 
-	sourceFile, compileCmd, runCmd, err := buildCommands(language)
+	sourceFile, compileCmd, runCmd, err := e.buildCommands(language)
 	if err != nil {
 		return judge.RunResult{
 			Verdict: model.VerdictRE,
@@ -262,20 +268,88 @@ func (e *Executor) selfCheck() error {
 	if !strings.Contains(result.stdout, "nsjail-ok") {
 		return fmt.Errorf("nsjail self-check output invalid: %s", trimTo(result.stdout, 500))
 	}
+	if err := e.selfCheckCPPToolchain(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func buildCommands(language string) (sourceFile, compileCmd, runCmd string, err error) {
+func (e *Executor) buildCommands(language string) (sourceFile, compileCmd, runCmd string, err error) {
 	switch language {
 	case "cpp", "c++":
-		return "main.cpp", "g++ -std=c++17 -O2 main.cpp -o main.out", "./main.out", nil
+		return "main.cpp", fmt.Sprintf("%s -std=c++17 -O2 main.cpp -o main.out", e.cppCompiler), "./main.out", nil
 	case "python", "python3", "py":
-		return "main.py", "", "python3 main.py", nil
+		return "main.py", "", fmt.Sprintf("%s main.py", e.pythonRuntime), nil
 	case "go", "golang":
-		return "main.go", "go build -o main.out main.go", "./main.out", nil
+		return "main.go", fmt.Sprintf("%s build -o main.out main.go", e.goCompiler), "./main.out", nil
 	default:
 		return "", "", "", fmt.Errorf("unsupported language: %s", language)
 	}
+}
+
+func (e *Executor) resolveToolchains() error {
+	var err error
+	e.cppCompiler, err = resolveExecutablePath("g++", "/usr/bin/g++", "c++", "/usr/bin/c++")
+	if err != nil {
+		return fmt.Errorf("resolve C++ compiler failed: %w", err)
+	}
+	e.pythonRuntime, err = resolveExecutablePath("python3", "/usr/bin/python3")
+	if err != nil {
+		return fmt.Errorf("resolve Python runtime failed: %w", err)
+	}
+	e.goCompiler, err = resolveExecutablePath("go", "/usr/bin/go")
+	if err != nil {
+		return fmt.Errorf("resolve Go compiler failed: %w", err)
+	}
+	return nil
+}
+
+func (e *Executor) selfCheckCPPToolchain() error {
+	checkDir, err := os.MkdirTemp(e.workRoot, "cpp-self-check-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(checkDir)
+
+	if err := os.WriteFile(filepath.Join(checkDir, "main.cpp"), []byte("int main() { return 0; }\n"), 0o600); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), e.compileTimeout)
+	defer cancel()
+
+	compileCmd := fmt.Sprintf("%s -std=c++17 -O2 main.cpp -o main.out", e.cppCompiler)
+	result, runErr := runInSandbox(ctx, checkDir, compileCmd, "", 256, int(e.compileTimeout.Milliseconds()))
+	if runErr != nil {
+		return fmt.Errorf("C++ toolchain self-check failed: %w", runErr)
+	}
+	if result.timedOut {
+		return fmt.Errorf("C++ toolchain self-check timed out")
+	}
+	if result.exitCode != 0 {
+		return fmt.Errorf("C++ toolchain self-check failed: %s", trimTo(strings.TrimSpace(result.stderr), 800))
+	}
+	return nil
+}
+
+func resolveExecutablePath(candidates ...string) (string, error) {
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if strings.Contains(candidate, "/") {
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate, nil
+			}
+			continue
+		}
+		resolved, err := exec.LookPath(candidate)
+		if err == nil {
+			return resolved, nil
+		}
+	}
+	return "", fmt.Errorf("no executable found in candidates: %s", strings.Join(candidates, ", "))
 }
 
 func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimitMiB, timeLimitMS int) (sandboxResult, error) {

@@ -360,15 +360,20 @@ export default function HomeworkEditor({
                     const keyword = state.inputValue.trim().toLowerCase()
                     if (!keyword) return []
                     return options.filter((option) => {
-                      return String(option.id).includes(keyword) || String(option.title || '').toLowerCase().includes(keyword)
+                      const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
+                      return (
+                        String(option.id).includes(keyword) ||
+                        String(option.title || '').toLowerCase().includes(keyword) ||
+                        tagsText.includes(keyword)
+                      )
                     })
                   }}
-                  noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号或标题搜索'}
+                  noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       label="选择题目"
-                      placeholder="输入题号或标题搜索"
+                      placeholder="输入题号、标题或标签搜索"
                     />
                   )}
                 />

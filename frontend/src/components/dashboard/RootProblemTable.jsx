@@ -42,9 +42,18 @@ export default function RootProblemTable({
     if (!keyword) return rootProblems
 
     return rootProblems.filter((problem) => {
-      return String(problem.id).includes(keyword) || String(problem.title || '').toLowerCase().includes(keyword)
+      const tagsText = Array.isArray(problem.tags) ? problem.tags.join(' ').toLowerCase() : ''
+      return (
+        String(problem.id).includes(keyword) ||
+        String(problem.title || '').toLowerCase().includes(keyword) ||
+        tagsText.includes(keyword)
+      )
     })
   }, [rootProblems, search])
+  const tagSuggestions = useMemo(
+    () => rootProblems.flatMap((problem) => (Array.isArray(problem.tags) ? problem.tags : [])),
+    [rootProblems]
+  )
 
   const handleCreate = async (problemData) => {
     await onCreate(problemData)
@@ -95,7 +104,7 @@ export default function RootProblemTable({
 
         <TextField
           fullWidth
-          placeholder="搜索根题（ID / 标题）"
+          placeholder="搜索根题（ID / 标题 / 标签）"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           sx={{ mb: 3 }}
@@ -107,6 +116,7 @@ export default function RootProblemTable({
               <TableRow>
                 <TableCell>ID</TableCell>
                 <TableCell>标题</TableCell>
+                <TableCell>标签</TableCell>
                 <TableCell>类型</TableCell>
                 <TableCell>时间限制</TableCell>
                 <TableCell>内存限制</TableCell>
@@ -116,7 +126,7 @@ export default function RootProblemTable({
             <TableBody>
               {filteredRootProblems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">没有匹配的题目</Typography>
                   </TableCell>
                 </TableRow>
@@ -125,6 +135,17 @@ export default function RootProblemTable({
                   <TableRow key={problem.id} hover>
                     <TableCell>#{problem.id}</TableCell>
                     <TableCell>{problem.title}</TableCell>
+                    <TableCell sx={{ minWidth: 180 }}>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {(problem.tags || []).length > 0 ? (
+                          problem.tags.map((tag) => (
+                            <Chip key={`${problem.id}-${tag}`} label={tag} size="small" variant="outlined" />
+                          ))
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">无标签</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       <Chip label={problemTypeText(problem.type)} size="small" />
                     </TableCell>
@@ -153,6 +174,7 @@ export default function RootProblemTable({
       <RootProblemCreator
         open={createDialogOpen}
         mode="create"
+        tagSuggestions={tagSuggestions}
         onClose={() => setCreateDialogOpen(false)}
         onSubmit={handleCreate}
       />
@@ -161,6 +183,7 @@ export default function RootProblemTable({
         open={Boolean(editingProblem)}
         mode="edit"
         problem={editingProblem}
+        tagSuggestions={tagSuggestions}
         onClose={() => setEditingProblem(null)}
         onSubmit={handleUpdate}
       />

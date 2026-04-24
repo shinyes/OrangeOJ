@@ -1,7 +1,20 @@
 import { useMemo } from 'react'
 import Box from '@mui/material/Box'
 import DOMPurify from 'dompurify'
-import { marked } from 'marked'
+import { Marked } from 'marked'
+import markedKatex from 'marked-katex-extension'
+import 'katex/dist/katex.min.css'
+
+const markdownRenderer = new Marked({
+  async: false,
+  breaks: true,
+  gfm: true
+})
+
+markdownRenderer.use(markedKatex({
+  throwOnError: false,
+  nonStandard: true
+}))
 
 function toSxArray(sx) {
   if (!sx) return []
@@ -11,12 +24,14 @@ function toSxArray(sx) {
 function renderMarkdown(content) {
   const source = String(content || '').trim()
   if (!source) return ''
-  const html = marked.parse(source, {
-    async: false,
-    breaks: true,
-    gfm: true
+  const html = markdownRenderer.parse(source)
+  return DOMPurify.sanitize(typeof html === 'string' ? html : '', {
+    USE_PROFILES: {
+      html: true,
+      svg: true,
+      mathMl: true
+    }
   })
-  return DOMPurify.sanitize(typeof html === 'string' ? html : '')
 }
 
 export default function MarkdownContent({ content = '', sx, ...props }) {
@@ -130,6 +145,14 @@ export default function MarkdownContent({ content = '', sx, ...props }) {
           },
           '& img': {
             maxWidth: '100%'
+          },
+          '& .katex-display': {
+            my: 1,
+            overflowX: 'auto',
+            overflowY: 'hidden'
+          },
+          '& .katex-display > .katex': {
+            whiteSpace: 'nowrap'
           }
         },
         ...toSxArray(sx)

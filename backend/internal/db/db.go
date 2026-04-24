@@ -92,6 +92,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			type TEXT NOT NULL,
 			title TEXT NOT NULL,
+			tags_json TEXT NOT NULL DEFAULT '[]',
 			statement_md TEXT NOT NULL,
 			body_json TEXT NOT NULL,
 			answer_json TEXT NOT NULL,
@@ -267,6 +268,9 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	if err := addColumnIfNotExists(ctx, db, "spaces", "default_programming_language", "TEXT NOT NULL DEFAULT 'cpp'"); err != nil {
+		return err
+	}
+	if err := addColumnIfNotExists(ctx, db, "root_problems", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
 		return err
 	}
 	if err := addColumnIfNotExists(ctx, db, "homeworks", "display_mode", "TEXT NOT NULL DEFAULT 'exam'"); err != nil {

@@ -21,6 +21,7 @@ type registrationRequest struct {
 type rootProblemPayload struct {
 	Type           string          `json:"type"`
 	Title          string          `json:"title"`
+	Tags           []string        `json:"tags"`
 	StatementMD    string          `json:"statementMd"`
 	BodyJSON       json.RawMessage `json:"bodyJson"`
 	AnswerJSON     json.RawMessage `json:"answerJson"`
@@ -66,7 +67,7 @@ func (a *API) handleSetRegistration(c *fiber.Ctx) error {
 
 func (a *API) handleListRootProblems(c *fiber.Ctx) error {
 	rows, err := a.DB.Query(`
-SELECT id, type, title, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by, created_at
+SELECT id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by, created_at
 FROM root_problems
 ORDER BY id DESC`)
 	if err != nil {
@@ -77,17 +78,18 @@ ORDER BY id DESC`)
 	items := make([]fiber.Map, 0)
 	for rows.Next() {
 		var (
-			id, timeLimit, memoryLimit, createdBy           int64
-			typeStr, title, statement, bodyJSON, answerJSON string
-			createdAt                                       time.Time
+			id, timeLimit, memoryLimit, createdBy                     int64
+			typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
+			createdAt                                                 time.Time
 		)
-		if err := rows.Scan(&id, &typeStr, &title, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit, &createdBy, &createdAt); err != nil {
+		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit, &createdBy, &createdAt); err != nil {
 			return err
 		}
 		items = append(items, fiber.Map{
 			"id":             id,
 			"type":           typeStr,
 			"title":          title,
+			"tags":           decodeProblemTags(tagsJSON),
 			"statementMd":    statement,
 			"bodyJson":       json.RawMessage(bodyJSON),
 			"answerJson":     json.RawMessage(answerJSON),
@@ -96,6 +98,9 @@ ORDER BY id DESC`)
 			"createdBy":      createdBy,
 			"createdAt":      createdAt,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 	return respondData(c, items)
 }
@@ -106,15 +111,15 @@ func (a *API) handleGetRootProblem(c *fiber.Ctx) error {
 		return respondError(c, fiber.StatusBadRequest, "invalid problem id")
 	}
 	row := a.DB.QueryRow(`
-SELECT id, type, title, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by, created_at
+SELECT id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by, created_at
 FROM root_problems
 WHERE id = ?`, id)
 	var (
-		idRet, timeLimit, memoryLimit, createdBy        int64
-		typeStr, title, statement, bodyJSON, answerJSON string
-		createdAt                                       time.Time
+		idRet, timeLimit, memoryLimit, createdBy                  int64
+		typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
+		createdAt                                                 time.Time
 	)
-	if err := row.Scan(&idRet, &typeStr, &title, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit, &createdBy, &createdAt); err != nil {
+	if err := row.Scan(&idRet, &typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit, &createdBy, &createdAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return respondError(c, fiber.StatusNotFound, "problem not found")
 		}
@@ -124,6 +129,7 @@ WHERE id = ?`, id)
 		"id":             idRet,
 		"type":           typeStr,
 		"title":          title,
+		"tags":           decodeProblemTags(tagsJSON),
 		"statementMd":    statement,
 		"bodyJson":       json.RawMessage(bodyJSON),
 		"answerJson":     json.RawMessage(answerJSON),
@@ -163,9 +169,13 @@ func (a *API) handleCreateRootProblem(c *fiber.Ctx) error {
 	if len(req.AnswerJSON) == 0 {
 		req.AnswerJSON = json.RawMessage(`{}`)
 	}
+	tagsJSON, err := encodeProblemTags(req.Tags)
+	if err != nil {
+		return err
+	}
 	result, err := a.DB.Exec(`
-INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, req.Type, req.Title, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, user.ID)
+INSERT INTO root_problems(type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, user.ID)
 	if err != nil {
 		return err
 	}
@@ -202,10 +212,14 @@ func (a *API) handleUpdateRootProblem(c *fiber.Ctx) error {
 	if len(req.AnswerJSON) == 0 {
 		req.AnswerJSON = json.RawMessage(`{}`)
 	}
+	tagsJSON, err := encodeProblemTags(req.Tags)
+	if err != nil {
+		return err
+	}
 	_, err = a.DB.Exec(`
 UPDATE root_problems
-SET type=?, title=?, statement_md=?, body_json=?, answer_json=?, time_limit_ms=?, memory_limit_mib=?
-WHERE id=?`, req.Type, req.Title, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, problemID)
+SET type=?, title=?, tags_json=?, statement_md=?, body_json=?, answer_json=?, time_limit_ms=?, memory_limit_mib=?
+WHERE id=?`, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, problemID)
 	if err != nil {
 		return err
 	}

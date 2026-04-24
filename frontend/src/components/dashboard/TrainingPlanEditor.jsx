@@ -257,23 +257,31 @@ export default function TrainingPlanEditor({
                       return []
                     }
                     return options.filter((option) => {
-                      return String(option.id).includes(keyword) || String(option.title || '').toLowerCase().includes(keyword)
+                      const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
+                      return (
+                        String(option.id).includes(keyword) ||
+                        String(option.title || '').toLowerCase().includes(keyword) ||
+                        tagsText.includes(keyword)
+                      )
                     })
                   }}
-                  noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号或标题搜索'}
-                  renderTags={(value, getTagProps) => value.map((option, itemIndex) => (
-                    <Chip
-                      key={option.id}
-                      size="small"
-                      label={`#${option.id} ${option.title}`}
-                      {...getTagProps({ index: itemIndex })}
-                    />
-                  ))}
+                  noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
+                  renderTags={(value, getTagProps) => value.map((option, itemIndex) => {
+                    const { key, ...tagProps } = getTagProps({ index: itemIndex })
+                    return (
+                      <Chip
+                        key={key || option.id}
+                        size="small"
+                        label={`#${option.id} ${option.title}`}
+                        {...tagProps}
+                      />
+                    )
+                  })}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       label="章节题目"
-                      placeholder="输入题号或标题搜索"
+                      placeholder="输入题号、标题或标签搜索"
                     />
                   )}
                 />

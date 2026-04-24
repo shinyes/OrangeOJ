@@ -164,7 +164,7 @@ export default function SpaceManagePanel({
                 <TextField
                   fullWidth
                   size="small"
-                  placeholder="按题目 ID 或标题搜索"
+                  placeholder="按题目 ID、标题或标签搜索"
                   value={spaceProblemSearch}
                   onChange={(event) => onSpaceProblemSearchChange(event.target.value)}
                   sx={{ mb: 2 }}
@@ -194,6 +194,13 @@ export default function SpaceManagePanel({
                             <Typography variant="caption" color="text.secondary">
                               {problemTypeText(problem.type)}
                             </Typography>
+                            {(problem.tags || []).length > 0 && (
+                              <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+                                {problem.tags.map((tag) => (
+                                  <Chip key={`${problem.id}-${tag}`} label={tag} size="small" variant="outlined" />
+                                ))}
+                              </Stack>
+                            )}
                           </Box>
                           <Button
                             size="small"
@@ -239,6 +246,13 @@ export default function SpaceManagePanel({
                           <Typography variant="caption" color="text.secondary">
                             {problemTypeText(problem.type)} | {problem.timeLimitMs}ms | {problem.memoryLimitMiB}MiB
                           </Typography>
+                          {(problem.tags || []).length > 0 && (
+                            <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+                              {problem.tags.map((tag) => (
+                                <Chip key={`${problem.id}-${tag}`} label={tag} size="small" variant="outlined" />
+                              ))}
+                            </Stack>
+                          )}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                           <Button

@@ -58,6 +58,27 @@ function homeworkDisplayModeText(mode) {
   return mode === 'list' ? '题单模式' : '试卷模式'
 }
 
+function normalizeProblemTags(tags) {
+  if (!Array.isArray(tags)) return []
+  const seen = new Set()
+  return tags
+    .map((item) => String(item || '').trim())
+    .filter((item) => {
+      if (!item) return false
+      const key = item.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
+function problemTagsMismatch(expectedTags, actualTags) {
+  const expected = normalizeProblemTags(expectedTags)
+  const actual = normalizeProblemTags(actualTags)
+  if (expected.length !== actual.length) return true
+  return expected.some((tag, index) => tag !== actual[index])
+}
+
 function normalizeLanguage(language) {
   if (language === 'python') return 'python'
   if (language === 'go') return 'go'
@@ -189,7 +210,12 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     const keyword = spaceProblemSearch.trim().toLowerCase()
     if (!keyword) return spaceRootProblems
     return spaceRootProblems.filter((problem) => {
-      return String(problem.id).includes(keyword) || String(problem.title || '').toLowerCase().includes(keyword)
+      const tagsText = Array.isArray(problem.tags) ? problem.tags.join(' ').toLowerCase() : ''
+      return (
+        String(problem.id).includes(keyword) ||
+        String(problem.title || '').toLowerCase().includes(keyword) ||
+        tagsText.includes(keyword)
+      )
     })
   }, [spaceProblemSearch, spaceRootProblems])
   const filteredSpacesForManage = useMemo(() => {
@@ -201,7 +227,12 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     const keyword = learningProblemSearch.trim().toLowerCase()
     if (!keyword) return spaceProblems
     return spaceProblems.filter((problem) => {
-      return String(problem.id).includes(keyword) || String(problem.title || '').toLowerCase().includes(keyword)
+      const tagsText = Array.isArray(problem.tags) ? problem.tags.join(' ').toLowerCase() : ''
+      return (
+        String(problem.id).includes(keyword) ||
+        String(problem.title || '').toLowerCase().includes(keyword) ||
+        tagsText.includes(keyword)
+      )
     })
   }, [learningProblemSearch, spaceProblems])
   const filteredLearningTrainingPlans = useMemo(() => {
@@ -432,7 +463,11 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const handleCreateRootProblem = async (problemData) => {
     try {
       setError('')
-      await api.createRootProblem(problemData)
+      const created = await api.createRootProblem(problemData)
+      const createdProblem = await api.getRootProblem(created?.id)
+      if (problemTagsMismatch(problemData.tags, createdProblem?.tags)) {
+        throw new Error('题目标签未生效，请重启后端后重试')
+      }
       await refreshAdminData()
       if (canManageSelectedSpace && selectedSpaceId) {
         await refreshSpaceRootProblemData(selectedSpaceId)
@@ -447,6 +482,10 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     try {
       setError('')
       await api.updateRootProblem(problemId, problemData)
+      const updatedProblem = await api.getRootProblem(problemId)
+      if (problemTagsMismatch(problemData.tags, updatedProblem?.tags)) {
+        throw new Error('题目标签未生效，请重启后端后重试')
+      }
       await refreshAdminData()
       if (selectedSpaceId) {
         await refreshSpaceData(selectedSpaceId)
@@ -482,7 +521,11 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     if (!ensureCanManageSpace()) return
     try {
       setError('')
-      await api.createSpaceProblem(selectedSpaceId, problemData)
+      const created = await api.createSpaceProblem(selectedSpaceId, problemData)
+      const createdProblem = await api.getProblem(selectedSpaceId, created?.id)
+      if (problemTagsMismatch(problemData.tags, createdProblem?.tags)) {
+        throw new Error('题目标签未生效，请重启后端后重试')
+      }
       await refreshSpaceData(selectedSpaceId)
       await refreshSpaceRootProblemData(selectedSpaceId)
       if (isSystemAdmin) {
@@ -539,6 +582,10 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     try {
       setError('')
       await api.updateSpaceProblem(selectedSpaceId, editingSpaceProblem.id, problemData)
+      const updatedProblem = await api.getProblem(selectedSpaceId, editingSpaceProblem.id)
+      if (problemTagsMismatch(problemData.tags, updatedProblem?.tags)) {
+        throw new Error('题目标签未生效，请重启后端后重试')
+      }
       await refreshSpaceData(selectedSpaceId)
       await refreshSpaceRootProblemData(selectedSpaceId)
       if (isSystemAdmin) {
@@ -1127,6 +1174,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           mode="create"
           createTitle="上传题目（自动加入根题库并关联到当前空间）"
           createSubmitText="上传并关联"
+          tagSuggestions={spaceRootProblems.flatMap((problem) => (Array.isArray(problem.tags) ? problem.tags : []))}
           onClose={closeConfigModal}
           onSubmit={createSpaceProblem}
         />
@@ -1142,6 +1190,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           problem={editingSpaceProblem}
           editTitle={editingProblemId ? `编辑题目 #${editingProblemId}` : '编辑题目'}
           editSubmitText="保存修改"
+          tagSuggestions={spaceRootProblems.flatMap((problem) => (Array.isArray(problem.tags) ? problem.tags : []))}
           onClose={closeConfigModal}
           onSubmit={saveEditedSpaceProblem}
         />
