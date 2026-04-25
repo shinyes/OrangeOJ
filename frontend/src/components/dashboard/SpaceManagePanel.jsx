@@ -2,11 +2,7 @@ import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
-import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
-import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -82,15 +78,8 @@ function ProblemCard({
 
 export default function SpaceManagePanel({
   hasAnySpaceAdminRole,
-  isSystemAdmin,
   selectedSpace,
   canManageSelectedSpace,
-  spaceSelectorKeyword,
-  onSpaceSelectorKeywordChange,
-  filteredSpacesForManage,
-  selectedSpaceId,
-  onSelectSpace,
-  openCreateSpaceModal,
   spaceManageTab,
   onSpaceManageTabChange,
   normalizeLanguage,
@@ -110,16 +99,12 @@ export default function SpaceManagePanel({
   openResetMemberPasswordModal,
   memberMessage,
   memberResetMessage,
-  openUploadProblemModal
+  openUploadProblemModal,
+  selectedSpaceId
 }) {
   const handleTabChange = (event, newValue) => {
     onSpaceManageTabChange(newValue)
   }
-
-  const roleLabel = isSystemAdmin
-    ? '系统管理员'
-    : (selectedSpace?.myRole === 'space_admin' ? '空间管理员' : '普通成员')
-  const addableProblemCount = filteredSpaceRootProblems.filter((problem) => !linkedProblemIDSet.has(problem.id)).length
 
   if (!hasAnySpaceAdminRole) {
     return (
@@ -137,57 +122,6 @@ export default function SpaceManagePanel({
 
   return (
     <Box>
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-        <Stack
-          direction={{ xs: 'column', lg: 'row' }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', lg: 'center' }}
-        >
-          <Box>
-            <Typography variant="h6" fontWeight={700}>
-              空间管理
-            </Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-              选择一个你有权限管理的空间，然后处理空间设置、题库和成员。
-            </Typography>
-          </Box>
-          {isSystemAdmin && (
-            <Button variant="contained" onClick={openCreateSpaceModal}>
-              新建空间
-            </Button>
-          )}
-        </Stack>
-
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mt: 2.5 }}>
-          <TextField
-            size="small"
-            placeholder="搜索空间名称"
-            value={spaceSelectorKeyword}
-            onChange={(event) => onSpaceSelectorKeywordChange(event.target.value)}
-            sx={{ minWidth: { xs: '100%', md: 240 } }}
-          />
-          <FormControl fullWidth size="small" disabled={filteredSpacesForManage.length === 0}>
-            <InputLabel>选择空间</InputLabel>
-            <Select
-              value={selectedSpaceId ? String(selectedSpaceId) : ''}
-              label="选择空间"
-              onChange={(event) => onSelectSpace(event.target.value ? Number(event.target.value) : null)}
-            >
-              {filteredSpacesForManage.length === 0 ? (
-                <MenuItem value="" disabled>暂无匹配空间</MenuItem>
-              ) : (
-                filteredSpacesForManage.map((space) => (
-                  <MenuItem key={space.id} value={String(space.id)}>
-                    #{space.id} {space.name}
-                  </MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
-        </Stack>
-      </Paper>
-
       {!selectedSpace && (
         <Paper sx={{ p: 3, borderRadius: 3 }}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>
@@ -213,54 +147,6 @@ export default function SpaceManagePanel({
 
       {selectedSpace && canManageSelectedSpace && (
         <>
-          <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-            <Stack
-              direction={{ xs: 'column', lg: 'row' }}
-              spacing={2}
-              justifyContent="space-between"
-              alignItems={{ xs: 'stretch', lg: 'center' }}
-            >
-              <Box>
-                <Typography variant="h5" fontWeight={800}>
-                  {selectedSpace.name}
-                </Typography>
-                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                  {selectedSpace.description || '暂无描述'}
-                </Typography>
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
-                  <Chip label={`空间 ID：#${selectedSpace.id}`} variant="outlined" />
-                  <Chip label={`角色：${roleLabel}`} variant="outlined" />
-                  <Chip label={`默认语言：${normalizeLanguage(selectedSpace.defaultProgrammingLanguage || 'cpp')}`} variant="outlined" />
-                </Stack>
-              </Box>
-
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                <Button variant="outlined" onClick={openSpaceSettingsModal}>
-                  编辑设置
-                </Button>
-                <Button variant="outlined" onClick={openUploadProblemModal}>
-                  上传新题目
-                </Button>
-                <Button variant="outlined" onClick={openAddMemberModal}>
-                  添加成员
-                </Button>
-              </Stack>
-            </Stack>
-
-            <Box
-              sx={{
-                mt: 2.5,
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-                gap: 1.5
-              }}
-            >
-              <SummaryItem label="空间题目数" value={spaceProblems.length} />
-              <SummaryItem label="可添加根题" value={addableProblemCount} />
-              <SummaryItem label="当前标签页" value={spaceManageTab === 'settings' ? '空间设置' : spaceManageTab === 'problems' ? '题库设置' : '成员管理'} />
-            </Box>
-          </Paper>
-
           <Paper sx={{ mb: 3, borderRadius: 3 }}>
             <Tabs value={spaceManageTab} onChange={handleTabChange} variant="fullWidth">
               <Tab label="空间设置" value="settings" />
@@ -282,7 +168,7 @@ export default function SpaceManagePanel({
                     空间设置
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                    当前空间的基础信息和默认语言。
+                    #{selectedSpace.id} {selectedSpace.name} 的基础信息和默认语言。
                   </Typography>
                 </Box>
                 <Button variant="contained" onClick={openSpaceSettingsModal}>
@@ -384,7 +270,7 @@ export default function SpaceManagePanel({
                       当前空间题库
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                      成员在当前空间里能看到并使用的题目。
+                      #{selectedSpace.id} {selectedSpace.name} 内可见的题目。
                     </Typography>
                   </Box>
                   <Button variant="contained" onClick={openUploadProblemModal}>

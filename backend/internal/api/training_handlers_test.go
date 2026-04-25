@@ -267,6 +267,92 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 	publicJoinResp.Body.Close()
 }
 
+func TestTrainingPlanIncludesProblemCompletionState(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	memberID := seedUser(t, database, "training_progress_member", "trainingprogress123")
+	spaceID := mustCreateSpace(t, database, "Training-Progress-Space")
+	mustAddMember(t, database, spaceID, memberID, "member")
+
+	problemID1 := mustCreateRootProblem(t, database, "训练已完成题目")
+	problemID2 := mustCreateRootProblem(t, database, "训练未完成题目")
+	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?), (?, ?)`, spaceID, problemID1, spaceID, problemID2); err != nil {
+		t.Fatalf("link problems: %v", err)
+	}
+
+	adminCookie := mustLogin(t, app, "admin", "admin123456")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", adminCookie, map[string]interface{}{
+		"title":         "带完成状态的训练",
+		"allowSelfJoin": true,
+		"isPublic":      true,
+		"published":     true,
+		"chapters": []map[string]interface{}{
+			{
+				"title":      "第一章",
+				"orderNo":    1,
+				"problemIds": []int64{problemID1, problemID2},
+			},
+		},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	planID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
+
+	submissionRes, err := database.Exec(`
+INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
+VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){return 0;}', '', 'submit', 'done', 'AC', 100, '', '', CURRENT_TIMESTAMP)`,
+		memberID, spaceID, problemID1,
+	)
+	if err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	submissionID, _ := submissionRes.LastInsertId()
+	if _, err := database.Exec(`
+INSERT INTO user_problem_progress(space_id, user_id, problem_id, best_verdict, best_score, last_submission_id)
+VALUES(?, ?, ?, 'AC', 100, ?)`,
+		spaceID, memberID, problemID1, submissionID,
+	); err != nil {
+		t.Fatalf("create progress: %v", err)
+	}
+
+	memberCookie := mustLogin(t, app, "training_progress_member", "trainingprogress123")
+	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(planID), memberCookie, nil)
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected get 200, got %d", getResp.StatusCode)
+	}
+	getEnv := decodeEnvelope[map[string]interface{}](t, getResp)
+	chapters, ok := getEnv.Data["chapters"].([]interface{})
+	if !ok || len(chapters) != 1 {
+		t.Fatalf("unexpected chapters: %+v", getEnv.Data["chapters"])
+	}
+	firstChapter, ok := chapters[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected chapter payload: %+v", chapters[0])
+	}
+	items, ok := firstChapter["items"].([]interface{})
+	if !ok || len(items) != 2 {
+		t.Fatalf("unexpected items: %+v", firstChapter["items"])
+	}
+
+	completedByID := map[int64]bool{}
+	for _, raw := range items {
+		item, ok := raw.(map[string]interface{})
+		if !ok {
+			t.Fatalf("unexpected item payload: %+v", raw)
+		}
+		id, _ := item["problemId"].(float64)
+		completed, _ := item["completed"].(bool)
+		completedByID[int64(id)] = completed
+	}
+	if completedByID[problemID1] != true {
+		t.Fatalf("expected problem %d completed=true, got %+v", problemID1, completedByID)
+	}
+	if completedByID[problemID2] != false {
+		t.Fatalf("expected problem %d completed=false, got %+v", problemID2, completedByID)
+	}
+}
+
 func mustCreateRootProblem(t *testing.T, database *sql.DB, title string) int64 {
 	t.Helper()
 	res, err := database.Exec(`

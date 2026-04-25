@@ -262,11 +262,12 @@ func (a *API) handleListSpaceProblemLinks(c *fiber.Ctx) error {
 		return err
 	}
 	rows, err := a.DB.Query(`
-SELECT p.id, p.type, p.title, p.tags_json, p.statement_md, p.time_limit_ms, p.memory_limit_mib
+SELECT p.id, p.type, p.title, p.tags_json, p.statement_md, p.time_limit_ms, p.memory_limit_mib, COALESCE(upp.best_verdict, '')
 FROM space_problem_links l
 JOIN root_problems p ON p.id = l.problem_id
+LEFT JOIN user_problem_progress upp ON upp.space_id = l.space_id AND upp.user_id = ? AND upp.problem_id = p.id
 WHERE l.space_id=?
-ORDER BY p.id DESC`, spaceID)
+ORDER BY p.id DESC`, user.ID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -274,8 +275,8 @@ ORDER BY p.id DESC`, spaceID)
 	items := make([]fiber.Map, 0)
 	for rows.Next() {
 		var id, timeLimit, memoryLimit int64
-		var typeStr, title, tagsJSON, statement string
-		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &statement, &timeLimit, &memoryLimit); err != nil {
+		var typeStr, title, tagsJSON, statement, bestVerdict string
+		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &statement, &timeLimit, &memoryLimit, &bestVerdict); err != nil {
 			return err
 		}
 		items = append(items, fiber.Map{
@@ -286,6 +287,7 @@ ORDER BY p.id DESC`, spaceID)
 			"statementMd":    statement,
 			"timeLimitMs":    timeLimit,
 			"memoryLimitMiB": memoryLimit,
+			"completed":      bestVerdict == "AC",
 		})
 	}
 	if err := rows.Err(); err != nil {

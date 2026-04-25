@@ -388,7 +388,7 @@ export default function CodingPage() {
               </Box>
 
               {problem.type === 'single_choice' ? (
-                <FormControl component="fieldset" sx={{ mb: 3 }}>
+                <FormControl component="fieldset" sx={{ mb: 2.5, width: '100%' }}>
                   <FormLabel component="legend">选项</FormLabel>
                   <RadioGroup value={objectiveAnswer} onChange={(e) => setObjectiveAnswer(e.target.value)}>
                     {(body.options || []).map((opt, index) => (
@@ -410,7 +410,7 @@ export default function CodingPage() {
                   </RadioGroup>
                 </FormControl>
               ) : (
-                <FormControl component="fieldset" sx={{ mb: 3 }}>
+                <FormControl component="fieldset" sx={{ mb: 2.5, width: '100%' }}>
                   <FormLabel component="legend">答案</FormLabel>
                   <RadioGroup row value={objectiveAnswer} onChange={(e) => setObjectiveAnswer(e.target.value)}>
                     <FormControlLabel value="true" control={<Radio />} label="正确" />
@@ -419,13 +419,15 @@ export default function CodingPage() {
                 </FormControl>
               )}
 
-              <Button
-                variant="contained"
-                disabled={running || !objectiveAnswer}
-                onClick={handleObjectiveSubmit}
-              >
-                {running ? '提交中...' : '提交答案'}
-              </Button>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: consoleText ? 0 : 0 }}>
+                <Button
+                  variant="contained"
+                  disabled={running || !objectiveAnswer}
+                  onClick={handleObjectiveSubmit}
+                >
+                  {running ? '提交中...' : '提交答案'}
+                </Button>
+              </Box>
 
               {consoleText && (
                 <Box

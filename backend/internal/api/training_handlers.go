@@ -177,7 +177,7 @@ func (a *API) handleGetTrainingPlan(c *fiber.Ctx) error {
 		return err
 	}
 
-	chapters, err := a.loadPlanChapters(planID)
+	chapters, err := a.loadPlanChapters(planID, spaceID, user.ID)
 	if err != nil {
 		return err
 	}
@@ -404,14 +404,15 @@ WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
 	return access, nil
 }
 
-func (a *API) loadPlanChapters(planID int64) ([]fiber.Map, error) {
+func (a *API) loadPlanChapters(planID, spaceID, userID int64) ([]fiber.Map, error) {
 	rows, err := a.DB.Query(`
-SELECT c.id, c.title, c.order_no, i.problem_id, i.order_no, rp.title, rp.type
+SELECT c.id, c.title, c.order_no, i.problem_id, i.order_no, rp.title, rp.type, COALESCE(upp.best_verdict, '')
 FROM training_chapters c
 LEFT JOIN training_items i ON i.chapter_id = c.id
 LEFT JOIN root_problems rp ON rp.id = i.problem_id
+LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = i.problem_id
 WHERE c.plan_id=?
-ORDER BY c.order_no ASC, i.order_no ASC`, planID)
+ORDER BY c.order_no ASC, i.order_no ASC`, spaceID, userID, planID)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +431,8 @@ ORDER BY c.order_no ASC, i.order_no ASC`, planID)
 		var pOrder sql.NullInt64
 		var problemTitle sql.NullString
 		var problemType sql.NullString
-		if err := rows.Scan(&cid, &title, &cOrder, &pID, &pOrder, &problemTitle, &problemType); err != nil {
+		var bestVerdict sql.NullString
+		if err := rows.Scan(&cid, &title, &cOrder, &pID, &pOrder, &problemTitle, &problemType, &bestVerdict); err != nil {
 			return nil, err
 		}
 		agg, ok := byID[cid]
@@ -446,6 +448,7 @@ ORDER BY c.order_no ASC, i.order_no ASC`, planID)
 				"orderNo":   pOrder.Int64,
 				"title":     scanNullString(problemTitle),
 				"type":      scanNullString(problemType),
+				"completed": scanNullString(bestVerdict) == "AC",
 			})
 			agg.Item["items"] = items
 		}

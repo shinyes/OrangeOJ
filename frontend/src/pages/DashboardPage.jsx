@@ -131,7 +131,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [spaces, setSpaces] = useState([])
   const [selectedSpaceId, setSelectedSpaceId] = useState(null)
   const [spaceTab, setSpaceTab] = useState('problems')
-  const [spaceSelectorKeyword, setSpaceSelectorKeyword] = useState('')
   const [spaceManageTab, setSpaceManageTab] = useState('settings')
   const [systemTab, setSystemTab] = useState('settings')
 
@@ -218,11 +217,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       )
     })
   }, [spaceProblemSearch, spaceRootProblems])
-  const filteredSpacesForManage = useMemo(() => {
-    const keyword = spaceSelectorKeyword.trim().toLowerCase()
-    if (!keyword) return spaces
-    return spaces.filter((space) => String(space.name || '').toLowerCase().includes(keyword))
-  }, [spaceSelectorKeyword, spaces])
   const filteredLearningProblems = useMemo(() => {
     const keyword = learningProblemSearch.trim().toLowerCase()
     if (!keyword) return spaceProblems
@@ -1018,18 +1012,17 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     navigate(path)
   }
 
-  const [spaceMenuOpen, setSpaceMenuOpen] = useState(false)
-
-  const renderTopbarSpaceSwitcher = () => {
-    const currentSpace = spaces.find(s => s.id === selectedSpaceId)
-    const isAdmin = user?.role === 'admin'
-    const isSpaceAdmin = currentSpace?.myRole === 'admin'
-    const canManage = isAdmin || isSpaceAdmin
-    const mySpaces = isAdmin ? spaces : spaces.filter(s => s.myRole)
+  const renderTopbarSpaceSwitcher = (options = {}) => {
+    const mode = options.mode || 'learn'
+    const mySpaces = mode === 'manage'
+      ? (isSystemAdmin ? spaces : spaces.filter((space) => space.myRole === 'space_admin'))
+      : spaces
+    const showManageButton = options.showManageButton !== false && hasAnySpaceAdminRole && mode !== 'manage'
+    const showCreateButton = Boolean(options.showCreateButton && isSystemAdmin)
 
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {canManage && (
+        {showManageButton && (
           <Button
             size="small"
             variant="outlined"
@@ -1039,7 +1032,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             管理
           </Button>
         )}
-        <FormControl size="small" sx={{ minWidth: 120, bgcolor: 'background.paper' }}>
+        <FormControl size="small" sx={{ minWidth: 160, bgcolor: 'background.paper' }} disabled={mySpaces.length === 0}>
           <InputLabel id="space-select-label">空间</InputLabel>
           <Select
             labelId="space-select-label"
@@ -1047,6 +1040,11 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             label="空间"
             onChange={(e) => setSelectedSpaceId(Number(e.target.value))}
           >
+            {mySpaces.length === 0 && (
+              <MenuItem value="" disabled>
+                暂无可管理空间
+              </MenuItem>
+            )}
             {mySpaces.map((space) => (
               <MenuItem key={space.id} value={space.id}>
                 {space.name}
@@ -1054,6 +1052,16 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
             ))}
           </Select>
         </FormControl>
+        {showCreateButton && (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => openConfigModal('create-space')}
+            sx={{ minWidth: 'auto' }}
+          >
+            新建空间
+          </Button>
+        )}
       </Box>
     )
   }
@@ -1440,27 +1448,11 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     <SpaceManagePanel
       hasAnySpaceAdminRole={hasAnySpaceAdminRole}
       selectedSpace={selectedSpace}
-      selectedSpaceId={selectedSpaceId}
-      isSystemAdmin={isSystemAdmin}
       canManageSelectedSpace={canManageSelectedSpace}
-      spaceSelectorKeyword={spaceSelectorKeyword}
-      onSpaceSelectorKeywordChange={setSpaceSelectorKeyword}
-      filteredSpacesForManage={filteredSpacesForManage}
-      onSelectSpace={setSelectedSpaceId}
-      openCreateSpaceModal={() => openConfigModal('create-space')}
       spaceManageTab={spaceManageTab}
       onSpaceManageTabChange={setSpaceManageTab}
       normalizeLanguage={normalizeLanguage}
       openSpaceSettingsModal={() => openConfigModal('space-settings')}
-      spaceSettingsName={spaceSettingsName}
-      onSpaceSettingsNameChange={setSpaceSettingsName}
-      spaceSettingsDescription={spaceSettingsDescription}
-      onSpaceSettingsDescriptionChange={setSpaceSettingsDescription}
-      spaceDefaultLanguage={spaceDefaultLanguage}
-      onSpaceDefaultLanguageChange={setSpaceDefaultLanguage}
-      spaceSettingsSubmitting={spaceSettingsSubmitting}
-      onUpdateSpaceSettings={updateSpaceSettings}
-      closeConfigModal={closeConfigModal}
       spaceSettingsMessage={spaceSettingsMessage}
       spaceProblemSearch={spaceProblemSearch}
       onSpaceProblemSearchChange={setSpaceProblemSearch}
@@ -1477,6 +1469,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       memberMessage={memberMessage}
       memberResetMessage={memberResetMessage}
       openUploadProblemModal={() => openConfigModal('upload-space-problem')}
+      selectedSpaceId={selectedSpaceId}
     />
   )
 
@@ -1587,8 +1580,17 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                   </Tabs>
                 </Box>
               )}
+
+              {isSpaceManageView && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: 2 }}>
+                  <Typography variant="h6" sx={{ fontSize: '1rem' }}>
+                    {pageTitle}
+                  </Typography>
+                  {renderTopbarSpaceSwitcher({ mode: 'manage', showManageButton: false, showCreateButton: true })}
+                </Box>
+              )}
               
-              {!isLearnView && (
+              {!isLearnView && !isSpaceManageView && (
                 <Typography variant="h6" sx={{ fontSize: '1rem', ml: 2 }}>
                   {pageTitle}
                 </Typography>

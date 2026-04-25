@@ -118,7 +118,7 @@ export default function LearningPanel({
                           minWidth: 0
                         }}
                       >
-                        {problem.title}
+                        {problem.completed ? '✅ ' : ''}{problem.title}
                       </Typography>
                       {(problem.tags || []).length > 0 && (
                         <Box

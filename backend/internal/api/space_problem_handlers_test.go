@@ -135,6 +135,60 @@ func TestMemberCannotCreateSpaceProblem(t *testing.T) {
 	}
 }
 
+func TestListSpaceProblemsIncludesCompletionState(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	memberID := seedUser(t, database, "space_problem_progress_member", "spaceproblemprogress123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Progress")
+	mustAddMember(t, database, spaceID, memberID, "member")
+
+	problemID1 := mustCreateRootProblem(t, database, "已完成题目")
+	problemID2 := mustCreateRootProblem(t, database, "未完成题目")
+	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?), (?, ?)`, spaceID, problemID1, spaceID, problemID2); err != nil {
+		t.Fatalf("link problems: %v", err)
+	}
+
+	submissionRes, err := database.Exec(`
+INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
+VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){return 0;}', '', 'submit', 'done', 'AC', 100, '', '', CURRENT_TIMESTAMP)`,
+		memberID, spaceID, problemID1,
+	)
+	if err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	submissionID, _ := submissionRes.LastInsertId()
+	if _, err := database.Exec(`
+INSERT INTO user_problem_progress(space_id, user_id, problem_id, best_verdict, best_score, last_submission_id)
+VALUES(?, ?, ?, 'AC', 100, ?)`,
+		spaceID, memberID, problemID1, submissionID,
+	); err != nil {
+		t.Fatalf("create progress: %v", err)
+	}
+
+	cookie := mustLogin(t, app, "space_problem_progress_member", "spaceproblemprogress123")
+	resp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problem-bank-links", cookie, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected list 200, got %d", resp.StatusCode)
+	}
+	items := decodeEnvelope[[]map[string]interface{}](t, resp).Data
+	if len(items) != 2 {
+		t.Fatalf("expected 2 problems, got %d", len(items))
+	}
+
+	completedByID := map[int64]bool{}
+	for _, item := range items {
+		id, _ := item["id"].(float64)
+		completed, _ := item["completed"].(bool)
+		completedByID[int64(id)] = completed
+	}
+	if completedByID[problemID1] != true {
+		t.Fatalf("expected problem %d completed=true, got %+v", problemID1, completedByID)
+	}
+	if completedByID[problemID2] != false {
+		t.Fatalf("expected problem %d completed=false, got %+v", problemID2, completedByID)
+	}
+}
+
 func mustCreateSpace(t *testing.T, database *sql.DB, name string) int64 {
 	t.Helper()
 	res, err := database.Exec(`INSERT INTO spaces(name, description, created_by) VALUES(?, '', 1)`, name)

@@ -35,7 +35,12 @@ function safeInternalPath(path, fallback) {
   return fallback
 }
 
-export default function TrainingPage({ user, onLogout }) {
+function problemTitleWithCompletion(item, index) {
+  const completionText = item?.completed ? '✅ ' : ''
+  return `${index + 1}. #${item.problemId} ${completionText}${item.title || `题目 ${item.problemId}`}`
+}
+
+export default function TrainingPage({ user }) {
   const { spaceId, planId } = useParams()
   const [searchParams] = useSearchParams()
   const [space, setSpace] = useState(null)
@@ -119,20 +124,50 @@ export default function TrainingPage({ user, onLogout }) {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static" color="default" elevation={1}>
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {plan.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {space?.name ? `空间：${space.name}` : `空间 #${spaceId}`} | 共 {plan.chapters?.length || 0} 个章节，{totalProblemCount} 道题目
-            </Typography>
+        <Toolbar
+          sx={{
+            minHeight: '48px !important',
+            px: { xs: 1.25, md: 2 },
+            py: 0.35,
+            gap: 1,
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
+            alignItems: 'center'
+          }}
+        >
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={1} alignItems="baseline" useFlexGap flexWrap="wrap">
+              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.2 }}>
+                {plan.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                {space?.name ? `空间：${space.name}` : `空间 #${spaceId}`} | 共 {plan.chapters?.length || 0} 个章节，{totalProblemCount} 道题目
+              </Typography>
+            </Stack>
           </Box>
-          <Button color="inherit" component={Link} to={backTo}>
+          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ flexShrink: 0 }}>
+            <Chip size="small" label={isPublic ? '公开训练' : '隐藏训练'} color={isPublic ? 'info' : 'default'} />
+            <Chip size="small" label={plan.allowSelfJoin ? '允许自主加入' : '仅管理员分配'} color={plan.allowSelfJoin ? 'success' : 'default'} />
+            <Chip size="small" label={plan.published || plan.publishedAt ? '已发布' : '未发布'} color={plan.published || plan.publishedAt ? 'primary' : 'default'} />
+            {myParticipant ? (
+              <Chip
+                size="small"
+                color="warning"
+                label={`我的状态：已加入（${joinedByText(myParticipant.joinedBy)}）`}
+              />
+            ) : null}
+          </Stack>
+          {!myParticipant && (
+            <Button
+              size="small"
+              variant="contained"
+              disabled={!plan.allowSelfJoin || joining}
+              onClick={handleJoin}
+            >
+              {!plan.allowSelfJoin ? '需管理员分配' : joining ? '加入中...' : '加入训练'}
+            </Button>
+          )}
+          <Button size="small" color="inherit" component={Link} to={backTo}>
             {backLabel}
-          </Button>
-          <Button color="inherit" onClick={onLogout}>
-            退出登录
           </Button>
         </Toolbar>
       </AppBar>
@@ -140,61 +175,6 @@ export default function TrainingPage({ user, onLogout }) {
       <Container maxWidth="lg" sx={{ py: 3 }}>
         {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
         {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
-
-        <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                训练概览
-              </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                <Chip size="small" label={isPublic ? '公开训练' : '隐藏训练'} color={isPublic ? 'info' : 'default'} />
-                <Chip size="small" label={plan.allowSelfJoin ? '允许自主加入' : '仅管理员分配'} color={plan.allowSelfJoin ? 'success' : 'default'} />
-                <Chip size="small" label={plan.published || plan.publishedAt ? '已发布' : '未发布'} color={plan.published || plan.publishedAt ? 'primary' : 'default'} />
-                <Chip size="small" label={`参与成员 ${plan.participants?.length || 0} 人`} />
-                {myParticipant && (
-                  <Chip
-                    size="small"
-                    color="warning"
-                    label={`我的状态：已加入（${joinedByText(myParticipant.joinedBy)}）`}
-                  />
-                )}
-              </Stack>
-            </Box>
-
-            {!myParticipant && (
-              <Button
-                variant="contained"
-                disabled={!plan.allowSelfJoin || joining}
-                onClick={handleJoin}
-              >
-                {!plan.allowSelfJoin ? '需管理员分配' : joining ? '加入中...' : '加入训练'}
-              </Button>
-            )}
-          </Stack>
-        </Paper>
-
-        <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
-            参与成员
-          </Typography>
-
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {(plan.participants || []).length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                当前还没有参与成员。
-              </Typography>
-            ) : (
-              plan.participants.map((participant) => (
-                <Chip
-                  key={`${plan.id}-${participant.userId}`}
-                  size="small"
-                  label={`#${participant.userId} ${participant.username}（${joinedByText(participant.joinedBy)}）`}
-                />
-              ))
-            )}
-          </Box>
-        </Paper>
 
         {(plan.chapters || []).length === 0 ? (
           <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
@@ -235,7 +215,8 @@ export default function TrainingPage({ user, onLogout }) {
                             to={`/spaces/${spaceId}/problems/${item.problemId}/solve?returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
                             variant="outlined"
                             sx={{
-                              p: 1.5,
+                              px: 1.25,
+                              py: 1,
                               textDecoration: 'none',
                               color: 'text.primary',
                               transition: 'all 0.2s',
@@ -246,13 +227,10 @@ export default function TrainingPage({ user, onLogout }) {
                               }
                             }}
                           >
-                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                              <Box>
+                            <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
+                              <Box sx={{ minWidth: 0, flexGrow: 1 }}>
                                 <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                  {index + 1}. #{item.problemId} {item.title || `题目 ${item.problemId}`}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  点击进入做题页
+                                  {problemTitleWithCompletion(item, index)}
                                 </Typography>
                               </Box>
                               <Chip size="small" label={problemTypeText(item.type)} />
