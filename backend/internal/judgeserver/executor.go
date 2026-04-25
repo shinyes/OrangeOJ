@@ -17,6 +17,8 @@ import (
 	"orangeoj/backend/internal/model"
 )
 
+const sandboxDefaultPATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 type Executor struct {
 	workRoot       string
 	compileTimeout time.Duration
@@ -388,6 +390,7 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 		"--chroot", "/",
 		"--cwd", "/sandbox",
 		"--bindmount", fmt.Sprintf("%s:/sandbox", jobDir),
+		"--env", "PATH=" + sandboxDefaultPATH,
 		"--use_cgroupv2",
 		"--cgroup_mem_max", strconv.FormatInt(memoryBytes, 10),
 		"--cgroup_pids_max", "128",
