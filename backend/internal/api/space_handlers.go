@@ -226,6 +226,93 @@ DO UPDATE SET role=excluded.role`, spaceID, req.UserID, req.Role)
 	return respondData(c, fiber.Map{"ok": true})
 }
 
+func (a *API) handleListSpaceMembers(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	rows, err := a.DB.Query(`
+SELECT sm.user_id, u.username, sm.role, u.global_role, sm.created_at
+FROM space_members sm
+JOIN users u ON u.id = sm.user_id
+WHERE sm.space_id=?
+ORDER BY CASE sm.role WHEN 'space_admin' THEN 0 ELSE 1 END, sm.user_id ASC`, spaceID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	items := make([]fiber.Map, 0)
+	for rows.Next() {
+		var userID int64
+		var username, role, globalRole string
+		var createdAt time.Time
+		if err := rows.Scan(&userID, &username, &role, &globalRole, &createdAt); err != nil {
+			return err
+		}
+		items = append(items, fiber.Map{
+			"userId":     userID,
+			"username":   username,
+			"role":       role,
+			"globalRole": globalRole,
+			"createdAt":  createdAt,
+		})
+	}
+	return respondData(c, items)
+}
+
+func (a *API) handleSearchSpaceMemberCandidates(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	keyword := strings.TrimSpace(c.Query("q"))
+	if keyword == "" {
+		return respondData(c, []fiber.Map{})
+	}
+
+	likeKeyword := "%" + strings.ToLower(keyword) + "%"
+	rows, err := a.DB.Query(`
+SELECT u.id, u.username, u.global_role
+FROM users u
+WHERE NOT EXISTS (
+	SELECT 1
+	FROM space_members sm
+	WHERE sm.space_id=? AND sm.user_id=u.id
+)
+AND (
+	CAST(u.id AS TEXT) LIKE ?
+	OR LOWER(u.username) LIKE ?
+)
+ORDER BY
+	CASE
+		WHEN CAST(u.id AS TEXT)=? THEN 0
+		WHEN LOWER(u.username)=LOWER(?) THEN 1
+		ELSE 2
+	END,
+	u.id ASC
+LIMIT 20`, spaceID, likeKeyword, likeKeyword, keyword, keyword)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	items := make([]fiber.Map, 0)
+	for rows.Next() {
+		var userID int64
+		var username, globalRole string
+		if err := rows.Scan(&userID, &username, &globalRole); err != nil {
+			return err
+		}
+		items = append(items, fiber.Map{
+			"id":         userID,
+			"username":   username,
+			"globalRole": globalRole,
+		})
+	}
+	return respondData(c, items)
+}
+
 func (a *API) handleUpdateSpaceMember(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
@@ -245,6 +332,29 @@ func (a *API) handleUpdateSpaceMember(c *fiber.Ctx) error {
 	_, err = a.DB.Exec(`UPDATE space_members SET role=? WHERE space_id=? AND user_id=?`, req.Role, spaceID, userID)
 	if err != nil {
 		return err
+	}
+	return respondData(c, fiber.Map{"ok": true})
+}
+
+func (a *API) handleDeleteSpaceMember(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	userID, err := parseIDParam(c, "userId")
+	if err != nil {
+		return err
+	}
+	res, err := a.DB.Exec(`DELETE FROM space_members WHERE space_id=? AND user_id=?`, spaceID, userID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return respondError(c, fiber.StatusNotFound, "user is not in this space")
 	}
 	return respondData(c, fiber.Map{"ok": true})
 }

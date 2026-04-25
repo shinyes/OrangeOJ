@@ -121,11 +121,14 @@ export const api = {
 
   listSpaceProblems: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`),
   listSpaceRootProblems: (spaceId) => apiFetch(`/api/spaces/${spaceId}/root-problems`),
+  listSpaceMembers: (spaceId) => apiFetch(`/api/spaces/${spaceId}/members`),
+  searchSpaceMemberCandidates: (spaceId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/member-candidates`, { q: keyword })),
   createSpaceProblem: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/problems`, { method: 'POST', body }),
   updateSpaceProblem: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`, { method: 'PUT', body }),
   addSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links`, { method: 'POST', body: { problemId } }),
   deleteSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problem-bank-links/${problemId}`, { method: 'DELETE' }),
   addSpaceMember: (spaceId, userId, role = 'member') => apiFetch(`/api/spaces/${spaceId}/members`, { method: 'POST', body: { userId, role } }),
+  deleteSpaceMember: (spaceId, userId) => apiFetch(`/api/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' }),
   resetSpaceMemberPassword: (spaceId, userId) => apiFetch(`/api/spaces/${spaceId}/members/${userId}/reset-password`, { method: 'POST' }),
   getProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`),
 

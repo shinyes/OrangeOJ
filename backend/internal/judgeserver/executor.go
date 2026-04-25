@@ -279,7 +279,7 @@ func (e *Executor) selfCheck() error {
 func (e *Executor) buildCommands(language string) (sourceFile, compileCmd, runCmd string, err error) {
 	switch language {
 	case "cpp", "c++":
-		return "main.cpp", fmt.Sprintf("%s -std=c++17 -O2 main.cpp -o main.out", e.cppCompiler), "./main.out", nil
+		return "main.cpp", fmt.Sprintf("%s -std=c++11 -O2 main.cpp -o main.out", e.cppCompiler), "./main.out", nil
 	case "python", "python3", "py":
 		return "main.py", "", fmt.Sprintf("%s main.py", e.pythonRuntime), nil
 	case "go", "golang":
@@ -320,7 +320,7 @@ func (e *Executor) selfCheckCPPToolchain() error {
 	ctx, cancel := context.WithTimeout(context.Background(), e.compileTimeout)
 	defer cancel()
 
-	compileCmd := fmt.Sprintf("%s -std=c++17 -O2 main.cpp -o main.out", e.cppCompiler)
+	compileCmd := fmt.Sprintf("%s -std=c++11 -O2 main.cpp -o main.out", e.cppCompiler)
 	result, runErr := runInSandbox(ctx, checkDir, compileCmd, "", 256, int(e.compileTimeout.Milliseconds()))
 	if runErr != nil {
 		return fmt.Errorf("C++ toolchain self-check failed: %w", runErr)

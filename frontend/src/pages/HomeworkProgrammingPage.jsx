@@ -619,7 +619,7 @@ export default function HomeworkProgrammingPage() {
                   })}
                   sx={{ bgcolor: 'background.paper' }}
                 >
-                  <MenuItem value="cpp">C++17</MenuItem>
+                  <MenuItem value="cpp">C++11</MenuItem>
                   <MenuItem value="python">Python 3.8</MenuItem>
                   <MenuItem value="go">Go 1.25</MenuItem>
                 </Select>

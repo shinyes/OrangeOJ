@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
+import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
@@ -29,44 +31,34 @@ function SummaryItem({ label, value }) {
   )
 }
 
-function ProblemCard({
-  problem,
-  problemTypeText,
-  metaText,
-  actions
-}) {
+function ProblemRow({ text, actions }) {
   return (
     <Paper
       variant="outlined"
       sx={{
-        p: 2,
+        px: 1.5,
+        py: 1.25,
         borderRadius: 2
       }}
     >
       <Stack
         direction={{ xs: 'column', md: 'row' }}
-        spacing={1.5}
+        spacing={1}
         justifyContent="space-between"
         alignItems={{ xs: 'flex-start', md: 'center' }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
-            <Typography variant="subtitle2" fontWeight={700}>
-              #{problem.id} {problem.title}
-            </Typography>
-            <Chip size="small" label={problemTypeText(problem.type)} variant="outlined" />
-          </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-            {metaText}
-          </Typography>
-          {(problem.tags || []).length > 0 && (
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-              {problem.tags.map((tag) => (
-                <Chip key={`${problem.id}-${tag}`} label={tag} size="small" variant="outlined" />
-              ))}
-            </Stack>
-          )}
-        </Box>
+        <Typography
+          variant="body2"
+          sx={{
+            minWidth: 0,
+            flexGrow: 1,
+            fontWeight: 500
+          }}
+          noWrap
+          title={text}
+        >
+          {text}
+        </Typography>
 
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
           {actions}
@@ -95,15 +87,46 @@ export default function SpaceManagePanel({
   editingProblemId,
   onOpenEditProblem,
   onRemoveSpaceProblem,
-  openAddMemberModal,
-  openResetMemberPasswordModal,
+  spaceMembers,
+  memberRole,
+  onMemberRoleChange,
+  memberCandidateInput,
+  onMemberCandidateInputChange,
+  memberCandidates,
+  selectedMemberCandidates,
+  onSelectedMemberCandidatesChange,
+  memberSearchLoading,
+  onSubmitMembers,
+  memberSubmitting,
+  onResetMemberPassword,
+  resettingMemberId,
+  onRemoveMember,
+  removingMemberId,
   memberMessage,
-  memberResetMessage,
   openUploadProblemModal,
   selectedSpaceId
 }) {
   const handleTabChange = (event, newValue) => {
     onSpaceManageTabChange(newValue)
+  }
+
+  const renderMemberLabel = (member) => {
+    if (!member) return ''
+    const parts = [`#${member.userId || member.id}`, member.username]
+    if (member.globalRole === 'system_admin') {
+      parts.push('系统管理员')
+    }
+    parts.push(member.role === 'space_admin' ? '空间管理员' : '成员')
+    return parts.join(' · ')
+  }
+
+  const getCandidateLabel = (candidate) => {
+    if (!candidate) return ''
+    const parts = [`#${candidate.id}`, candidate.username]
+    if (candidate.globalRole === 'system_admin') {
+      parts.push('系统管理员')
+    }
+    return parts.join(' · ')
   }
 
   if (!hasAnySpaceAdminRole) {
@@ -214,10 +237,6 @@ export default function SpaceManagePanel({
                 <Typography variant="h6" fontWeight={700}>
                   从根题库添加
                 </Typography>
-                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                  搜索后直接加入当前空间题库。
-                </Typography>
-
                 <TextField
                   fullWidth
                   size="small"
@@ -235,12 +254,12 @@ export default function SpaceManagePanel({
                   ) : (
                     filteredSpaceRootProblems.map((problem) => {
                       const linked = linkedProblemIDSet.has(problem.id)
+                      const tagsText = (problem.tags || []).join(' / ')
+                      const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), tagsText].filter(Boolean).join(' · ')
                       return (
-                        <ProblemCard
+                        <ProblemRow
                           key={problem.id}
-                          problem={problem}
-                          problemTypeText={problemTypeText}
-                          metaText={linked ? '已在当前空间题库中' : '可添加到当前空间题库'}
+                          text={lineText}
                           actions={(
                             <Button
                               size="small"
@@ -269,9 +288,6 @@ export default function SpaceManagePanel({
                     <Typography variant="h6" fontWeight={700}>
                       当前空间题库
                     </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                      #{selectedSpace.id} {selectedSpace.name} 内可见的题目。
-                    </Typography>
                   </Box>
                   <Button variant="contained" onClick={openUploadProblemModal}>
                     上传新题目
@@ -284,41 +300,51 @@ export default function SpaceManagePanel({
                       当前空间暂无题目。
                     </Typography>
                   ) : (
-                    spaceProblems.map((problem) => (
-                      <ProblemCard
-                        key={problem.id}
-                        problem={problem}
-                        problemTypeText={problemTypeText}
-                        metaText={`${problem.timeLimitMs}ms | ${problem.memoryLimitMiB}MiB`}
-                        actions={(
-                          <>
-                            <Button
-                              size="small"
-                              component={Link}
-                              to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}
-                              variant="outlined"
-                            >
-                              去做题
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => onOpenEditProblem(problem.id)}
-                            >
-                              编辑
-                            </Button>
-                            <Button
-                              size="small"
-                              color="error"
-                              variant="outlined"
-                              onClick={() => onRemoveSpaceProblem(problem.id)}
-                            >
-                              移除
-                            </Button>
-                          </>
-                        )}
-                      />
-                    ))
+                    spaceProblems.map((problem) => {
+                      const tagsText = (problem.tags || []).join(' / ')
+                      const lineText = [
+                        `#${problem.id}`,
+                        problem.title,
+                        problemTypeText(problem.type),
+                        `${problem.timeLimitMs}ms`,
+                        `${problem.memoryLimitMiB}MiB`,
+                        tagsText
+                      ].filter(Boolean).join(' · ')
+
+                      return (
+                        <ProblemRow
+                          key={problem.id}
+                          text={lineText}
+                          actions={(
+                            <>
+                              <Button
+                                size="small"
+                                component={Link}
+                                to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}
+                                variant="outlined"
+                              >
+                                去做题
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => onOpenEditProblem(problem.id)}
+                              >
+                                编辑
+                              </Button>
+                              <Button
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                onClick={() => onRemoveSpaceProblem(problem.id)}
+                              >
+                                移除
+                              </Button>
+                            </>
+                          )}
+                        />
+                      )
+                    })
                   )}
                 </Stack>
 
@@ -328,50 +354,132 @@ export default function SpaceManagePanel({
           )}
 
           {spaceManageTab === 'members' && (
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="h6" fontWeight={700}>
-                成员管理
-              </Typography>
-              <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                这里只保留两个高频入口：添加成员和重置成员密码。
-              </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', xl: 'minmax(320px, 420px) minmax(0, 1fr)' },
+                gap: 3
+              }}
+            >
+              <Paper sx={{ p: 3, borderRadius: 3 }}>
+                <Typography variant="h6" fontWeight={700}>
+                  添加成员
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                  按用户 ID 或用户名搜索，选中后加入当前空间。
+                </Typography>
 
-              <Box
-                sx={{
-                  mt: 2.5,
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' },
-                  gap: 2
-                }}
-              >
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    添加成员 / 管理员
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1 }}>
-                    将已注册用户加入当前空间，并设置为普通成员或空间管理员。
-                  </Typography>
-                  <Button variant="contained" onClick={openAddMemberModal} sx={{ mt: 2 }}>
-                    打开添加弹窗
-                  </Button>
-                </Paper>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="加入后角色"
+                  value={memberRole}
+                  onChange={(event) => onMemberRoleChange(event.target.value)}
+                  sx={{ mt: 2 }}
+                >
+                  <MenuItem value="member">成员</MenuItem>
+                  <MenuItem value="space_admin">空间管理员</MenuItem>
+                </TextField>
 
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    重置成员密码
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1 }}>
-                    仅处理当前空间成员密码，适合排查登录问题。
-                  </Typography>
-                  <Button variant="outlined" onClick={openResetMemberPasswordModal} sx={{ mt: 2 }}>
-                    打开重置弹窗
-                  </Button>
-                </Paper>
-              </Box>
+                <Autocomplete
+                  multiple
+                  options={memberCandidates}
+                  value={selectedMemberCandidates}
+                  inputValue={memberCandidateInput}
+                  loading={memberSearchLoading}
+                  onInputChange={(event, value) => onMemberCandidateInputChange(value)}
+                  onChange={(event, value) => onSelectedMemberCandidatesChange(value)}
+                  getOptionLabel={getCandidateLabel}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  filterOptions={(options) => options}
+                  noOptionsText={memberCandidateInput.trim() ? '没有匹配用户' : '输入用户 ID 或用户名开始搜索'}
+                  loadingText="搜索中..."
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="搜索并选择用户"
+                      placeholder="例如：12 或 alice"
+                      size="small"
+                      sx={{ mt: 2 }}
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {memberSearchLoading ? <CircularProgress color="inherit" size={16} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        )
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => {
+                    const { key, ...optionProps } = props
+                    return (
+                      <Box component="li" key={key} {...optionProps}>
+                        {getCandidateLabel(option)}
+                      </Box>
+                    )
+                  }}
+                />
 
-              {memberMessage && <Box sx={{ mt: 2 }}><ToastMessage message={memberMessage} severity="success" /></Box>}
-              {memberResetMessage && <Box sx={{ mt: 2 }}><ToastMessage message={memberResetMessage} severity="success" /></Box>}
-            </Paper>
+                <Button
+                  variant="contained"
+                  onClick={onSubmitMembers}
+                  disabled={memberSubmitting || selectedMemberCandidates.length === 0}
+                  sx={{ mt: 2 }}
+                >
+                  {memberSubmitting ? '添加中...' : `添加所选用户${selectedMemberCandidates.length > 0 ? `（${selectedMemberCandidates.length}）` : ''}`}
+                </Button>
+
+                {memberMessage && <Box sx={{ mt: 2 }}><ToastMessage message={memberMessage} severity="success" /></Box>}
+              </Paper>
+
+              <Paper sx={{ p: 3, borderRadius: 3 }}>
+                <Typography variant="h6" fontWeight={700}>
+                  当前空间成员
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                  当前共有 {spaceMembers.length} 名成员。可直接重置密码或移出空间。
+                </Typography>
+
+                <Stack spacing={1.25} sx={{ mt: 2.5, maxHeight: 620, overflowY: 'auto', pr: 0.25 }}>
+                  {spaceMembers.length === 0 ? (
+                    <Typography color="text.secondary">
+                      当前空间还没有成员。
+                    </Typography>
+                  ) : (
+                    spaceMembers.map((member) => (
+                      <ProblemRow
+                        key={member.userId}
+                        text={renderMemberLabel(member)}
+                        actions={(
+                          <>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              disabled={resettingMemberId === member.userId}
+                              onClick={() => onResetMemberPassword(member)}
+                            >
+                              {resettingMemberId === member.userId ? '重置中...' : '重置密码'}
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              disabled={removingMemberId === member.userId}
+                              onClick={() => onRemoveMember(member)}
+                            >
+                              {removingMemberId === member.userId ? '移除中...' : '移除'}
+                            </Button>
+                          </>
+                        )}
+                      />
+                    ))
+                  )}
+                </Stack>
+              </Paper>
+            </Box>
           )}
         </>
       )}

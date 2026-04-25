@@ -114,6 +114,15 @@ function toBatchCopyText(batchResult) {
   }).join('\n')
 }
 
+const SELECTED_SPACE_STORAGE_KEY = 'orangeoj:selected-space-id'
+
+function readStoredSelectedSpaceId() {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(SELECTED_SPACE_STORAGE_KEY)
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
 export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -129,7 +138,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const userMenuRef = useRef(null)
 
   const [spaces, setSpaces] = useState([])
-  const [selectedSpaceId, setSelectedSpaceId] = useState(null)
+  const [selectedSpaceId, setSelectedSpaceId] = useState(() => readStoredSelectedSpaceId())
   const [spaceTab, setSpaceTab] = useState('problems')
   const [spaceManageTab, setSpaceManageTab] = useState('settings')
   const [systemTab, setSystemTab] = useState('settings')
@@ -154,6 +163,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [spaceSettingsMessage, setSpaceSettingsMessage] = useState('')
 
   const [spaceProblemSearch, setSpaceProblemSearch] = useState('')
+  const [spaceMembers, setSpaceMembers] = useState([])
   const [editingProblemId, setEditingProblemId] = useState(null)
   const [editingSpaceProblem, setEditingSpaceProblem] = useState(null)
   const [editingTrainingPlan, setEditingTrainingPlan] = useState(null)
@@ -164,13 +174,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [assigningHomework, setAssigningHomework] = useState(null)
   const [homeworkTargetUserId, setHomeworkTargetUserId] = useState('')
   const [homeworkTargetSubmitting, setHomeworkTargetSubmitting] = useState(false)
-  const [memberUserId, setMemberUserId] = useState('')
   const [memberRole, setMemberRole] = useState('member')
+  const [memberCandidateInput, setMemberCandidateInput] = useState('')
+  const [memberCandidates, setMemberCandidates] = useState([])
+  const [selectedMemberCandidates, setSelectedMemberCandidates] = useState([])
+  const [memberSearchLoading, setMemberSearchLoading] = useState(false)
   const [memberSubmitting, setMemberSubmitting] = useState(false)
   const [memberMessage, setMemberMessage] = useState('')
-  const [memberResetUserId, setMemberResetUserId] = useState('')
-  const [memberResetSubmitting, setMemberResetSubmitting] = useState(false)
-  const [memberResetMessage, setMemberResetMessage] = useState('')
+  const [resettingMemberId, setResettingMemberId] = useState(null)
+  const [removingMemberId, setRemovingMemberId] = useState(null)
 
   const [batchInput, setBatchInput] = useState('')
   const [batchSpaceId, setBatchSpaceId] = useState('')
@@ -297,6 +309,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     setSpaceRootProblems(list || [])
   }
 
+  const refreshSpaceMemberData = async (spaceId) => {
+    if (!spaceId) {
+      setSpaceMembers([])
+      return
+    }
+    const list = await api.listSpaceMembers(spaceId)
+    setSpaceMembers(list || [])
+  }
+
   useEffect(() => {
     ;(async () => {
       try {
@@ -328,6 +349,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   }, [isLearnView, requestedSpaceId, spaces])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (selectedSpaceId) {
+      window.localStorage.setItem(SELECTED_SPACE_STORAGE_KEY, String(selectedSpaceId))
+      return
+    }
+    window.localStorage.removeItem(SELECTED_SPACE_STORAGE_KEY)
+  }, [selectedSpaceId])
+
+  useEffect(() => {
     if (!isLearnView || !requestedSpaceTab) return
     setSpaceTab(requestedSpaceTab)
   }, [isLearnView, requestedSpaceTab])
@@ -345,11 +375,67 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   }, [selectedSpaceId, canManageSelectedSpace, isSpaceManageView])
 
   useEffect(() => {
+    ;(async () => {
+      try {
+        if (!selectedSpaceId || !canManageSelectedSpace) {
+          setSpaceMembers([])
+          return
+        }
+        await refreshSpaceMemberData(selectedSpaceId)
+      } catch (err) {
+        if (isSpaceManageView) {
+          setError(err.message || '加载空间成员失败')
+        }
+      }
+    })()
+  }, [selectedSpaceId, canManageSelectedSpace, isSpaceManageView])
+
+  useEffect(() => {
+    if (!selectedSpaceId || !canManageSelectedSpace) {
+      setMemberCandidates([])
+      setMemberSearchLoading(false)
+      return
+    }
+    const keyword = memberCandidateInput.trim()
+    if (!keyword) {
+      setMemberCandidates([])
+      setMemberSearchLoading(false)
+      return
+    }
+
+    let active = true
+    const timer = window.setTimeout(async () => {
+      try {
+        setMemberSearchLoading(true)
+        const list = await api.searchSpaceMemberCandidates(selectedSpaceId, keyword)
+        if (!active) return
+        setMemberCandidates(list || [])
+      } catch (err) {
+        if (!active) return
+        setMemberCandidates([])
+        setError(err.message || '搜索用户失败')
+      } finally {
+        if (active) {
+          setMemberSearchLoading(false)
+        }
+      }
+    }, 250)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [selectedSpaceId, canManageSelectedSpace, memberCandidateInput])
+
+  useEffect(() => {
     setMemberMessage('')
-    setMemberUserId('')
     setMemberRole('member')
-    setMemberResetUserId('')
-    setMemberResetMessage('')
+    setMemberCandidateInput('')
+    setMemberCandidates([])
+    setSelectedMemberCandidates([])
+    setMemberSearchLoading(false)
+    setResettingMemberId(null)
+    setRemovingMemberId(null)
     setTrainingActionMessage('')
     setEditingTrainingPlan(null)
     setAssigningTrainingPlan(null)
@@ -828,16 +914,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     }
   }
 
-  const handleAddMember = async () => {
+  const handleAddMembers = async () => {
     if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
-    const userId = Number(memberUserId)
-    if (!Number.isInteger(userId) || userId <= 0) {
-      setError('请输入有效的用户 ID')
-      return
-    }
     if (memberRole !== 'member' && memberRole !== 'space_admin') {
       setError('请选择有效角色')
+      return
+    }
+    if (selectedMemberCandidates.length === 0) {
+      setError('请先搜索并选择要添加的用户')
       return
     }
 
@@ -845,11 +930,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setError('')
       setMemberMessage('')
       setMemberSubmitting(true)
-      await api.addSpaceMember(selectedSpaceId, userId, memberRole)
-      setMemberUserId('')
-      setMemberMessage(`用户 #${userId} 已加入空间，角色：${memberRole === 'space_admin' ? '空间管理员' : '成员'}`)
+      await Promise.all(selectedMemberCandidates.map((candidate) => api.addSpaceMember(selectedSpaceId, candidate.id, memberRole)))
+      setSelectedMemberCandidates([])
+      setMemberCandidateInput('')
+      setMemberCandidates([])
+      setMemberMessage(`已添加 ${selectedMemberCandidates.length} 名用户，角色：${memberRole === 'space_admin' ? '空间管理员' : '成员'}`)
       await refreshSpaces()
-      closeConfigModal()
+      try {
+        await refreshSpaceMemberData(selectedSpaceId)
+      } catch {}
     } catch (err) {
       setError(err.message)
     } finally {
@@ -857,27 +946,46 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     }
   }
 
-  const handleResetSpaceMemberPassword = async () => {
+  const handleResetSpaceMemberPassword = async (member) => {
     if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
-    const userId = Number(memberResetUserId)
-    if (!Number.isInteger(userId) || userId <= 0) {
-      setError('请输入有效的用户ID')
-      return
-    }
+    if (!member?.userId) return
 
     try {
       setError('')
-      setMemberResetMessage('')
-      setMemberResetSubmitting(true)
-      await api.resetSpaceMemberPassword(selectedSpaceId, userId)
-      setMemberResetUserId('')
-      setMemberResetMessage(`鐢ㄦ埛 #${userId}瀵嗙爜宸查噸缃负 123456`)
-      closeConfigModal()
+      setMemberMessage('')
+      setResettingMemberId(member.userId)
+      await api.resetSpaceMemberPassword(selectedSpaceId, member.userId)
+      setMemberMessage(`用户 #${member.userId} 的密码已重置为 123456`)
     } catch (err) {
       setError(err.message)
     } finally {
-      setMemberResetSubmitting(false)
+      setResettingMemberId(null)
+    }
+  }
+
+  const handleRemoveSpaceMember = async (member) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    if (!member?.userId) return
+
+    const confirmed = window.confirm(`确认将用户 #${member.userId} ${member.username || ''} 移出当前空间？`)
+    if (!confirmed) return
+
+    try {
+      setError('')
+      setMemberMessage('')
+      setRemovingMemberId(member.userId)
+      await api.deleteSpaceMember(selectedSpaceId, member.userId)
+      setMemberMessage(`已将用户 #${member.userId} 移出当前空间`)
+      await refreshSpaces()
+      try {
+        await refreshSpaceMemberData(selectedSpaceId)
+      } catch {}
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRemovingMemberId(null)
     }
   }
 
@@ -904,7 +1012,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setAdminResetSubmitting(true)
       await api.adminResetUserPassword(userId)
       setAdminResetUserId('')
-      setAdminResetMessage(`鐢ㄦ埛 #${userId}瀵嗙爜宸查噸缃负123456`)
+      setAdminResetMessage(`用户 #${userId} 的密码已重置为 123456`)
       closeConfigModal()
     } catch (err) {
       setError(err.message)
@@ -1299,55 +1407,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       )
     }
 
-    if (activeConfigModal === 'add-space-member') {
-      title = '添加成员 / 空间管理员'
-      content = (
-        <div className="config-form">
-          <input
-            type="number"
-            min="1"
-            placeholder="用户 ID"
-            value={memberUserId}
-            onChange={(event) => setMemberUserId(event.target.value)}
-          />
-          <label className="inline-field">
-            角色
-            <select className="member-role-select" value={memberRole} onChange={(event) => setMemberRole(event.target.value)}>
-              <option value="member">成员</option>
-              <option value="space_admin">空间管理员</option>
-            </select>
-          </label>
-          <div className="inline-form">
-            <button disabled={memberSubmitting} onClick={handleAddMember}>
-              {memberSubmitting ? '提交中...' : '确认添加'}
-            </button>
-            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
-          </div>
-        </div>
-      )
-    }
-
-    if (activeConfigModal === 'reset-space-member-password') {
-      title = '重置空间成员密码'
-      content = (
-        <div className="config-form">
-          <input
-            type="number"
-            min="1"
-            placeholder="用户 ID"
-            value={memberResetUserId}
-            onChange={(event) => setMemberResetUserId(event.target.value)}
-          />
-          <div className="inline-form">
-            <button disabled={memberResetSubmitting} onClick={handleResetSpaceMemberPassword}>
-              {memberResetSubmitting ? '重置中...' : '重置为123456'}
-            </button>
-            <button className="ghost-btn btn-link" onClick={closeConfigModal}>取消</button>
-          </div>
-        </div>
-      )
-    }
-
     if (activeConfigModal === 'admin-reset-password') {
       title = '重置任意用户密码'
       content = (
@@ -1464,10 +1523,22 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       editingProblemId={editingProblemId}
       onOpenEditProblem={openEditProblem}
       onRemoveSpaceProblem={removeSpaceProblem}
-      openAddMemberModal={() => openConfigModal('add-space-member')}
-      openResetMemberPasswordModal={() => openConfigModal('reset-space-member-password')}
+      spaceMembers={spaceMembers}
+      memberRole={memberRole}
+      onMemberRoleChange={setMemberRole}
+      memberCandidateInput={memberCandidateInput}
+      onMemberCandidateInputChange={setMemberCandidateInput}
+      memberCandidates={memberCandidates}
+      selectedMemberCandidates={selectedMemberCandidates}
+      onSelectedMemberCandidatesChange={setSelectedMemberCandidates}
+      memberSearchLoading={memberSearchLoading}
+      onSubmitMembers={handleAddMembers}
+      memberSubmitting={memberSubmitting}
+      onResetMemberPassword={handleResetSpaceMemberPassword}
+      resettingMemberId={resettingMemberId}
+      onRemoveMember={handleRemoveSpaceMember}
+      removingMemberId={removingMemberId}
       memberMessage={memberMessage}
-      memberResetMessage={memberResetMessage}
       openUploadProblemModal={() => openConfigModal('upload-space-problem')}
       selectedSpaceId={selectedSpaceId}
     />
