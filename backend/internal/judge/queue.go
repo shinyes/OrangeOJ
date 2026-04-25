@@ -152,7 +152,10 @@ func (q *QueueService) processJob(ctx context.Context, job jobItem) error {
 	case model.SubmitTypeRun:
 		selectedCases = []programmingCase{{Input: sub.InputData}}
 	case model.SubmitTypeTest:
-		selectedCases = body.Samples
+		selectedCases = body.TestCases
+		if len(selectedCases) == 0 {
+			selectedCases = body.Samples
+		}
 		if len(selectedCases) == 0 {
 			selectedCases = []programmingCase{{Input: sub.InputData}}
 		}
