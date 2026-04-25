@@ -380,7 +380,7 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 	}
 
 	args := []string{
-		"--quiet",
+		"--really_quiet",
 		"--mode", "o",
 		"--time_limit", strconv.Itoa(timeLimitSec),
 		"--disable_proc",
