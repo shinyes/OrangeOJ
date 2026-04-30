@@ -407,10 +407,26 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	res, err := a.DB.Exec(`DELETE FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID)
+	tx, err := a.DB.BeginTx(c.Context(), nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Problem submission history should not block deletion. Clean dependent
+	// progress and submissions first, while keeping homework/training links as
+	// hard blockers on the problem itself.
+	if _, err := tx.Exec(`DELETE FROM user_problem_progress WHERE space_id=? AND problem_id=?`, spaceID, problemID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM submissions WHERE space_id=? AND problem_id=?`, spaceID, problemID); err != nil {
+		return err
+	}
+
+	res, err := tx.Exec(`DELETE FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID)
 	if err != nil {
 		if isForeignKeyErr(err) {
-			return respondError(c, fiber.StatusConflict, "problem is still referenced")
+			return respondError(c, fiber.StatusConflict, "problem is still referenced by homework or training")
 		}
 		return err
 	}
@@ -420,6 +436,12 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	}
 	if affected == 0 {
 		return respondError(c, fiber.StatusNotFound, "problem not found in this space")
+	}
+	if err := tx.Commit(); err != nil {
+		if isForeignKeyErr(err) {
+			return respondError(c, fiber.StatusConflict, "problem is still referenced by homework or training")
+		}
+		return err
 	}
 	return respondData(c, fiber.Map{"ok": true})
 }
@@ -494,14 +516,25 @@ func (a *API) handleGetSpaceProblem(c *fiber.Ctx) error {
 	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
 		return err
 	}
+	includeAnswer := false
+	if parseBoolQueryParam(c, "includeAnswer") {
+		canManage, err := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
+		if err != nil {
+			return err
+		}
+		if !canManage {
+			return respondError(c, fiber.StatusForbidden, "space admin required")
+		}
+		includeAnswer = true
+	}
 
 	var (
-		typeStr, title, tagsJSON, statement, bodyJSON string
-		timeLimit, memoryLimit                        int64
+		typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
+		timeLimit, memoryLimit                                    int64
 	)
 	err = a.DB.QueryRow(`
-SELECT type, title, tags_json, statement_md, body_json, time_limit_ms, memory_limit_mib
-FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &timeLimit, &memoryLimit)
+SELECT type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib
+FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit)
 	if err != nil {
 		return err
 	}
@@ -514,6 +547,9 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeSt
 		"bodyJson":       json.RawMessage(bodyJSON),
 		"timeLimitMs":    timeLimit,
 		"memoryLimitMiB": memoryLimit,
+	}
+	if includeAnswer {
+		resp["answerJson"] = json.RawMessage(answerJSON)
 	}
 	return respondData(c, resp)
 }

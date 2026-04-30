@@ -211,6 +211,10 @@ function buildFormFromStorageDraft(draft) {
   })
 }
 
+function formsEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
 function buildInitialForm(problem) {
   const type = problem?.type || 'programming'
   const body = problem?.bodyJson || {}
@@ -314,6 +318,7 @@ export default function ProblemEditor({
   const [tagInputValue, setTagInputValue] = useState('')
   const [editorMode, setEditorMode] = useState('ui')
   const [jsonDraft, setJSONDraft] = useState(() => buildStorageDraftFromForm(buildInitialForm(problem), { lockedProblemType: isEditMode && problem?.type ? problem.type : undefined }))
+  const [jsonSyncError, setJSONSyncError] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -323,8 +328,28 @@ export default function ProblemEditor({
     setEditorMode('ui')
     setSubmitting(false)
     setSubmitError('')
+    setJSONSyncError('')
     setTagInputValue('')
   }, [open, problem, mode])
+
+  useEffect(() => {
+    if (!open || editorMode !== 'ui') return
+    const nextDraft = buildStorageDraftFromForm(form, { lockedProblemType })
+    setJSONDraft((current) => (current === nextDraft ? current : nextDraft))
+    setJSONSyncError('')
+  }, [open, editorMode, form, lockedProblemType])
+
+  useEffect(() => {
+    if (!open || editorMode !== 'json') return
+    try {
+      const draft = parseStorageDraft(jsonDraft, { lockedProblemType })
+      const nextForm = buildFormFromStorageDraft(draft)
+      setForm((current) => (formsEqual(current, nextForm) ? current : nextForm))
+      setJSONSyncError('')
+    } catch (err) {
+      setJSONSyncError(err.message || 'JSON 模式内容有误')
+    }
+  }, [open, editorMode, jsonDraft, lockedProblemType])
 
   const dialogTitle = useMemo(() => {
     if (isEditMode) {
@@ -374,12 +399,14 @@ export default function ProblemEditor({
     }
 
     try {
-      const draft = parseStorageDraft(jsonDraft, { lockedProblemType })
-      setForm(buildFormFromStorageDraft(draft))
+      parseStorageDraft(jsonDraft, { lockedProblemType })
       setEditorMode('ui')
       setSubmitError('')
+      setJSONSyncError('')
     } catch (err) {
-      setSubmitError(err.message || 'JSON 模式内容有误')
+      const message = err.message || 'JSON 模式内容有误'
+      setSubmitError(message)
+      setJSONSyncError(message)
     }
   }
 
@@ -460,15 +487,6 @@ export default function ProblemEditor({
       singleChoice: blankForm.singleChoice,
       trueFalse: blankForm.trueFalse
     }))
-    if (editorMode === 'json') {
-      setJSONDraft(buildStorageDraftFromForm({
-        ...form,
-        type: nextType,
-        programming: blankForm.programming,
-        singleChoice: blankForm.singleChoice,
-        trueFalse: blankForm.trueFalse
-      }, { lockedProblemType }))
-    }
   }
 
   const addOption = () => {
@@ -614,6 +632,9 @@ export default function ProblemEditor({
                 当前 JSON 对应题库接口 payload：`type / title / tags / statementMd / bodyJson / answerJson / timeLimitMs / memoryLimitMiB`。
                 编辑态会强制沿用原题型，不会因为 JSON 里的 `type` 改变题型。
               </Typography>
+              {jsonSyncError ? (
+                <ToastMessage message={`JSON 未同步到 UI：${jsonSyncError}`} severity="warning" onShown={() => {}} />
+              ) : null}
               <TextField
                 fullWidth
                 size="small"
@@ -623,6 +644,8 @@ export default function ProblemEditor({
                 multiline
                 minRows={24}
                 InputProps={{ sx: { fontFamily: 'monospace' } }}
+                error={Boolean(jsonSyncError)}
+                helperText={jsonSyncError || 'JSON 合法时会实时同步到 UI 模式；切回 UI 模式前必须先修正 JSON。'}
               />
             </>
           ) : (

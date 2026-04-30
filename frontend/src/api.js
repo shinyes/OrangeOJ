@@ -31,7 +31,8 @@ const errorMessageMap = {
   'cannot reset system admin password': '不能重置系统管理员密码',
   'items must contain 1 to 200 entries': '批量注册每次最多200条',
   'problem not found in this space': '当前空间中不存在该题目',
-  'problem is still referenced': '该题目仍被作业、训练或提交记录引用，无法删除',
+  'problem is still referenced': '该题目仍被作业或训练引用，无法删除',
+  'problem is still referenced by homework or training': '该题目仍被作业或训练引用，无法删除',
   'invalid language': '默认编程语言不合法',
   'invalid display mode': '作业显示模式不合法',
   'name required': '空间名称不能为空',
@@ -121,7 +122,7 @@ export const api = {
   addSpaceMember: (spaceId, userId, role = 'member') => apiFetch(`/api/spaces/${spaceId}/members`, { method: 'POST', body: { userId, role } }),
   deleteSpaceMember: (spaceId, userId) => apiFetch(`/api/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' }),
   resetSpaceMemberPassword: (spaceId, userId) => apiFetch(`/api/spaces/${spaceId}/members/${userId}/reset-password`, { method: 'POST' }),
-  getProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`),
+  getProblem: (spaceId, problemId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/problems/${problemId}`, { includeAnswer: options.includeAnswer ? 1 : undefined })),
 
   listTrainingPlans: (spaceId) => apiFetch(`/api/spaces/${spaceId}/training-plans`),
   createTrainingPlan: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/training-plans`, { method: 'POST', body }),

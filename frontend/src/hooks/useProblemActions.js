@@ -62,15 +62,20 @@ export default function useProblemActions({
     }
   }
 
-  const openEditProblem = (problemId) => {
-    const problem = problemState.spaceProblems.find((item) => item.id === problemId)
-    if (!problem) {
-      setError('题目详情尚未加载完成，请稍后重试')
-      return
+  const openEditProblem = async (problemId) => {
+    if (!selectedSpaceId) return
+    if (!ensureCanManageSpace()) return
+    try {
+      setError('')
+      problemState.setEditingProblemId(problemId)
+      const problem = await api.getProblem(selectedSpaceId, problemId, { includeAnswer: true })
+      problemState.setEditingSpaceProblem(problem)
+      modalState.openConfigModal('edit-space-problem')
+    } catch (err) {
+      problemState.setEditingProblemId(null)
+      problemState.setEditingSpaceProblem(null)
+      setError(err.message || '题目详情加载失败')
     }
-    problemState.setEditingProblemId(problemId)
-    problemState.setEditingSpaceProblem(problem)
-    modalState.openConfigModal('edit-space-problem')
   }
 
   const saveEditedSpaceProblem = async (problemData) => {

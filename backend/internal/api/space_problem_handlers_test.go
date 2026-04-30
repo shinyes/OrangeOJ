@@ -109,6 +109,59 @@ func TestSpaceAdminCreateAndUpdateProblemTags(t *testing.T) {
 	}
 }
 
+func TestGetSpaceProblemIncludeAnswerRequiresSpaceAdmin(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_problem_detail_admin", "spaceproblemdetail123")
+	memberID := seedUser(t, database, "space_problem_detail_member", "spaceproblemdetailmember123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Detail")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+	mustAddMember(t, database, spaceID, memberID, "member")
+
+	cookie := mustLogin(t, app, "space_problem_detail_admin", "spaceproblemdetail123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems", cookie, map[string]interface{}{
+		"type":        "single_choice",
+		"title":       "带答案的单选题",
+		"statementMd": "请选择正确答案",
+		"bodyJson":    map[string]interface{}{"options": []string{"A1", "B2", "C3", "D4"}},
+		"answerJson":  map[string]interface{}{"answer": "C3"},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	createEnv := decodeEnvelope[map[string]interface{}](t, createResp)
+	problemID := int64(createEnv.Data["id"].(float64))
+
+	memberCookie := mustLogin(t, app, "space_problem_detail_member", "spaceproblemdetailmember123")
+	memberGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), memberCookie, nil)
+	if memberGetResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected member get 200, got %d", memberGetResp.StatusCode)
+	}
+	memberEnv := decodeEnvelope[map[string]interface{}](t, memberGetResp)
+	if _, ok := memberEnv.Data["answerJson"]; ok {
+		t.Fatalf("member should not receive answerJson: %+v", memberEnv.Data)
+	}
+
+	memberGetWithAnswerResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"?includeAnswer=1", memberCookie, nil)
+	defer memberGetWithAnswerResp.Body.Close()
+	if memberGetWithAnswerResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected member includeAnswer get 403, got %d", memberGetWithAnswerResp.StatusCode)
+	}
+
+	adminGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"?includeAnswer=1", cookie, nil)
+	if adminGetResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected admin includeAnswer get 200, got %d", adminGetResp.StatusCode)
+	}
+	adminEnv := decodeEnvelope[map[string]interface{}](t, adminGetResp)
+	answerJSON, ok := adminEnv.Data["answerJson"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected answerJson in admin response, got %+v", adminEnv.Data["answerJson"])
+	}
+	if answerJSON["answer"] != "C3" {
+		t.Fatalf("expected answer C3, got %+v", answerJSON)
+	}
+}
+
 func TestMemberCannotCreateSpaceProblem(t *testing.T) {
 	app, database := newTestApp(t, false)
 
@@ -178,6 +231,94 @@ VALUES(?, ?, ?, 'AC', 100, ?)`,
 	}
 	if completedByID[problemID2] != false {
 		t.Fatalf("expected problem %d completed=false, got %+v", problemID2, completedByID)
+	}
+}
+
+func TestDeleteSpaceProblemAllowsExistingSubmissions(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_problem_delete_admin", "spaceproblemdelete123")
+	memberID := seedUser(t, database, "space_problem_delete_member", "spaceproblemdeletemember123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Delete")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+	mustAddMember(t, database, spaceID, memberID, "member")
+	problemID := mustCreateSpaceProblem(t, database, "允许带提交删除的题目")
+
+	submissionRes, err := database.Exec(`
+INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
+VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){return 0;}', '', 'submit', 'done', 'AC', 100, '', '', CURRENT_TIMESTAMP)`,
+		memberID, spaceID, problemID,
+	)
+	if err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	submissionID, _ := submissionRes.LastInsertId()
+	if _, err := database.Exec(`
+INSERT INTO user_problem_progress(space_id, user_id, problem_id, best_verdict, best_score, last_submission_id)
+VALUES(?, ?, ?, 'AC', 100, ?)`,
+		spaceID, memberID, problemID, submissionID,
+	); err != nil {
+		t.Fatalf("create progress: %v", err)
+	}
+
+	cookie := mustLogin(t, app, "space_problem_delete_admin", "spaceproblemdelete123")
+	resp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected delete 200, got %d", resp.StatusCode)
+	}
+
+	var remainingProblems int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&remainingProblems); err != nil {
+		t.Fatalf("count problems: %v", err)
+	}
+	if remainingProblems != 0 {
+		t.Fatalf("expected problem to be deleted, got %d rows", remainingProblems)
+	}
+
+	var remainingSubmissions int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM submissions WHERE problem_id=? AND space_id=?`, problemID, spaceID).Scan(&remainingSubmissions); err != nil {
+		t.Fatalf("count submissions: %v", err)
+	}
+	if remainingSubmissions != 0 {
+		t.Fatalf("expected submissions to be deleted, got %d rows", remainingSubmissions)
+	}
+
+	var remainingProgress int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM user_problem_progress WHERE problem_id=? AND space_id=?`, problemID, spaceID).Scan(&remainingProgress); err != nil {
+		t.Fatalf("count progress: %v", err)
+	}
+	if remainingProgress != 0 {
+		t.Fatalf("expected progress to be deleted, got %d rows", remainingProgress)
+	}
+}
+
+func TestDeleteSpaceProblemStillBlockedByHomeworkReference(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_problem_delete_homework_admin", "spaceproblemhomework123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Delete-Homework")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+	problemID := mustCreateSpaceProblem(t, database, "仍被作业引用的题目")
+
+	homeworkRes, err := database.Exec(`
+INSERT INTO homeworks(space_id, title, description, created_by, published)
+VALUES(?, '删除阻塞作业', '', ?, 1)`, spaceID, spaceAdminID)
+	if err != nil {
+		t.Fatalf("create homework: %v", err)
+	}
+	homeworkID, _ := homeworkRes.LastInsertId()
+	if _, err := database.Exec(`
+INSERT INTO homework_items(homework_id, problem_id, order_no, score)
+VALUES(?, ?, 1, 100)`, homeworkID, problemID); err != nil {
+		t.Fatalf("create homework item: %v", err)
+	}
+
+	cookie := mustLogin(t, app, "space_problem_delete_homework_admin", "spaceproblemhomework123")
+	resp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected delete 409, got %d", resp.StatusCode)
 	}
 }
 
