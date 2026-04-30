@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestSpaceAdminCreateProblemCreatesRootAndLink(t *testing.T) {
+func TestSpaceAdminCreateProblemCreatesSpaceOwnedProblem(t *testing.T) {
 	app, database := newTestApp(t, false)
 
 	spaceAdminID := seedUser(t, database, "space_admin_problem", "spaceadmin123")
@@ -43,20 +43,15 @@ func TestSpaceAdminCreateProblemCreatesRootAndLink(t *testing.T) {
 	}
 	problemID := int64(idVal)
 
-	var createdBy int64
-	if err := database.QueryRow(`SELECT created_by FROM root_problems WHERE id=?`, problemID).Scan(&createdBy); err != nil {
-		t.Fatalf("query root problem: %v", err)
+	var createdBy, storedSpaceID int64
+	if err := database.QueryRow(`SELECT created_by, space_id FROM space_problems WHERE id=?`, problemID).Scan(&createdBy, &storedSpaceID); err != nil {
+		t.Fatalf("query problem: %v", err)
 	}
 	if createdBy != spaceAdminID {
 		t.Fatalf("expected created_by=%d, got %d", spaceAdminID, createdBy)
 	}
-
-	var count int
-	if err := database.QueryRow(`SELECT COUNT(1) FROM space_problem_links WHERE space_id=? AND problem_id=?`, spaceID, problemID).Scan(&count); err != nil {
-		t.Fatalf("query space link: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("expected linked problem in space, count=%d", count)
+	if storedSpaceID != spaceID {
+		t.Fatalf("expected space_id=%d, got %d", spaceID, storedSpaceID)
 	}
 }
 
@@ -142,11 +137,8 @@ func TestListSpaceProblemsIncludesCompletionState(t *testing.T) {
 	spaceID := mustCreateSpace(t, database, "Space-Problem-Progress")
 	mustAddMember(t, database, spaceID, memberID, "member")
 
-	problemID1 := mustCreateRootProblem(t, database, "已完成题目")
-	problemID2 := mustCreateRootProblem(t, database, "未完成题目")
-	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?), (?, ?)`, spaceID, problemID1, spaceID, problemID2); err != nil {
-		t.Fatalf("link problems: %v", err)
-	}
+	problemID1 := mustCreateSpaceProblem(t, database, "已完成题目")
+	problemID2 := mustCreateSpaceProblem(t, database, "未完成题目")
 
 	submissionRes, err := database.Exec(`
 INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
@@ -166,7 +158,7 @@ VALUES(?, ?, ?, 'AC', 100, ?)`,
 	}
 
 	cookie := mustLogin(t, app, "space_problem_progress_member", "spaceproblemprogress123")
-	resp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problem-bank-links", cookie, nil)
+	resp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems", cookie, nil)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected list 200, got %d", resp.StatusCode)
 	}
@@ -205,3 +197,21 @@ func mustAddMember(t *testing.T, database *sql.DB, spaceID, userID int64, role s
 		t.Fatalf("add member: %v", err)
 	}
 }
+
+func interfaceSliceToStringSlice(t *testing.T, value interface{}) []string {
+	t.Helper()
+	items, ok := value.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", value)
+	}
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			t.Fatalf("expected string item, got %T", item)
+		}
+		result = append(result, text)
+	}
+	return result
+}
+

@@ -71,7 +71,7 @@ type Space struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
-type RootProblem struct {
+type Problem struct {
 	ID             int64       `json:"id"`
 	Type           ProblemType `json:"type"`
 	Title          string      `json:"title"`

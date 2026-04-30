@@ -63,6 +63,25 @@ func (a *API) isSpaceAdmin(spaceID, userID int64, globalRole string) (bool, erro
 	return auth.IsSpaceAdmin(a.DB, spaceID, userID)
 }
 
+func (a *API) problemExistsInSpace(spaceID, problemID int64) (bool, error) {
+	var count int
+	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (a *API) ensureProblemInSpace(spaceID, problemID int64) error {
+	ok, err := a.problemExistsInSpace(spaceID, problemID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fiber.NewError(fiber.StatusNotFound, "problem not found in this space")
+	}
+	return nil
+}
+
 func scanNullString(ns sql.NullString) string {
 	if !ns.Valid {
 		return ""
@@ -168,3 +187,4 @@ func isValidSpaceProgrammingLanguage(language string) bool {
 		return false
 	}
 }
+

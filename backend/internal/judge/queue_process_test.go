@@ -114,7 +114,7 @@ func seedProgrammingSubmission(t *testing.T, db *sql.DB, submitType model.Submit
 	if _, err := db.Exec(`INSERT INTO spaces(name, description, created_by) VALUES('s1', '', 1)`); err != nil {
 		t.Fatalf("seed space: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, created_by) VALUES('programming', 'p1', 'st', ?, '{}', 1)`, string(bodyJSON)); err != nil {
+	if _, err := db.Exec(`INSERT INTO space_problems(space_id, type, title, statement_md, body_json, answer_json, created_by) VALUES(1, 'programming', 'p1', 'st', ?, '{}', 1)`, string(bodyJSON)); err != nil {
 		t.Fatalf("seed problem: %v", err)
 	}
 
@@ -139,3 +139,4 @@ VALUES(1,1,1,'programming',?,'queued','cpp','int main(){return 0;}',?)`, string(
 	}
 	return submissionID, jobID
 }
+

@@ -201,24 +201,18 @@ export default function CodingPage() {
       try {
         setLoading(true)
         setError('')
-        let data, space
-        if (spaceId) {
-          // Space problem
-          ;[data, space] = await Promise.all([
-            api.getProblem(spaceId, problemId),
-            api.getSpace(spaceId)
-          ])
-        } else {
-          // Root problem
-          data = await api.getRootProblem(problemId)
+        if (!spaceId) {
+          throw new Error('缺少空间信息')
         }
+        const [data, space] = await Promise.all([
+          api.getProblem(spaceId, problemId),
+          api.getSpace(spaceId)
+        ])
         const defaultLanguage = normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
         setLanguage(defaultLanguage)
         setProblem(data)
         if (data.type === 'programming') {
-          const key = spaceId
-            ? `orangeoj:code:${spaceId}:${problemId}:${defaultLanguage}`
-            : `orangeoj:code:root:${problemId}:${defaultLanguage}`
+          const key = `orangeoj:code:${spaceId}:${problemId}:${defaultLanguage}`
           const cached = localStorage.getItem(key)
           setCode(cached || pickStarter(data.bodyJson, defaultLanguage))
         }
@@ -243,9 +237,7 @@ export default function CodingPage() {
 
   useEffect(() => {
     if (!problem || problem.type !== 'programming') return
-    const key = spaceId
-      ? `orangeoj:code:${spaceId}:${problemId}:${language}`
-      : `orangeoj:code:root:${problemId}:${language}`
+    const key = `orangeoj:code:${spaceId}:${problemId}:${language}`
     const cached = localStorage.getItem(key)
     setCode(cached || pickStarter(problem.bodyJson, language))
   }, [language, problem, spaceId, problemId])

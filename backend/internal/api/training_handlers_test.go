@@ -13,8 +13,8 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 	spaceID := mustCreateSpace(t, database, "Training-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 
-	problemID1 := mustCreateRootProblem(t, database, "Training Problem 1")
-	problemID2 := mustCreateRootProblem(t, database, "Training Problem 2")
+	problemID1 := mustCreateSpaceProblem(t, database, "Training Problem 1")
+	problemID2 := mustCreateSpaceProblem(t, database, "Training Problem 2")
 
 	cookie := mustLogin(t, app, "training_admin", "trainadmin123")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", cookie, map[string]interface{}{
@@ -274,11 +274,8 @@ func TestTrainingPlanIncludesProblemCompletionState(t *testing.T) {
 	spaceID := mustCreateSpace(t, database, "Training-Progress-Space")
 	mustAddMember(t, database, spaceID, memberID, "member")
 
-	problemID1 := mustCreateRootProblem(t, database, "训练已完成题目")
-	problemID2 := mustCreateRootProblem(t, database, "训练未完成题目")
-	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?), (?, ?)`, spaceID, problemID1, spaceID, problemID2); err != nil {
-		t.Fatalf("link problems: %v", err)
-	}
+	problemID1 := mustCreateSpaceProblem(t, database, "训练已完成题目")
+	problemID2 := mustCreateSpaceProblem(t, database, "训练未完成题目")
 
 	adminCookie := mustLogin(t, app, "admin", "admin123456")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", adminCookie, map[string]interface{}{
@@ -353,14 +350,22 @@ VALUES(?, ?, ?, 'AC', 100, ?)`,
 	}
 }
 
-func mustCreateRootProblem(t *testing.T, database *sql.DB, title string) int64 {
+func mustCreateSpaceProblem(t *testing.T, database *sql.DB, title string) int64 {
 	t.Helper()
+	var spaceID int64
+	if err := database.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM spaces`).Scan(&spaceID); err != nil {
+		t.Fatalf("find latest space: %v", err)
+	}
+	if spaceID <= 0 {
+		t.Fatalf("must create space before creating problem")
+	}
 	res, err := database.Exec(`
-INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, created_by)
-VALUES('programming', ?, 'statement', '{}', '{}', 1)`, title)
+INSERT INTO space_problems(space_id, type, title, statement_md, body_json, answer_json, created_by)
+VALUES(?, 'programming', ?, 'statement', '{}', '{}', 1)`, spaceID, title)
 	if err != nil {
 		t.Fatalf("create root problem: %v", err)
 	}
 	id, _ := res.LastInsertId()
 	return id
 }
+

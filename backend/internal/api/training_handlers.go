@@ -147,7 +147,7 @@ VALUES(?, ?, ?, ?, ?)`, spaceID, req.Title, boolToInt(req.AllowSelfJoin), boolTo
 		return err
 	}
 	planID, _ := res.LastInsertId()
-	if err := upsertTrainingChapters(tx, planID, req.Chapters); err != nil {
+	if err := upsertTrainingChapters(tx, planID, spaceID, req.Chapters); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -240,7 +240,7 @@ WHERE id=? AND space_id=?`, req.Title, boolToInt(req.AllowSelfJoin), boolToInt(t
 	if affected == 0 {
 		return respondError(c, fiber.StatusNotFound, "training plan not found in this space")
 	}
-	if err := upsertTrainingChapters(tx, planID, req.Chapters); err != nil {
+	if err := upsertTrainingChapters(tx, planID, spaceID, req.Chapters); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -409,7 +409,7 @@ func (a *API) loadPlanChapters(planID, spaceID, userID int64) ([]fiber.Map, erro
 SELECT c.id, c.title, c.order_no, i.problem_id, i.order_no, rp.title, rp.type, COALESCE(upp.best_verdict, '')
 FROM training_chapters c
 LEFT JOIN training_items i ON i.chapter_id = c.id
-LEFT JOIN root_problems rp ON rp.id = i.problem_id
+LEFT JOIN space_problems rp ON rp.id = i.problem_id
 LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = i.problem_id
 WHERE c.plan_id=?
 ORDER BY c.order_no ASC, i.order_no ASC`, spaceID, userID, planID)
@@ -488,7 +488,7 @@ ORDER BY p.joined_at DESC`, planID)
 	return participants, nil
 }
 
-func upsertTrainingChapters(tx *sql.Tx, planID int64, chapters []trainingChapterBody) error {
+func upsertTrainingChapters(tx *sql.Tx, planID, spaceID int64, chapters []trainingChapterBody) error {
 	if _, err := tx.Exec(`DELETE FROM training_chapters WHERE plan_id=?`, planID); err != nil {
 		return err
 	}
@@ -503,12 +503,27 @@ func upsertTrainingChapters(tx *sql.Tx, planID int64, chapters []trainingChapter
 		}
 		chapterID, _ := res.LastInsertId()
 		for i, problemID := range chapter.ProblemIDs {
+			ok, err := spaceProblemExistsTx(tx, spaceID, problemID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fiber.NewError(fiber.StatusBadRequest, "problem not found in this space")
+			}
 			if _, err := tx.Exec(`INSERT INTO training_items(chapter_id, problem_id, order_no) VALUES(?, ?, ?)`, chapterID, problemID, i+1); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func spaceProblemExistsTx(tx *sql.Tx, spaceID, problemID int64) (bool, error) {
+	var count int
+	if err := tx.QueryRow(`SELECT COUNT(1) FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func boolToInt(v bool) int {
@@ -531,3 +546,4 @@ func nullToInterface(v sql.NullString) interface{} {
 	}
 	return v.String
 }
+

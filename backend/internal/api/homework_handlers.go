@@ -193,7 +193,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Title, req.Description, nullToInterfa
 		return err
 	}
 	homeworkID, _ := res.LastInsertId()
-	if err := upsertHomeworkItems(tx, homeworkID, req.Items); err != nil {
+	if err := upsertHomeworkItems(tx, homeworkID, spaceID, req.Items); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -285,7 +285,7 @@ WHERE id=? AND space_id=?`, req.Title, req.Description, nullToInterface(dueAt), 
 	if affected == 0 {
 		return respondError(c, fiber.StatusNotFound, "homework not found in this space")
 	}
-	if err := upsertHomeworkItems(tx, homeworkID, req.Items); err != nil {
+	if err := upsertHomeworkItems(tx, homeworkID, spaceID, req.Items); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -504,11 +504,18 @@ VALUES(?, ?, ?, ?, ?, ?, ?)`,
 	return respondData(c, fiber.Map{"id": recordID})
 }
 
-func upsertHomeworkItems(tx *sql.Tx, homeworkID int64, items []homeworkItemReq) error {
+func upsertHomeworkItems(tx *sql.Tx, homeworkID, spaceID int64, items []homeworkItemReq) error {
 	if _, err := tx.Exec(`DELETE FROM homework_items WHERE homework_id=?`, homeworkID); err != nil {
 		return err
 	}
 	for idx, item := range items {
+		ok, err := spaceProblemExistsTx(tx, spaceID, item.ProblemID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fiber.NewError(fiber.StatusBadRequest, "problem not found in this space")
+		}
 		orderNo := item.OrderNo
 		if orderNo == 0 {
 			orderNo = idx + 1
@@ -530,7 +537,7 @@ func (a *API) loadHomeworkItems(homeworkID int64) ([]fiber.Map, error) {
 	rows, err := a.DB.Query(`
 SELECT hi.problem_id, hi.order_no, hi.score, rp.title, rp.type
 FROM homework_items hi
-JOIN root_problems rp ON rp.id = hi.problem_id
+JOIN space_problems rp ON rp.id = hi.problem_id
 WHERE hi.homework_id=?
 ORDER BY hi.order_no ASC`, homeworkID)
 	if err != nil {
@@ -863,3 +870,4 @@ func stringFromAny(v interface{}) string {
 	s, _ := v.(string)
 	return s
 }
+

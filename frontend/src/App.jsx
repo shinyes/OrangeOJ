@@ -1,13 +1,19 @@
-﻿import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import DashboardPage from './pages/DashboardPage'
-import CodingPage from './pages/CodingPage'
-import TrainingPage from './pages/TrainingPage'
-import HomeworkPage from './pages/HomeworkPage'
-import HomeworkProgrammingPage from './pages/HomeworkProgrammingPage'
-import HomeworkSubmissionRecordsPage from './pages/HomeworkSubmissionRecordsPage'
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const CodingPage = lazy(() => import('./pages/CodingPage'))
+const TrainingPage = lazy(() => import('./pages/TrainingPage'))
+const HomeworkPage = lazy(() => import('./pages/HomeworkPage'))
+const HomeworkProgrammingPage = lazy(() => import('./pages/HomeworkProgrammingPage'))
+const HomeworkSubmissionRecordsPage = lazy(() => import('./pages/HomeworkSubmissionRecordsPage'))
+
+function PageFallback() {
+  return <div className="screen-center">加载中...</div>
+}
 
 function Protected({ children }) {
   const { user, loading } = useAuth()
@@ -36,89 +42,49 @@ export default function App() {
     navigate('/login')
   }
 
+  const renderProtectedPage = (element) => (
+    <Protected>
+      <Suspense fallback={<PageFallback />}>
+        {element}
+      </Suspense>
+    </Protected>
+  )
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage onLogin={handleLogin} user={user} />} />
       <Route path="/register" element={<RegisterPage user={user} />} />
       <Route
         path="/"
-        element={
-          <Protected>
-            <DashboardPage user={user} onLogout={handleLogout} view="learn" />
-          </Protected>
-        }
+        element={renderProtectedPage(<DashboardPage user={user} onLogout={handleLogout} view="learn" />)}
       />
       <Route
         path="/manage/space"
-        element={
-          <Protected>
-            <DashboardPage user={user} onLogout={handleLogout} view="space-manage" />
-          </Protected>
-        }
-      />
-      <Route
-        path="/manage/root-problems"
-        element={
-          <Protected>
-            <DashboardPage user={user} onLogout={handleLogout} view="root-manage" />
-          </Protected>
-        }
+        element={renderProtectedPage(<DashboardPage user={user} onLogout={handleLogout} view="space-manage" />)}
       />
       <Route
         path="/manage/system"
-        element={
-          <Protected>
-            <DashboardPage user={user} onLogout={handleLogout} view="system-manage" />
-          </Protected>
-        }
+        element={renderProtectedPage(<DashboardPage user={user} onLogout={handleLogout} view="system-manage" />)}
       />
       <Route
         path="/spaces/:spaceId/problems/:problemId/solve"
-        element={
-          <Protected>
-            <CodingPage user={user} onLogout={handleLogout} />
-          </Protected>
-        }
+        element={renderProtectedPage(<CodingPage user={user} onLogout={handleLogout} />)}
       />
       <Route
         path="/spaces/:spaceId/training-plans/:planId"
-        element={
-          <Protected>
-            <TrainingPage user={user} onLogout={handleLogout} />
-          </Protected>
-        }
+        element={renderProtectedPage(<TrainingPage user={user} onLogout={handleLogout} />)}
       />
       <Route
         path="/spaces/:spaceId/homeworks/:homeworkId"
-        element={
-          <Protected>
-            <HomeworkPage user={user} onLogout={handleLogout} />
-          </Protected>
-        }
+        element={renderProtectedPage(<HomeworkPage user={user} onLogout={handleLogout} />)}
       />
       <Route
         path="/spaces/:spaceId/homeworks/:homeworkId/problems/:problemId"
-        element={
-          <Protected>
-            <HomeworkProgrammingPage user={user} onLogout={handleLogout} />
-          </Protected>
-        }
+        element={renderProtectedPage(<HomeworkProgrammingPage user={user} onLogout={handleLogout} />)}
       />
       <Route
         path="/spaces/:spaceId/homeworks/:homeworkId/submission-records"
-        element={
-          <Protected>
-            <HomeworkSubmissionRecordsPage user={user} onLogout={handleLogout} />
-          </Protected>
-        }
-      />
-      <Route
-        path="/problems/:problemId/solve"
-        element={
-          <Protected>
-            <CodingPage user={user} onLogout={handleLogout} />
-          </Protected>
-        }
+        element={renderProtectedPage(<HomeworkSubmissionRecordsPage user={user} onLogout={handleLogout} />)}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

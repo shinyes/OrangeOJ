@@ -30,10 +30,7 @@ func TestListSubmissionsIncludesCaseDetails(t *testing.T) {
 	spaceID := mustCreateSpace(t, database, "Submission-Case-Space")
 	mustAddMember(t, database, spaceID, memberID, "member")
 
-	problemID := mustCreateRootProblem(t, database, "Submission Case Problem")
-	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?)`, spaceID, problemID); err != nil {
-		t.Fatalf("link problem to space: %v", err)
-	}
+	problemID := mustCreateSpaceProblem(t, database, "Submission Case Problem")
 
 	caseDetailsJSON := `[{"caseNo":1,"verdict":"AC","input":"1 2","output":"3","expectedOutput":"3","error":"","timeMs":5,"memoryKiB":1024},{"caseNo":2,"verdict":"WA","input":"2 3","output":"4","expectedOutput":"5","error":"Expected output:\n5","timeMs":6,"memoryKiB":1024}]`
 	if _, err := database.Exec(`
@@ -80,10 +77,7 @@ func TestListSubmissions_AllowsAdminsToViewAll(t *testing.T) {
 	mustAddMember(t, database, spaceID, memberAID, "member")
 	mustAddMember(t, database, spaceID, memberBID, "member")
 
-	problemID := mustCreateRootProblem(t, database, "Submission All Problem")
-	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?)`, spaceID, problemID); err != nil {
-		t.Fatalf("link problem to space: %v", err)
-	}
+	problemID := mustCreateSpaceProblem(t, database, "Submission All Problem")
 
 	if _, err := database.Exec(`
 INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict)
@@ -125,3 +119,4 @@ VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){return 0;}', '', 'submit', 'do
 		t.Fatalf("expected system admin to see 2 submissions, got %d", len(systemAdminSubmissions))
 	}
 }
+

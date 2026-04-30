@@ -219,7 +219,7 @@ func (q *QueueService) loadSubmission(ctx context.Context, submissionID int64) (
 SELECT s.id, s.user_id, s.space_id, s.problem_id, s.submit_type, s.language, s.source_code, s.input_data,
        p.time_limit_ms, p.memory_limit_mib, p.body_json
 FROM submissions s
-JOIN root_problems p ON p.id = s.problem_id
+JOIN space_problems p ON p.id = s.problem_id
 WHERE s.id = ?`, submissionID)
 
 	s := &runtimeSubmission{}
@@ -285,3 +285,4 @@ INSERT INTO judge_jobs(submission_id, status, priority, available_at)
 VALUES(?, 'queued', ?, CURRENT_TIMESTAMP)`, submissionID, priority)
 	return err
 }
+

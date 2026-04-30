@@ -56,7 +56,7 @@ func seedQueueFixture(t *testing.T, db *sql.DB) {
 	if err != nil {
 		t.Fatalf("seed space: %v", err)
 	}
-	_, err = db.Exec(`INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, created_by) VALUES('programming', 'p1', 'st', '{}', '{}', 1)`)
+	_, err = db.Exec(`INSERT INTO space_problems(space_id, type, title, statement_md, body_json, answer_json, created_by) VALUES(1, 'programming', 'p1', 'st', '{}', '{}', 1)`)
 	if err != nil {
 		t.Fatalf("seed problem: %v", err)
 	}
@@ -69,3 +69,4 @@ func seedQueueFixture(t *testing.T, db *sql.DB) {
 		t.Fatalf("seed job: %v", err)
 	}
 }
+

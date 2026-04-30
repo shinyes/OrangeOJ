@@ -79,9 +79,7 @@ export default function SpaceManagePanel({
   spaceSettingsMessage,
   spaceProblemSearch,
   onSpaceProblemSearchChange,
-  filteredSpaceRootProblems,
-  linkedProblemIDSet,
-  onAddProblemToSpace,
+  filteredSpaceProblems,
   spaceProblems,
   problemTypeText,
   editingProblemId,
@@ -226,131 +224,91 @@ export default function SpaceManagePanel({
           )}
 
           {spaceManageTab === 'problems' && (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
-                gap: 3
-              }}
-            >
-              <Paper sx={{ p: 3, borderRadius: 3 }}>
-                <Typography variant="h6" fontWeight={700}>
-                  从根题库添加
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="按题目 ID、标题或标签搜索"
-                  value={spaceProblemSearch}
-                  onChange={(event) => onSpaceProblemSearchChange(event.target.value)}
-                  sx={{ mt: 2 }}
-                />
+            <Paper sx={{ p: 3, borderRadius: 3 }}>
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+              >
+                <Box>
+                  <Typography variant="h6" fontWeight={700}>
+                    当前空间题库
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                    题目只属于当前空间，仅管理当前空间题目。
+                  </Typography>
+                </Box>
+                <Button variant="contained" onClick={openUploadProblemModal}>
+                  新建题目
+                </Button>
+              </Stack>
 
-                <Stack spacing={1.25} sx={{ mt: 2.5, maxHeight: 620, overflowY: 'auto', pr: 0.25 }}>
-                  {filteredSpaceRootProblems.length === 0 ? (
-                    <Typography color="text.secondary">
-                      当前检索条件下没有可显示的根题。
-                    </Typography>
-                  ) : (
-                    filteredSpaceRootProblems.map((problem) => {
-                      const linked = linkedProblemIDSet.has(problem.id)
-                      const tagsText = (problem.tags || []).join(' / ')
-                      const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), tagsText].filter(Boolean).join(' · ')
-                      return (
-                        <ProblemRow
-                          key={problem.id}
-                          text={lineText}
-                          actions={(
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="按题目 ID、标题或标签搜索"
+                value={spaceProblemSearch}
+                onChange={(event) => onSpaceProblemSearchChange(event.target.value)}
+                sx={{ mt: 2 }}
+              />
+
+              <Stack spacing={1.25} sx={{ mt: 2.5, maxHeight: 620, overflowY: 'auto', pr: 0.25 }}>
+                {filteredSpaceProblems.length === 0 ? (
+                  <Typography color="text.secondary">
+                    {spaceProblems.length === 0 ? '当前空间暂无题目。' : '当前检索条件下没有匹配题目。'}
+                  </Typography>
+                ) : (
+                  filteredSpaceProblems.map((problem) => {
+                    const tagsText = (problem.tags || []).join(' / ')
+                    const lineText = [
+                      `#${problem.id}`,
+                      problem.title,
+                      problemTypeText(problem.type),
+                      `${problem.timeLimitMs}ms`,
+                      `${problem.memoryLimitMiB}MiB`,
+                      tagsText
+                    ].filter(Boolean).join(' · ')
+
+                    return (
+                      <ProblemRow
+                        key={problem.id}
+                        text={lineText}
+                        actions={(
+                          <>
                             <Button
                               size="small"
-                              variant={linked ? 'outlined' : 'contained'}
-                              disabled={linked}
-                              onClick={() => onAddProblemToSpace(problem.id)}
+                              component={Link}
+                              to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}
+                              variant="outlined"
                             >
-                              {linked ? '已添加' : '添加'}
+                              去做题
                             </Button>
-                          )}
-                        />
-                      )
-                    })
-                  )}
-                </Stack>
-              </Paper>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => onOpenEditProblem(problem.id)}
+                            >
+                              编辑
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              onClick={() => onRemoveSpaceProblem(problem.id)}
+                            >
+                              删除
+                            </Button>
+                          </>
+                        )}
+                      />
+                    )
+                  })
+                )}
+              </Stack>
 
-              <Paper sx={{ p: 3, borderRadius: 3 }}>
-                <Stack
-                  direction={{ xs: 'column', md: 'row' }}
-                  spacing={1.5}
-                  justifyContent="space-between"
-                  alignItems={{ xs: 'flex-start', md: 'center' }}
-                >
-                  <Box>
-                    <Typography variant="h6" fontWeight={700}>
-                      当前空间题库
-                    </Typography>
-                  </Box>
-                  <Button variant="contained" onClick={openUploadProblemModal}>
-                    上传新题目
-                  </Button>
-                </Stack>
-
-                <Stack spacing={1.25} sx={{ mt: 2.5, maxHeight: 620, overflowY: 'auto', pr: 0.25 }}>
-                  {spaceProblems.length === 0 ? (
-                    <Typography color="text.secondary">
-                      当前空间暂无题目。
-                    </Typography>
-                  ) : (
-                    spaceProblems.map((problem) => {
-                      const tagsText = (problem.tags || []).join(' / ')
-                      const lineText = [
-                        `#${problem.id}`,
-                        problem.title,
-                        problemTypeText(problem.type),
-                        `${problem.timeLimitMs}ms`,
-                        `${problem.memoryLimitMiB}MiB`,
-                        tagsText
-                      ].filter(Boolean).join(' · ')
-
-                      return (
-                        <ProblemRow
-                          key={problem.id}
-                          text={lineText}
-                          actions={(
-                            <>
-                              <Button
-                                size="small"
-                                component={Link}
-                                to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}
-                                variant="outlined"
-                              >
-                                去做题
-                              </Button>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => onOpenEditProblem(problem.id)}
-                              >
-                                编辑
-                              </Button>
-                              <Button
-                                size="small"
-                                color="error"
-                                variant="outlined"
-                                onClick={() => onRemoveSpaceProblem(problem.id)}
-                              >
-                                移除
-                              </Button>
-                            </>
-                          )}
-                        />
-                      )
-                    })
-                  )}
-                </Stack>
-
-                {editingProblemId && <Box sx={{ mt: 2 }}><ToastMessage message="题目编辑弹窗已打开。" severity="info" /></Box>}
-              </Paper>
-            </Box>
+              {editingProblemId && <Box sx={{ mt: 2 }}><ToastMessage message="题目编辑弹窗已打开。" severity="info" /></Box>}
+            </Paper>
           )}
 
           {spaceManageTab === 'members' && (
@@ -486,3 +444,4 @@ export default function SpaceManagePanel({
     </Box>
   )
 }
+

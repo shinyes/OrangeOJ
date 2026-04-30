@@ -294,11 +294,11 @@ function renderCaseRows(title, rows, onAdd, onRemove, onChange) {
   )
 }
 
-export default function RootProblemCreator({
+export default function ProblemEditor({
   open,
   mode = 'create',
   problem = null,
-  createTitle = '创建根题目',
+  createTitle = '创建题目',
   editTitle = null,
   createSubmitText = '创建题目',
   editSubmitText = '保存修改',
@@ -892,3 +892,4 @@ export default function RootProblemCreator({
     </Dialog>
   )
 }
+

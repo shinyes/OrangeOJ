@@ -58,6 +58,9 @@ func Setup(ctx context.Context, db *sql.DB, registrationDefault bool, adminPassw
 }
 
 func migrate(ctx context.Context, db *sql.DB) error {
+	if err := migrateLegacyProblemTable(ctx, db); err != nil {
+		return err
+	}
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,8 +91,9 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
 			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS root_problems (
+		`CREATE TABLE IF NOT EXISTS space_problems (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			space_id INTEGER NOT NULL,
 			type TEXT NOT NULL,
 			title TEXT NOT NULL,
 			tags_json TEXT NOT NULL DEFAULT '[]',
@@ -100,15 +104,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			memory_limit_mib INTEGER NOT NULL DEFAULT 256,
 			created_by INTEGER NOT NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY(created_by) REFERENCES users(id)
-		);`,
-		`CREATE TABLE IF NOT EXISTS space_problem_links (
-			space_id INTEGER NOT NULL,
-			problem_id INTEGER NOT NULL,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY(space_id, problem_id),
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
-			FOREIGN KEY(problem_id) REFERENCES root_problems(id) ON DELETE CASCADE
+			FOREIGN KEY(created_by) REFERENCES users(id)
 		);`,
 		`CREATE TABLE IF NOT EXISTS training_plans (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,7 +130,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			problem_id INTEGER NOT NULL,
 			order_no INTEGER NOT NULL,
 			FOREIGN KEY(chapter_id) REFERENCES training_chapters(id) ON DELETE CASCADE,
-			FOREIGN KEY(problem_id) REFERENCES root_problems(id)
+			FOREIGN KEY(problem_id) REFERENCES space_problems(id)
 		);`,
 		`CREATE TABLE IF NOT EXISTS training_participants (
 			plan_id INTEGER NOT NULL,
@@ -164,7 +161,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			score INTEGER NOT NULL DEFAULT 100,
 			PRIMARY KEY(homework_id, problem_id),
 			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE,
-			FOREIGN KEY(problem_id) REFERENCES root_problems(id)
+			FOREIGN KEY(problem_id) REFERENCES space_problems(id)
 		);`,
 		`CREATE TABLE IF NOT EXISTS homework_targets (
 			homework_id INTEGER NOT NULL,
@@ -219,7 +216,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			finished_at DATETIME,
 			FOREIGN KEY(user_id) REFERENCES users(id),
 			FOREIGN KEY(space_id) REFERENCES spaces(id),
-			FOREIGN KEY(problem_id) REFERENCES root_problems(id)
+			FOREIGN KEY(problem_id) REFERENCES space_problems(id)
 		);`,
 		`CREATE TABLE IF NOT EXISTS judge_jobs (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -270,7 +267,10 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err := addColumnIfNotExists(ctx, db, "spaces", "default_programming_language", "TEXT NOT NULL DEFAULT 'cpp'"); err != nil {
 		return err
 	}
-	if err := addColumnIfNotExists(ctx, db, "root_problems", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
+	if err := addColumnIfNotExists(ctx, db, "space_problems", "space_id", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	if err := addColumnIfNotExists(ctx, db, "space_problems", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
 		return err
 	}
 	if err := addColumnIfNotExists(ctx, db, "homeworks", "display_mode", "TEXT NOT NULL DEFAULT 'exam'"); err != nil {
@@ -281,6 +281,60 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	}
 	if err := addColumnIfNotExists(ctx, db, "submissions", "case_details_json", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_space_problems_space_id ON space_problems(space_id, id DESC);`); err != nil {
+		return fmt.Errorf("migrate failed: %w; stmt: CREATE INDEX IF NOT EXISTS idx_space_problems_space_id ON space_problems(space_id, id DESC);", err)
+	}
+	return nil
+}
+
+func migrateLegacyProblemTable(ctx context.Context, db *sql.DB) error {
+	legacyExists, err := tableExists(ctx, db, "root_problems")
+	if err != nil {
+		return err
+	}
+	if !legacyExists {
+		return nil
+	}
+
+	currentExists, err := tableExists(ctx, db, "space_problems")
+	if err != nil {
+		return err
+	}
+	if !currentExists {
+		if _, err := db.ExecContext(ctx, `ALTER TABLE root_problems RENAME TO space_problems`); err != nil {
+			return fmt.Errorf("rename root_problems to space_problems failed: %w", err)
+		}
+		return nil
+	}
+
+	legacyCount, err := tableRowCount(ctx, db, "root_problems")
+	if err != nil {
+		return err
+	}
+	if legacyCount == 0 {
+		if _, err := db.ExecContext(ctx, `DROP TABLE root_problems`); err != nil {
+			return fmt.Errorf("drop empty legacy root_problems failed: %w", err)
+		}
+		return nil
+	}
+
+	currentCount, err := tableRowCount(ctx, db, "space_problems")
+	if err != nil {
+		return err
+	}
+	if currentCount != 0 {
+		return fmt.Errorf("legacy root_problems still has %d rows while space_problems already has %d rows; clean up the old table manually", legacyCount, currentCount)
+	}
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO space_problems(id, space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by, created_at)
+SELECT id, space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by, created_at
+FROM root_problems`); err != nil {
+		return fmt.Errorf("copy legacy root_problems data failed: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `DROP TABLE root_problems`); err != nil {
+		return fmt.Errorf("drop legacy root_problems after copy failed: %w", err)
 	}
 	return nil
 }
@@ -295,6 +349,27 @@ func addColumnIfNotExists(ctx context.Context, db *sql.DB, table, column, defini
 		return fmt.Errorf("add column %s.%s failed: %w", table, column, err)
 	}
 	return nil
+}
+
+func tableExists(ctx context.Context, db *sql.DB, table string) (bool, error) {
+	var name string
+	err := db.QueryRowContext(ctx, `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check table %s failed: %w", table, err)
+	}
+	return true, nil
+}
+
+func tableRowCount(ctx context.Context, db *sql.DB, table string) (int64, error) {
+	var count int64
+	query := fmt.Sprintf("SELECT COUNT(1) FROM %s", table)
+	if err := db.QueryRowContext(ctx, query).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count rows in %s failed: %w", table, err)
+	}
+	return count, nil
 }
 
 func ensureSetting(ctx context.Context, db *sql.DB, key, value string) error {
@@ -368,3 +443,4 @@ func LogAdminPassword(generated string) {
 func NowUTC() time.Time {
 	return time.Now().UTC()
 }
+

@@ -13,8 +13,15 @@ type memberPayload struct {
 	Role   string `json:"role"`
 }
 
-type linkPayload struct {
-	ProblemID int64 `json:"problemId"`
+type problemPayload struct {
+	Type           string          `json:"type"`
+	Title          string          `json:"title"`
+	Tags           []string        `json:"tags"`
+	StatementMD    string          `json:"statementMd"`
+	BodyJSON       json.RawMessage `json:"bodyJson"`
+	AnswerJSON     json.RawMessage `json:"answerJson"`
+	TimeLimitMS    int             `json:"timeLimitMs"`
+	MemoryLimitMiB int             `json:"memoryLimitMiB"`
 }
 
 type spaceSettingsPayload struct {
@@ -33,7 +40,7 @@ func (a *API) handleCreateSpaceProblem(c *fiber.Ctx) error {
 		return err
 	}
 
-	var req rootProblemPayload
+	var req problemPayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
@@ -63,28 +70,14 @@ func (a *API) handleCreateSpaceProblem(c *fiber.Ctx) error {
 		return err
 	}
 
-	tx, err := a.DB.BeginTx(c.Context(), nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	res, err := tx.Exec(`
-INSERT INTO root_problems(type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, user.ID)
+	res, err := a.DB.Exec(`
+INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, user.ID)
 	if err != nil {
 		return err
 	}
 	problemID, _ := res.LastInsertId()
-
-	if _, err := tx.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?)`, spaceID, problemID); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	return respondData(c, fiber.Map{"id": problemID, "linked": true})
+	return respondData(c, fiber.Map{"id": problemID})
 }
 
 func (a *API) handleListSpaces(c *fiber.Ctx) error {
@@ -373,11 +366,10 @@ func (a *API) handleListSpaceProblemLinks(c *fiber.Ctx) error {
 	}
 	rows, err := a.DB.Query(`
 SELECT p.id, p.type, p.title, p.tags_json, p.statement_md, p.time_limit_ms, p.memory_limit_mib, COALESCE(upp.best_verdict, '')
-FROM space_problem_links l
-JOIN root_problems p ON p.id = l.problem_id
-LEFT JOIN user_problem_progress upp ON upp.space_id = l.space_id AND upp.user_id = ? AND upp.problem_id = p.id
-WHERE l.space_id=?
-ORDER BY p.id DESC`, user.ID, spaceID)
+FROM space_problems p
+LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = p.id
+WHERE p.space_id=?
+ORDER BY p.id DESC`, spaceID, user.ID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -406,29 +398,7 @@ ORDER BY p.id DESC`, user.ID, spaceID)
 	return respondData(c, items)
 }
 
-func (a *API) handleAddSpaceProblemLink(c *fiber.Ctx) error {
-	spaceID, err := parseIDParam(c, "spaceId")
-	if err != nil {
-		return err
-	}
-	var req linkPayload
-	if err := c.BodyParser(&req); err != nil {
-		return respondError(c, fiber.StatusBadRequest, "invalid request")
-	}
-	if req.ProblemID <= 0 {
-		return respondError(c, fiber.StatusBadRequest, "problemId required")
-	}
-	_, err = a.DB.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?)`, spaceID, req.ProblemID)
-	if err != nil {
-		if isUniqueErr(err) {
-			return respondError(c, fiber.StatusConflict, "problem already linked")
-		}
-		return err
-	}
-	return respondData(c, fiber.Map{"ok": true})
-}
-
-func (a *API) handleDeleteSpaceProblemLink(c *fiber.Ctx) error {
+func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
@@ -437,48 +407,21 @@ func (a *API) handleDeleteSpaceProblemLink(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	_, err = a.DB.Exec(`DELETE FROM space_problem_links WHERE space_id=? AND problem_id=?`, spaceID, problemID)
+	res, err := a.DB.Exec(`DELETE FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID)
+	if err != nil {
+		if isForeignKeyErr(err) {
+			return respondError(c, fiber.StatusConflict, "problem is still referenced")
+		}
+		return err
+	}
+	affected, err := res.RowsAffected()
 	if err != nil {
 		return err
+	}
+	if affected == 0 {
+		return respondError(c, fiber.StatusNotFound, "problem not found in this space")
 	}
 	return respondData(c, fiber.Map{"ok": true})
-}
-
-func (a *API) handleListSpaceRootProblems(c *fiber.Ctx) error {
-	rows, err := a.DB.Query(`
-SELECT id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib
-FROM root_problems
-ORDER BY id DESC`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	items := make([]fiber.Map, 0)
-	for rows.Next() {
-		var (
-			id, timeLimit, memoryLimit                                int64
-			typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
-		)
-		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit); err != nil {
-			return err
-		}
-		items = append(items, fiber.Map{
-			"id":             id,
-			"type":           typeStr,
-			"title":          title,
-			"tags":           decodeProblemTags(tagsJSON),
-			"statementMd":    statement,
-			"bodyJson":       json.RawMessage(bodyJSON),
-			"answerJson":     json.RawMessage(answerJSON),
-			"timeLimitMs":    timeLimit,
-			"memoryLimitMiB": memoryLimit,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	return respondData(c, items)
 }
 
 func (a *API) handleUpdateSpaceProblem(c *fiber.Ctx) error {
@@ -490,15 +433,11 @@ func (a *API) handleUpdateSpaceProblem(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	var linkedCount int
-	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM space_problem_links WHERE space_id=? AND problem_id=?`, spaceID, problemID).Scan(&linkedCount); err != nil {
+	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
 		return err
 	}
-	if linkedCount == 0 {
-		return respondError(c, fiber.StatusNotFound, "problem not linked in this space")
-	}
 
-	var req rootProblemPayload
+	var req problemPayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
@@ -527,9 +466,9 @@ func (a *API) handleUpdateSpaceProblem(c *fiber.Ctx) error {
 		return err
 	}
 	_, err = a.DB.Exec(`
-UPDATE root_problems
+UPDATE space_problems
 SET type=?, title=?, tags_json=?, statement_md=?, body_json=?, answer_json=?, time_limit_ms=?, memory_limit_mib=?
-WHERE id=?`, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, problemID)
+WHERE id=? AND space_id=?`, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, problemID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -552,13 +491,8 @@ func (a *API) handleGetSpaceProblem(c *fiber.Ctx) error {
 	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
-
-	var count int
-	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM space_problem_links WHERE space_id=? AND problem_id=?`, spaceID, problemID).Scan(&count); err != nil {
+	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
 		return err
-	}
-	if count == 0 {
-		return respondError(c, fiber.StatusNotFound, "problem not linked in this space")
 	}
 
 	var (
@@ -567,7 +501,7 @@ func (a *API) handleGetSpaceProblem(c *fiber.Ctx) error {
 	)
 	err = a.DB.QueryRow(`
 SELECT type, title, tags_json, statement_md, body_json, time_limit_ms, memory_limit_mib
-FROM root_problems WHERE id=?`, problemID).Scan(&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &timeLimit, &memoryLimit)
+FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &timeLimit, &memoryLimit)
 	if err != nil {
 		return err
 	}
@@ -583,3 +517,4 @@ FROM root_problems WHERE id=?`, problemID).Scan(&typeStr, &title, &tagsJSON, &st
 	}
 	return respondData(c, resp)
 }
+

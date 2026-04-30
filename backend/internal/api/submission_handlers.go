@@ -39,12 +39,12 @@ func (a *API) handleObjectiveSubmit(c *fiber.Ctx) error {
 	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
-	if err := a.ensureProblemLinked(spaceID, problemID); err != nil {
+	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
 		return err
 	}
 
 	var pType, answerJSON string
-	if err := a.DB.QueryRow(`SELECT type, answer_json FROM root_problems WHERE id=?`, problemID).Scan(&pType, &answerJSON); err != nil {
+	if err := a.DB.QueryRow(`SELECT type, answer_json FROM space_problems WHERE id=?`, problemID).Scan(&pType, &answerJSON); err != nil {
 		return err
 	}
 	if pType == string(model.ProblemTypeProgramming) {
@@ -117,11 +117,11 @@ func (a *API) createProgrammingSubmission(c *fiber.Ctx, submitType model.SubmitT
 	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
-	if err := a.ensureProblemLinked(spaceID, problemID); err != nil {
+	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
 		return err
 	}
 	var pType string
-	if err := a.DB.QueryRow(`SELECT type FROM root_problems WHERE id=?`, problemID).Scan(&pType); err != nil {
+	if err := a.DB.QueryRow(`SELECT type FROM space_problems WHERE id=?`, problemID).Scan(&pType); err != nil {
 		return err
 	}
 	if pType != string(model.ProblemTypeProgramming) {
@@ -180,7 +180,7 @@ func (a *API) handleListSubmissions(c *fiber.Ctx) error {
 	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
-	if err := a.ensureProblemLinked(spaceID, problemID); err != nil {
+	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
 		return err
 	}
 
@@ -440,17 +440,6 @@ func toBool(v interface{}) (bool, error) {
 	}
 }
 
-func (a *API) ensureProblemLinked(spaceID, problemID int64) error {
-	var count int
-	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM space_problem_links WHERE space_id=? AND problem_id=?`, spaceID, problemID).Scan(&count); err != nil {
-		return err
-	}
-	if count == 0 {
-		return fiber.NewError(fiber.StatusNotFound, "problem not linked to space")
-	}
-	return nil
-}
-
 func (a *API) isSpaceMember(spaceID, userID int64) (bool, error) {
 	var count int
 	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM space_members WHERE space_id=? AND user_id=?`, spaceID, userID).Scan(&count); err != nil {
@@ -458,3 +447,4 @@ func (a *API) isSpaceMember(spaceID, userID int64) (bool, error) {
 	}
 	return count > 0, nil
 }
+

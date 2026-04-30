@@ -16,11 +16,8 @@ func TestHomeworkLifecycle(t *testing.T) {
 	spaceID := mustCreateSpace(t, database, "Homework-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 
-	problemID1 := mustCreateRootProblem(t, database, "Homework Problem 1")
-	problemID2 := mustCreateRootProblem(t, database, "Homework Problem 2")
-	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?), (?, ?)`, spaceID, problemID1, spaceID, problemID2); err != nil {
-		t.Fatalf("link problems to space: %v", err)
-	}
+	problemID1 := mustCreateSpaceProblem(t, database, "Homework Problem 1")
+	problemID2 := mustCreateSpaceProblem(t, database, "Homework Problem 2")
 
 	cookie := mustLogin(t, app, "homework_admin", "homeworkadmin123")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", cookie, map[string]interface{}{
@@ -114,10 +111,7 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 	mustAddMember(t, database, spaceID, memberAssignedID, "member")
 	mustAddMember(t, database, spaceID, memberOtherID, "member")
 
-	problemID := mustCreateRootProblem(t, database, "Homework Visibility Problem")
-	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?)`, spaceID, problemID); err != nil {
-		t.Fatalf("link problem to space: %v", err)
-	}
+	problemID := mustCreateSpaceProblem(t, database, "Homework Visibility Problem")
 
 	adminCookie := mustLogin(t, app, "homework_visibility_admin", "homeworkvisibility123")
 	createHomework := func(title string, published bool) int64 {
@@ -226,27 +220,20 @@ func TestHomeworkSubmissionRecordLifecycle(t *testing.T) {
 	mustAddMember(t, database, spaceID, memberID, "member")
 
 	objectiveRes, err := database.Exec(`
-INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, created_by)
-VALUES('single_choice', 'Objective Problem', 'statement', '{"options":["A","B"]}', '{"answer":"A"}', 1)`)
+INSERT INTO space_problems(space_id, type, title, statement_md, body_json, answer_json, created_by)
+VALUES(?, 'single_choice', 'Objective Problem', 'statement', '{"options":["A","B"]}', '{"answer":"A"}', 1)`, spaceID)
 	if err != nil {
 		t.Fatalf("create objective problem: %v", err)
 	}
 	objectiveProblemID, _ := objectiveRes.LastInsertId()
 
 	programmingRes, err := database.Exec(`
-INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, created_by)
-VALUES('programming', 'Programming Problem', 'statement', '{}', '{}', 1)`)
+INSERT INTO space_problems(space_id, type, title, statement_md, body_json, answer_json, created_by)
+VALUES(?, 'programming', 'Programming Problem', 'statement', '{}', '{}', 1)`, spaceID)
 	if err != nil {
 		t.Fatalf("create programming problem: %v", err)
 	}
 	programmingProblemID, _ := programmingRes.LastInsertId()
-
-	if _, err := database.Exec(`
-INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?), (?, ?)`,
-		spaceID, objectiveProblemID, spaceID, programmingProblemID,
-	); err != nil {
-		t.Fatalf("link problems to space: %v", err)
-	}
 
 	adminCookie := mustLogin(t, app, "homework_record_admin", "recordadmin123")
 	createHomeworkResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", adminCookie, map[string]interface{}{
@@ -358,16 +345,12 @@ func TestHomeworkSubmissionRecordList_AllowsAdminsToViewAll(t *testing.T) {
 	mustAddMember(t, database, spaceID, memberBID, "member")
 
 	problemRes, err := database.Exec(`
-INSERT INTO root_problems(type, title, statement_md, body_json, answer_json, created_by)
-VALUES('single_choice', 'Homework All Objective', 'statement', '{"options":["A","B"]}', '{"answer":"A"}', 1)`)
+INSERT INTO space_problems(space_id, type, title, statement_md, body_json, answer_json, created_by)
+VALUES(?, 'single_choice', 'Homework All Objective', 'statement', '{"options":["A","B"]}', '{"answer":"A"}', 1)`, spaceID)
 	if err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
 	problemID, _ := problemRes.LastInsertId()
-	if _, err := database.Exec(`INSERT INTO space_problem_links(space_id, problem_id) VALUES(?, ?)`, spaceID, problemID); err != nil {
-		t.Fatalf("link problem: %v", err)
-	}
-
 	spaceAdminCookie := mustLogin(t, app, "homework_all_admin", "homeworkalladmin123")
 	createHomeworkResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", spaceAdminCookie, map[string]interface{}{
 		"title":     "管理员查看全部作业记录",
@@ -445,3 +428,4 @@ VALUES(?, ?, ?, 'single_choice', '', '', 'B', 'objective', 'done', 'WA', 0, '', 
 		t.Fatalf("expected system admin to see 2 records, got %d", len(systemAdminRecords))
 	}
 }
+
