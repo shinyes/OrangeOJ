@@ -277,6 +277,69 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 	draftGetResp.Body.Close()
 }
 
+func TestHomeworkTargetCandidatesSearchByUsername(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "homework_target_admin", "targetadmin123")
+	memberID := seedUser(t, database, "homework_target_alice", "targetalice123")
+	assignedMemberID := seedUser(t, database, "homework_target_bob", "targetbob123")
+	otherSpaceUserID := seedUser(t, database, "homework_target_outside", "targetoutside123")
+	spaceID := mustCreateSpace(t, database, "Homework-Target-Candidate-Space")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+	mustAddMember(t, database, spaceID, memberID, "member")
+	mustAddMember(t, database, spaceID, assignedMemberID, "member")
+	problemID := mustCreateSpaceProblem(t, database, "Homework Target Candidate Problem")
+
+	otherSpaceID := mustCreateSpace(t, database, "Homework-Target-Other-Space")
+	mustAddMember(t, database, otherSpaceID, otherSpaceUserID, "member")
+
+	adminCookie := mustLogin(t, app, "homework_target_admin", "targetadmin123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", adminCookie, map[string]interface{}{
+		"title":       "Target Candidate Homework",
+		"displayMode": "exam",
+		"published":   true,
+		"items": []map[string]interface{}{
+			{
+				"problemId": problemID,
+				"orderNo":   1,
+				"score":     100,
+			},
+		},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	homeworkID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
+
+	assignResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/targets", adminCookie, map[string]int64{
+		"userId": assignedMemberID,
+	})
+	if assignResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected assign 200, got %d", assignResp.StatusCode)
+	}
+	assignResp.Body.Close()
+
+	searchResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/target-candidates?q=homework_target", adminCookie, nil)
+	if searchResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected search 200, got %d", searchResp.StatusCode)
+	}
+	candidates := decodeEnvelope[[]map[string]interface{}](t, searchResp).Data
+	ids := map[int64]bool{}
+	for _, candidate := range candidates {
+		id, _ := candidate["id"].(float64)
+		ids[int64(id)] = true
+	}
+	if !ids[memberID] {
+		t.Fatalf("expected unassigned member candidate %d, got %+v", memberID, candidates)
+	}
+	if ids[assignedMemberID] {
+		t.Fatalf("did not expect already assigned member %d, got %+v", assignedMemberID, candidates)
+	}
+	if ids[otherSpaceUserID] {
+		t.Fatalf("did not expect user outside this space %d, got %+v", otherSpaceUserID, candidates)
+	}
+}
+
 func TestHomeworkSubmissionRecordLifecycle(t *testing.T) {
 	app, database := newTestApp(t, false)
 

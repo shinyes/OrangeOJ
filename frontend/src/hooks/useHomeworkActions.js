@@ -102,12 +102,16 @@ export default function useHomeworkActions({
     modalState.openConfigModal('assign-homework-target')
   }
 
-  const handleAddHomeworkTarget = async () => {
+  const handleAddHomeworkTarget = async (targetUsers = []) => {
     if (!selectedSpaceId || !homeworkState.assigningHomework?.id) return
     if (!ensureCanManageSpace()) return
-    const userId = Number(homeworkState.homeworkTargetUserId.trim())
-    if (!Number.isInteger(userId) || userId <= 0) {
-      setError('请输入有效的用户 ID')
+    const userIds = Array.isArray(targetUsers)
+      ? targetUsers.map((user) => Number(user?.id || user?.userId)).filter((userId) => Number.isInteger(userId) && userId > 0)
+      : []
+    const uniqueUserIds = Array.from(new Set(userIds))
+
+    if (uniqueUserIds.length === 0) {
+      setError('请先选择要分配的用户')
       return
     }
 
@@ -115,10 +119,10 @@ export default function useHomeworkActions({
       setError('')
       homeworkState.setHomeworkActionMessage('')
       homeworkState.setHomeworkTargetSubmitting(true)
-      await api.addHomeworkTarget(selectedSpaceId, homeworkState.assigningHomework.id, userId)
+      await Promise.all(uniqueUserIds.map((userId) => api.addHomeworkTarget(selectedSpaceId, homeworkState.assigningHomework.id, userId)))
       homeworkState.setHomeworkTargetUserId('')
       await refreshSpaceData(selectedSpaceId)
-      homeworkState.setHomeworkActionMessage(`已将用户 #${userId} 添加到作业 #${homeworkState.assigningHomework.id}`)
+      homeworkState.setHomeworkActionMessage(`已将 ${uniqueUserIds.length} 名用户添加到作业 #${homeworkState.assigningHomework.id}`)
       modalState.closeConfigModal()
     } catch (err) {
       setError(err.message || '分配作业用户失败')

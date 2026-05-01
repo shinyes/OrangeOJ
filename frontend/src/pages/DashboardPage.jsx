@@ -513,6 +513,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           onAddHomeworkTarget={handleAddHomeworkTarget}
           onAdminResetPassword={handleAdminResetPassword}
           onBatchRegister={handleBatchRegister}
+          selectedSpaceId={selectedSpaceId}
         />
       </Container>
     </Box>

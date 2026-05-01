@@ -380,6 +380,73 @@ ON CONFLICT(homework_id, user_id) DO NOTHING`, req.UserID, homeworkID, spaceID)
 	return respondData(c, fiber.Map{"ok": true})
 }
 
+func (a *API) handleSearchHomeworkTargetCandidates(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	homeworkID, err := parseIDParam(c, "homeworkId")
+	if err != nil {
+		return err
+	}
+	keyword := strings.TrimSpace(c.Query("q"))
+	if keyword == "" {
+		return respondData(c, []fiber.Map{})
+	}
+
+	var exists int
+	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID).Scan(&exists); err != nil {
+		return err
+	}
+	if exists == 0 {
+		return respondError(c, fiber.StatusNotFound, "homework not found in this space")
+	}
+
+	likeKeyword := "%" + strings.ToLower(keyword) + "%"
+	rows, err := a.DB.Query(`
+SELECT u.id, u.username, u.global_role, sm.role
+FROM space_members sm
+JOIN users u ON u.id=sm.user_id
+WHERE sm.space_id=?
+  AND NOT EXISTS (
+    SELECT 1
+    FROM homework_targets ht
+    WHERE ht.homework_id=? AND ht.user_id=u.id
+  )
+  AND (
+    CAST(u.id AS TEXT) LIKE ?
+    OR LOWER(u.username) LIKE ?
+  )
+ORDER BY
+  CASE
+    WHEN CAST(u.id AS TEXT)=? THEN 0
+    WHEN LOWER(u.username)=LOWER(?) THEN 1
+    ELSE 2
+  END,
+  u.id ASC
+LIMIT 20`, spaceID, homeworkID, likeKeyword, likeKeyword, keyword, keyword)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	items := make([]fiber.Map, 0)
+	for rows.Next() {
+		var userID int64
+		var username, globalRole, role string
+		if err := rows.Scan(&userID, &username, &globalRole, &role); err != nil {
+			return err
+		}
+		items = append(items, fiber.Map{
+			"id":         userID,
+			"username":   username,
+			"globalRole": globalRole,
+			"role":       role,
+		})
+	}
+	return respondData(c, items)
+}
+
 func (a *API) handleListHomeworkSubmissionRecords(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {

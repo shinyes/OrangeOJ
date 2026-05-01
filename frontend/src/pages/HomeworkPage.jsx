@@ -295,6 +295,57 @@ function getRecordWrongCounts(record) {
   return { objectiveWrongCount, programmingWrongCount }
 }
 
+function isAcceptedRecordItem(item) {
+  const status = String(item?.status || '').trim()
+  const verdict = String(item?.verdict || '').trim()
+  return status === 'done' && (verdict === 'AC' || verdict === 'OK')
+}
+
+function questionNavigatorButtonSx({ active, answered, reviewState }) {
+  const isWrongOrMissing = reviewState === 'wrong-or-missing'
+  const isCorrectReview = reviewState === 'correct'
+
+  const borderColor = isWrongOrMissing
+    ? '#ff7a45'
+    : active
+      ? 'primary.main'
+      : (answered || isCorrectReview)
+        ? '#8ecdf5'
+        : 'divider'
+  const bgcolor = isWrongOrMissing
+    ? '#fff1f0'
+    : (answered || isCorrectReview)
+      ? '#bfe9ff'
+      : '#fff'
+  const color = isWrongOrMissing
+    ? '#c2410c'
+    : (answered || isCorrectReview)
+      ? '#1565c0'
+      : 'text.primary'
+  const hoverBgcolor = isWrongOrMissing
+    ? '#ffe4e0'
+    : (answered || isCorrectReview)
+      ? '#b3e5fc'
+      : '#f8fbff'
+
+  return {
+    minWidth: 0,
+    px: 0,
+    py: 0,
+    height: 32,
+    borderRadius: 0.5,
+    borderColor,
+    bgcolor,
+    color,
+    fontWeight: 700,
+    boxShadow: active ? 'inset 0 0 0 1px rgba(25, 118, 210, 0.16)' : 'none',
+    '&:hover': {
+      borderColor: isWrongOrMissing ? '#ff7a45' : 'primary.main',
+      bgcolor: hoverBgcolor
+    }
+  }
+}
+
 function isSubmissionRecordRouteUnavailable(error) {
   const message = String(error?.message || '').toLowerCase()
   return message.includes('405') || message.includes('method not allowed') || message.includes('404')
@@ -406,6 +457,13 @@ export default function HomeworkPage() {
         .map(([problemId]) => Number(problemId))
     )
   }, [draft.flags])
+
+  const getReviewProblemState = (problemId) => {
+    if (!isReviewMode || !reviewRecord) return 'normal'
+    const recordItem = reviewRecordItemMap.get(Number(problemId))
+    if (!recordItem) return 'wrong-or-missing'
+    return isAcceptedRecordItem(recordItem) ? 'correct' : 'wrong-or-missing'
+  }
 
   const countdownText = useMemo(() => formatCountdown(homework?.dueAt, now), [homework?.dueAt, now])
   const isExpired = countdownText === '已截止'
@@ -850,27 +908,13 @@ export default function HomeworkPage() {
               const problemId = Number(item.problemId)
               const answered = answeredProblemIds.has(problemId)
               const active = Number(activeProblemId) === problemId
+              const reviewState = getReviewProblemState(problemId)
               return (
                 <Button
                   key={`${group.type}-${problemId}`}
                   variant="outlined"
                   onClick={() => scrollToProblem(problemId)}
-                  sx={{
-                    minWidth: 0,
-                    px: 0,
-                    py: 0,
-                    height: 32,
-                    borderRadius: 0.5,
-                    borderColor: active ? 'primary.main' : answered ? '#8ecdf5' : 'divider',
-                    bgcolor: answered ? '#bfe9ff' : '#fff',
-                    color: answered ? '#1565c0' : 'text.primary',
-                    fontWeight: 700,
-                    boxShadow: active ? 'inset 0 0 0 1px rgba(25, 118, 210, 0.16)' : 'none',
-                    '&:hover': {
-                      borderColor: 'primary.main',
-                      bgcolor: answered ? '#b3e5fc' : '#f8fbff'
-                    }
-                  }}
+                  sx={questionNavigatorButtonSx({ active, answered, reviewState })}
                 >
                   {item.displayOrder}
                 </Button>
@@ -899,27 +943,13 @@ export default function HomeworkPage() {
             const problemId = Number(item.problemId)
             const answered = answeredProblemIds.has(problemId)
             const active = Number(activeProblemId) === problemId
+            const reviewState = getReviewProblemState(problemId)
             return (
               <Button
                 key={`list-status-${problemId}`}
                 variant="outlined"
                 onClick={() => scrollToProblem(problemId)}
-                sx={{
-                  minWidth: 0,
-                  px: 0,
-                  py: 0,
-                  height: 32,
-                  borderRadius: 0.5,
-                  borderColor: active ? 'primary.main' : answered ? '#8ecdf5' : 'divider',
-                  bgcolor: answered ? '#bfe9ff' : '#fff',
-                  color: answered ? '#1565c0' : 'text.primary',
-                  fontWeight: 700,
-                  boxShadow: active ? 'inset 0 0 0 1px rgba(25, 118, 210, 0.16)' : 'none',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    bgcolor: answered ? '#b3e5fc' : '#f8fbff'
-                  }
-                }}
+                sx={questionNavigatorButtonSx({ active, answered, reviewState })}
               >
                 {item.displayOrder}
               </Button>

@@ -139,6 +139,7 @@ export const api = {
   createHomeworkSubmissionRecord: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`, { method: 'POST', body }),
   updateHomework: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { method: 'PUT', body }),
   deleteHomework: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { method: 'DELETE' }),
+  searchHomeworkTargetCandidates: (spaceId, homeworkId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/target-candidates`, { q: keyword })),
   addHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets`, { method: 'POST', body: { userId } }),
 
   objectiveSubmit: (spaceId, problemId, answer) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/objective-submit`, { method: 'POST', body: { answer } }),

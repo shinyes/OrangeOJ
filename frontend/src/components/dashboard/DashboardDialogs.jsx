@@ -1,6 +1,12 @@
+import { useEffect, useState } from 'react'
+import Autocomplete from '@mui/material/Autocomplete'
+import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
+import TextField from '@mui/material/TextField'
 import HomeworkEditor from './HomeworkEditor'
 import ProblemEditor from './ProblemEditor'
 import TrainingPlanEditor from './TrainingPlanEditor'
+import { api } from '../../api'
 
 function SimpleModal({ title, onClose, children }) {
   return (
@@ -34,12 +40,76 @@ export default function DashboardDialogs({
   onSaveEditedHomework,
   onAddHomeworkTarget,
   onAdminResetPassword,
-  onBatchRegister
+  onBatchRegister,
+  selectedSpaceId
 }) {
   const activeModal = modalState.activeConfigModal
+  const [homeworkTargetInput, setHomeworkTargetInput] = useState('')
+  const [homeworkTargetCandidates, setHomeworkTargetCandidates] = useState([])
+  const [selectedHomeworkTargetUsers, setSelectedHomeworkTargetUsers] = useState([])
+  const [homeworkTargetSearchLoading, setHomeworkTargetSearchLoading] = useState(false)
+  const assigningHomeworkId = modalState.assigningHomework?.id || null
+
+  useEffect(() => {
+    setHomeworkTargetInput('')
+    setHomeworkTargetCandidates([])
+    setSelectedHomeworkTargetUsers([])
+    setHomeworkTargetSearchLoading(false)
+  }, [activeModal, assigningHomeworkId])
+
+  useEffect(() => {
+    if (activeModal !== 'assign-homework-target' || !selectedSpaceId || !assigningHomeworkId) {
+      setHomeworkTargetCandidates([])
+      setHomeworkTargetSearchLoading(false)
+      return undefined
+    }
+
+    const keyword = homeworkTargetInput.trim()
+    if (!keyword) {
+      setHomeworkTargetCandidates([])
+      setHomeworkTargetSearchLoading(false)
+      return undefined
+    }
+
+    let active = true
+    const timer = window.setTimeout(async () => {
+      try {
+        setHomeworkTargetSearchLoading(true)
+        const list = await api.searchHomeworkTargetCandidates(selectedSpaceId, assigningHomeworkId, keyword)
+        if (!active) return
+        setHomeworkTargetCandidates(list || [])
+      } catch {
+        if (!active) return
+        setHomeworkTargetCandidates([])
+      } finally {
+        if (active) {
+          setHomeworkTargetSearchLoading(false)
+        }
+      }
+    }, 250)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [activeModal, selectedSpaceId, assigningHomeworkId, homeworkTargetInput])
+
   if (!activeModal) return null
 
   const tagSuggestions = spaceProblems.flatMap((problem) => (Array.isArray(problem.tags) ? problem.tags : []))
+  const getUserLabel = (user) => {
+    if (!user) return ''
+    const parts = [`#${user.id || user.userId}`, user.username]
+    if (user.globalRole === 'system_admin') {
+      parts.push('系统管理员')
+    }
+    if (user.role === 'space_admin') {
+      parts.push('空间管理员')
+    } else if (user.role) {
+      parts.push('成员')
+    }
+    return parts.filter(Boolean).join(' · ')
+  }
 
   if (activeModal === 'upload-space-problem') {
     return (
@@ -207,16 +277,51 @@ export default function DashboardDialogs({
     return (
       <SimpleModal title={title} onClose={onClose}>
         <div className="config-form">
-          <input
-            type="number"
-            min="1"
-            placeholder="用户 ID"
-            value={modalState.homeworkTargetUserId}
-            onChange={(event) => modalState.setHomeworkTargetUserId(event.target.value)}
+          <Autocomplete
+            multiple
+            options={homeworkTargetCandidates}
+            value={selectedHomeworkTargetUsers}
+            inputValue={homeworkTargetInput}
+            loading={homeworkTargetSearchLoading}
+            onInputChange={(event, value) => setHomeworkTargetInput(value)}
+            onChange={(event, value) => setSelectedHomeworkTargetUsers(value)}
+            getOptionLabel={getUserLabel}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            filterOptions={(options) => options}
+            noOptionsText={homeworkTargetInput.trim() ? '没有匹配用户' : '输入用户 ID 或用户名开始搜索'}
+            loadingText="搜索中..."
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="搜索并选择用户"
+                placeholder="例如：12 或 alice"
+                size="small"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {homeworkTargetSearchLoading ? <CircularProgress color="inherit" size={16} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  )
+                }}
+              />
+            )}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props
+              return (
+                <Box component="li" key={key} {...optionProps}>
+                  {getUserLabel(option)}
+                </Box>
+              )
+            }}
           />
           <div className="inline-form">
-            <button disabled={modalState.homeworkTargetSubmitting} onClick={onAddHomeworkTarget}>
-              {modalState.homeworkTargetSubmitting ? '分配中...' : '确认分配'}
+            <button
+              disabled={modalState.homeworkTargetSubmitting || selectedHomeworkTargetUsers.length === 0}
+              onClick={() => onAddHomeworkTarget(selectedHomeworkTargetUsers)}
+            >
+              {modalState.homeworkTargetSubmitting ? '分配中...' : `确认分配${selectedHomeworkTargetUsers.length > 0 ? `（${selectedHomeworkTargetUsers.length}）` : ''}`}
             </button>
             <button className="ghost-btn btn-link" onClick={onClose}>取消</button>
           </div>
