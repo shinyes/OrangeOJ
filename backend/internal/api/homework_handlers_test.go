@@ -100,6 +100,73 @@ func TestHomeworkLifecycle(t *testing.T) {
 	}
 }
 
+func TestCreateHomeworkWithProblemDrafts(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "homework_import_admin", "homeworkimport123")
+	spaceID := mustCreateSpace(t, database, "Homework-Import-Space")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+
+	cookie := mustLogin(t, app, "homework_import_admin", "homeworkimport123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", cookie, map[string]interface{}{
+		"title":       "导入建题作业",
+		"description": "通过题目 JSON 数组自动建题",
+		"displayMode": "list",
+		"published":   true,
+		"problemDrafts": []map[string]interface{}{
+			{
+				"type":        "single_choice",
+				"title":       "导入单选题",
+				"statementMd": "请选择正确答案",
+				"bodyJson": map[string]interface{}{
+					"options": []string{"A", "B", "C", "D"},
+				},
+				"answerJson": map[string]interface{}{
+					"answer": "C",
+				},
+			},
+			{
+				"type":        "programming",
+				"title":       "导入编程题",
+				"statementMd": "请输出 hello",
+				"bodyJson": map[string]interface{}{
+					"inputFormat":  "",
+					"outputFormat": "输出 hello",
+				},
+				"answerJson": map[string]interface{}{},
+			},
+		},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected import create 200, got %d", createResp.StatusCode)
+	}
+	homeworkID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
+	if homeworkID <= 0 {
+		t.Fatalf("invalid homework id: %d", homeworkID)
+	}
+
+	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID), cookie, nil)
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected get 200, got %d", getResp.StatusCode)
+	}
+	getEnv := decodeEnvelope[map[string]interface{}](t, getResp)
+	if getEnv.Data["displayMode"] != "list" {
+		t.Fatalf("expected displayMode=list, got %+v", getEnv.Data["displayMode"])
+	}
+	items, ok := getEnv.Data["items"].([]interface{})
+	if !ok || len(items) != 2 {
+		t.Fatalf("unexpected homework items: %+v", getEnv.Data["items"])
+	}
+
+	var problemCount int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM space_problems WHERE space_id=?`, spaceID).Scan(&problemCount); err != nil {
+		t.Fatalf("count imported problems: %v", err)
+	}
+	if problemCount != 2 {
+		t.Fatalf("expected 2 imported problems, got %d", problemCount)
+	}
+}
+
 func TestHomeworkVisibilityRules(t *testing.T) {
 	app, database := newTestApp(t, false)
 
@@ -428,4 +495,3 @@ VALUES(?, ?, ?, 'single_choice', '', '', 'B', 'objective', 'done', 'WA', 0, '', 
 		t.Fatalf("expected system admin to see 2 records, got %d", len(systemAdminRecords))
 	}
 }
-

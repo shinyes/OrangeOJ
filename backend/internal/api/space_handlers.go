@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"strings"
 	"time"
@@ -30,6 +31,50 @@ type spaceSettingsPayload struct {
 	DefaultProgrammingLanguage string `json:"defaultProgrammingLanguage"`
 }
 
+type sqlExecer interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+
+func normalizeProblemPayload(req *problemPayload) error {
+	req.Title = strings.TrimSpace(req.Title)
+	req.Type = normalizeProblemType(req.Type)
+	if req.Title == "" || req.Type == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "type and title are required")
+	}
+	if !isValidProblemType(req.Type) {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid problem type")
+	}
+	if req.TimeLimitMS <= 0 {
+		req.TimeLimitMS = 1000
+	}
+	if req.MemoryLimitMiB <= 0 {
+		req.MemoryLimitMiB = 256
+	}
+	if len(req.BodyJSON) == 0 {
+		req.BodyJSON = json.RawMessage(`{}`)
+	}
+	if len(req.AnswerJSON) == 0 {
+		req.AnswerJSON = json.RawMessage(`{}`)
+	}
+	return nil
+}
+
+func insertSpaceProblem(exec sqlExecer, spaceID, createdBy int64, req problemPayload) (int64, error) {
+	tagsJSON, err := encodeProblemTags(req.Tags)
+	if err != nil {
+		return 0, err
+	}
+
+	res, err := exec.Exec(`
+INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, createdBy)
+	if err != nil {
+		return 0, err
+	}
+	problemID, _ := res.LastInsertId()
+	return problemID, nil
+}
+
 func (a *API) handleCreateSpaceProblem(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
@@ -44,39 +89,13 @@ func (a *API) handleCreateSpaceProblem(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
-
-	req.Title = strings.TrimSpace(req.Title)
-	req.Type = normalizeProblemType(req.Type)
-	if req.Title == "" || req.Type == "" {
-		return respondError(c, fiber.StatusBadRequest, "type and title are required")
+	if err := normalizeProblemPayload(&req); err != nil {
+		return respondError(c, fiber.StatusBadRequest, err.Error())
 	}
-	if !isValidProblemType(req.Type) {
-		return respondError(c, fiber.StatusBadRequest, "invalid problem type")
-	}
-	if req.TimeLimitMS <= 0 {
-		req.TimeLimitMS = 1000
-	}
-	if req.MemoryLimitMiB <= 0 {
-		req.MemoryLimitMiB = 256
-	}
-	if len(req.BodyJSON) == 0 {
-		req.BodyJSON = json.RawMessage(`{}`)
-	}
-	if len(req.AnswerJSON) == 0 {
-		req.AnswerJSON = json.RawMessage(`{}`)
-	}
-	tagsJSON, err := encodeProblemTags(req.Tags)
+	problemID, err := insertSpaceProblem(a.DB, spaceID, user.ID, req)
 	if err != nil {
 		return err
 	}
-
-	res, err := a.DB.Exec(`
-INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, user.ID)
-	if err != nil {
-		return err
-	}
-	problemID, _ := res.LastInsertId()
 	return respondData(c, fiber.Map{"id": problemID})
 }
 
@@ -463,25 +482,8 @@ func (a *API) handleUpdateSpaceProblem(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
-	req.Title = strings.TrimSpace(req.Title)
-	req.Type = normalizeProblemType(req.Type)
-	if req.Title == "" || req.Type == "" {
-		return respondError(c, fiber.StatusBadRequest, "type and title are required")
-	}
-	if !isValidProblemType(req.Type) {
-		return respondError(c, fiber.StatusBadRequest, "invalid problem type")
-	}
-	if req.TimeLimitMS <= 0 {
-		req.TimeLimitMS = 1000
-	}
-	if req.MemoryLimitMiB <= 0 {
-		req.MemoryLimitMiB = 256
-	}
-	if len(req.BodyJSON) == 0 {
-		req.BodyJSON = json.RawMessage(`{}`)
-	}
-	if len(req.AnswerJSON) == 0 {
-		req.AnswerJSON = json.RawMessage(`{}`)
+	if err := normalizeProblemPayload(&req); err != nil {
+		return respondError(c, fiber.StatusBadRequest, err.Error())
 	}
 	tagsJSON, err := encodeProblemTags(req.Tags)
 	if err != nil {
@@ -553,4 +555,3 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeSt
 	}
 	return respondData(c, resp)
 }
-

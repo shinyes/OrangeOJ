@@ -1130,43 +1130,22 @@ export default function HomeworkPage() {
             px: { xs: 1.5, md: 2.5 },
             py: 0.5,
             gap: 1,
-            flexWrap: 'wrap',
-            alignItems: 'center'
+            flexWrap: 'nowrap',
+            alignItems: 'center',
+            overflowX: 'auto'
           }}
         >
-          <Box sx={{ flexGrow: 1, minWidth: 220 }}>
-            <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 'max-content' }}>
+              <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800, lineHeight: 1.1 }}>
                 {homework.title}
               </Typography>
-              <Chip size="small" variant="outlined" label={`当前模式：${homeworkDisplayModeText(homeworkDisplayMode)}`} />
+              <Chip size="small" variant="outlined" label={homeworkDisplayModeText(homeworkDisplayMode)} />
               {isReviewMode ? <Chip size="small" color="primary" variant="outlined" label="作答记录回看" /> : null}
             </Stack>
           </Box>
 
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            flexWrap="wrap"
-            sx={{ minWidth: 180 }}
-          >
-            <Typography variant="body2" color="text.secondary">截止日期：{formatDateTime(homework.dueAt)}</Typography>
-            <Typography variant="body2" color="text.secondary">当前时间：{new Date(now).toLocaleString()}</Typography>
-            <Typography variant="body2" color="primary.main">
-              {isReviewMode
-                ? `记录时间：${formatDateTime(reviewRecord?.createdAt)}`
-                : (draft.lastSavedAt ? `最近保存：${formatDateTime(draft.lastSavedAt)}` : '尚未手动保存')}
-            </Typography>
-          </Stack>
-
-          <Stack spacing={0} alignItems={{ xs: 'flex-start', md: 'center' }} sx={{ minWidth: 140 }}>
-            <Typography variant="caption" color="text.secondary">
-              已答 {answeredProblemIds.size} 题，未答 {orderedItems.length - answeredProblemIds.size} 题，标记 {flaggedProblemIds.size} 题
-            </Typography>
-          </Stack>
-
-          <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+          <Stack direction="row" spacing={1} sx={{ ml: 'auto', flexShrink: 0 }}>
             <Button variant="outlined" component={Link} to={backTo}>
               {backLabel}
             </Button>

@@ -114,6 +114,84 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 	}
 }
 
+func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "training_import_admin", "trainimport123")
+	spaceID := mustCreateSpace(t, database, "Training-Import-Space")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+
+	cookie := mustLogin(t, app, "training_import_admin", "trainimport123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", cookie, map[string]interface{}{
+		"title":         "Imported Training",
+		"allowSelfJoin": true,
+		"isPublic":      true,
+		"published":     true,
+		"chapters": []map[string]interface{}{
+			{
+				"title":   "导入章节",
+				"orderNo": 1,
+				"problemDrafts": []map[string]interface{}{
+					{
+						"type":        "single_choice",
+						"title":       "选择题 1",
+						"statementMd": "从导入创建的选择题",
+						"bodyJson": map[string]interface{}{
+							"options": []string{"A", "B", "C", "D"},
+						},
+						"answerJson": map[string]interface{}{
+							"correctIndex": 2,
+						},
+					},
+					{
+						"type":           "programming",
+						"title":          "编程题 1",
+						"statementMd":    "从导入创建的编程题",
+						"bodyJson":       map[string]interface{}{},
+						"answerJson":     map[string]interface{}{},
+						"timeLimitMs":    2000,
+						"memoryLimitMiB": 512,
+					},
+				},
+			},
+		},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	createEnv := decodeEnvelope[map[string]int64](t, createResp)
+	planID := createEnv.Data["id"]
+	if planID <= 0 {
+		t.Fatalf("invalid training plan id: %+v", createEnv.Data)
+	}
+
+	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(planID), cookie, nil)
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected get 200, got %d", getResp.StatusCode)
+	}
+	getEnv := decodeEnvelope[map[string]interface{}](t, getResp)
+	chapters, ok := getEnv.Data["chapters"].([]interface{})
+	if !ok || len(chapters) != 1 {
+		t.Fatalf("unexpected chapters: %+v", getEnv.Data["chapters"])
+	}
+	firstChapter, ok := chapters[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected chapter payload: %+v", chapters[0])
+	}
+	items, ok := firstChapter["items"].([]interface{})
+	if !ok || len(items) != 2 {
+		t.Fatalf("unexpected training items: %+v", firstChapter["items"])
+	}
+
+	var problemCount int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM space_problems WHERE space_id=?`, spaceID).Scan(&problemCount); err != nil {
+		t.Fatalf("count created problems: %v", err)
+	}
+	if problemCount != 2 {
+		t.Fatalf("expected 2 created problems, got %d", problemCount)
+	}
+}
+
 func TestJoinTrainingPlanRespectsAllowSelfJoin(t *testing.T) {
 	app, database := newTestApp(t, false)
 
@@ -368,4 +446,3 @@ VALUES(?, 'programming', ?, 'statement', '{}', '{}', 1)`, spaceID, title)
 	id, _ := res.LastInsertId()
 	return id
 }
-

@@ -15,6 +15,8 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
@@ -23,6 +25,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import RemoveIcon from '@mui/icons-material/Remove'
 import ToastMessage from '../ToastMessage'
+import { parseProblemDraftArray } from '../../utils/problemDrafts'
 
 function blankItem() {
   return {
@@ -75,6 +78,8 @@ export default function HomeworkEditor({
   const [submitError, setSubmitError] = useState('')
   const [draggingItemIndex, setDraggingItemIndex] = useState(null)
   const [dragOverItemIndex, setDragOverItemIndex] = useState(null)
+  const [problemSourceMode, setProblemSourceMode] = useState('manual')
+  const [problemDraftsJSON, setProblemDraftsJSON] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -83,6 +88,8 @@ export default function HomeworkEditor({
     setSubmitError('')
     setDraggingItemIndex(null)
     setDragOverItemIndex(null)
+    setProblemSourceMode('manual')
+    setProblemDraftsJSON('')
   }, [open, homework, mode])
 
   const problemMap = useMemo(() => {
@@ -170,21 +177,34 @@ export default function HomeworkEditor({
       return
     }
 
-    const normalizedItems = form.items.map((item, index) => ({
-      problemId: Number(item.problemId),
-      orderNo: index + 1,
-      score: 100
-    }))
+    let problemDrafts = []
 
-    if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) {
-      setSubmitError('请为每一道作业题选择有效题目')
-      return
-    }
+    const normalizedItems = problemSourceMode === 'import'
+      ? []
+      : form.items.map((item, index) => ({
+          problemId: Number(item.problemId),
+          orderNo: index + 1,
+          score: 100
+        }))
 
-    const uniqueProblemIds = new Set(normalizedItems.map((item) => item.problemId))
-    if (uniqueProblemIds.size !== normalizedItems.length) {
-      setSubmitError('作业中不能重复添加同一道题')
-      return
+    if (problemSourceMode === 'import') {
+      try {
+        problemDrafts = parseProblemDraftArray(problemDraftsJSON)
+      } catch (err) {
+        setSubmitError(err.message || '题目 JSON 数组不合法')
+        return
+      }
+    } else {
+      if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) {
+        setSubmitError('请为每一道作业题选择有效题目')
+        return
+      }
+
+      const uniqueProblemIds = new Set(normalizedItems.map((item) => item.problemId))
+      if (uniqueProblemIds.size !== normalizedItems.length) {
+        setSubmitError('作业中不能重复添加同一道题')
+        return
+      }
     }
 
     try {
@@ -196,7 +216,8 @@ export default function HomeworkEditor({
         dueAt: toDueAtISO(form.dueAt),
         displayMode: form.displayMode || 'exam',
         published: form.published,
-        items: normalizedItems
+        items: normalizedItems,
+        problemDrafts
       })
       onClose()
     } catch (err) {
@@ -264,122 +285,166 @@ export default function HomeworkEditor({
             />
           </Box>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="subtitle2">作业题目</Typography>
-            <Button size="small" startIcon={<AddIcon />} onClick={addItem}>
-              添加题目
-            </Button>
-          </Box>
-
-          {form.displayMode === 'list' && (
-            <ToastMessage
-              message="题单模式会严格按下面的题目顺序展示。可以直接拖拽每道题右上角的手柄调整顺序，也可以继续使用上移、下移按钮。"
-              severity="info"
-            />
+          {!isEditMode && (
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                题目来源
+              </Typography>
+              <Tabs
+                value={problemSourceMode}
+                onChange={(event, value) => {
+                  if (!value) return
+                  setProblemSourceMode(value)
+                  setSubmitError('')
+                }}
+                variant="fullWidth"
+                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+              >
+                <Tab label="从题库选题" value="manual" />
+                <Tab label="导入题目 JSON 数组" value="import" />
+              </Tabs>
+            </Box>
           )}
 
-          {form.items.map((item, index) => (
-            <Paper
-              key={index}
-              variant="outlined"
-              onDragOver={(event) => {
-                if (form.displayMode !== 'list' || draggingItemIndex === null) return
-                event.preventDefault()
-                event.dataTransfer.dropEffect = 'move'
-                if (dragOverItemIndex !== index) {
-                  setDragOverItemIndex(index)
-                }
-              }}
-              onDrop={(event) => {
-                if (form.displayMode !== 'list' || draggingItemIndex === null) return
-                event.preventDefault()
-                reorderItems(draggingItemIndex, index)
-                setDraggingItemIndex(null)
-                setDragOverItemIndex(null)
-              }}
-              sx={{
-                p: 2,
-                borderColor: form.displayMode === 'list' && dragOverItemIndex === index ? 'primary.main' : undefined,
-                boxShadow: form.displayMode === 'list' && dragOverItemIndex === index ? 1 : 'none',
-                opacity: draggingItemIndex === index ? 0.7 : 1
-              }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle2">第 {index + 1} 题</Typography>
-                <Stack direction="row" spacing={0.5}>
-                  <IconButton
-                    size="small"
-                    draggable={form.displayMode === 'list'}
-                    onDragStart={(event) => {
-                      if (form.displayMode !== 'list') return
-                      event.dataTransfer.effectAllowed = 'move'
-                      event.dataTransfer.setData('text/plain', String(index))
-                      setDraggingItemIndex(index)
-                      setDragOverItemIndex(index)
-                    }}
-                    onDragEnd={() => {
-                      setDraggingItemIndex(null)
-                      setDragOverItemIndex(null)
-                    }}
-                    aria-label="拖拽排序"
-                    sx={{ cursor: form.displayMode === 'list' ? 'grab' : 'default' }}
-                  >
-                    <DragIndicatorIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => moveItem(index, -1)}
-                    disabled={index === 0}
-                    aria-label="上移题目"
-                  >
-                    <ArrowUpwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => moveItem(index, 1)}
-                    disabled={index === form.items.length - 1}
-                    aria-label="下移题目"
-                  >
-                    <ArrowDownwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={() => removeItem(index)} disabled={form.items.length <= 1}>
-                    <RemoveIcon fontSize="small" />
-                  </IconButton>
-                </Stack>
+          {problemSourceMode === 'import' && !isEditMode ? (
+            <>
+              <Typography variant="caption" color="text.secondary">
+                这里接收题目存储对象的 JSON 数组。每一项对应一题，字段与题目编辑器 JSON 模式一致：
+                `type / title / tags / statementMd / bodyJson / answerJson / timeLimitMs / memoryLimitMiB`。
+                保存后会先在当前空间自动创建这些题目，再按数组顺序创建作业。
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                label="题目 JSON 数组"
+                value={problemDraftsJSON}
+                onChange={(event) => setProblemDraftsJSON(event.target.value)}
+                multiline
+                minRows={18}
+                InputProps={{ sx: { fontFamily: 'monospace' } }}
+                helperText={'示例：[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'}
+              />
+            </>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle2">作业题目</Typography>
+                <Button size="small" startIcon={<AddIcon />} onClick={addItem}>
+                  添加题目
+                </Button>
               </Box>
 
-              <Stack spacing={2}>
-                <Autocomplete
-                  size="small"
-                  options={problemOptions}
-                  value={resolveProblem(item.problemId)}
-                  onChange={(event, value) => updateItem(index, { problemId: value?.id || null })}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  getOptionLabel={(option) => `#${option.id} ${option.title}`}
-                  filterOptions={(options, state) => {
-                    const keyword = state.inputValue.trim().toLowerCase()
-                    if (!keyword) return []
-                    return options.filter((option) => {
-                      const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
-                      return (
-                        String(option.id).includes(keyword) ||
-                        String(option.title || '').toLowerCase().includes(keyword) ||
-                        tagsText.includes(keyword)
-                      )
-                    })
-                  }}
-                  noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="选择题目"
-                      placeholder="输入题号、标题或标签搜索"
-                    />
-                  )}
+              {form.displayMode === 'list' && (
+                <ToastMessage
+                  message="题单模式会严格按下面的题目顺序展示。可以直接拖拽每道题右上角的手柄调整顺序，也可以继续使用上移、下移按钮。"
+                  severity="info"
                 />
-              </Stack>
-            </Paper>
-          ))}
+              )}
+
+              {form.items.map((item, index) => (
+                <Paper
+                  key={index}
+                  variant="outlined"
+                  onDragOver={(event) => {
+                    if (form.displayMode !== 'list' || draggingItemIndex === null) return
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'move'
+                    if (dragOverItemIndex !== index) {
+                      setDragOverItemIndex(index)
+                    }
+                  }}
+                  onDrop={(event) => {
+                    if (form.displayMode !== 'list' || draggingItemIndex === null) return
+                    event.preventDefault()
+                    reorderItems(draggingItemIndex, index)
+                    setDraggingItemIndex(null)
+                    setDragOverItemIndex(null)
+                  }}
+                  sx={{
+                    p: 2,
+                    borderColor: form.displayMode === 'list' && dragOverItemIndex === index ? 'primary.main' : undefined,
+                    boxShadow: form.displayMode === 'list' && dragOverItemIndex === index ? 1 : 'none',
+                    opacity: draggingItemIndex === index ? 0.7 : 1
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="subtitle2">第 {index + 1} 题</Typography>
+                    <Stack direction="row" spacing={0.5}>
+                      <IconButton
+                        size="small"
+                        draggable={form.displayMode === 'list'}
+                        onDragStart={(event) => {
+                          if (form.displayMode !== 'list') return
+                          event.dataTransfer.effectAllowed = 'move'
+                          event.dataTransfer.setData('text/plain', String(index))
+                          setDraggingItemIndex(index)
+                          setDragOverItemIndex(index)
+                        }}
+                        onDragEnd={() => {
+                          setDraggingItemIndex(null)
+                          setDragOverItemIndex(null)
+                        }}
+                        aria-label="拖拽排序"
+                        sx={{ cursor: form.displayMode === 'list' ? 'grab' : 'default' }}
+                      >
+                        <DragIndicatorIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => moveItem(index, -1)}
+                        disabled={index === 0}
+                        aria-label="上移题目"
+                      >
+                        <ArrowUpwardIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => moveItem(index, 1)}
+                        disabled={index === form.items.length - 1}
+                        aria-label="下移题目"
+                      >
+                        <ArrowDownwardIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => removeItem(index)} disabled={form.items.length <= 1}>
+                        <RemoveIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  </Box>
+
+                  <Stack spacing={2}>
+                    <Autocomplete
+                      size="small"
+                      options={problemOptions}
+                      value={resolveProblem(item.problemId)}
+                      onChange={(event, value) => updateItem(index, { problemId: value?.id || null })}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      getOptionLabel={(option) => `#${option.id} ${option.title}`}
+                      filterOptions={(options, state) => {
+                        const keyword = state.inputValue.trim().toLowerCase()
+                        if (!keyword) return []
+                        return options.filter((option) => {
+                          const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
+                          return (
+                            String(option.id).includes(keyword) ||
+                            String(option.title || '').toLowerCase().includes(keyword) ||
+                            tagsText.includes(keyword)
+                          )
+                        })
+                      }}
+                      noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="选择题目"
+                          placeholder="输入题号、标题或标签搜索"
+                        />
+                      )}
+                    />
+                  </Stack>
+                </Paper>
+              ))}
+            </>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>

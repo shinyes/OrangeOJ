@@ -11,12 +11,13 @@ import (
 )
 
 type homeworkPayload struct {
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	DueAt       string            `json:"dueAt"`
-	DisplayMode string            `json:"displayMode"`
-	Published   bool              `json:"published"`
-	Items       []homeworkItemReq `json:"items"`
+	Title         string            `json:"title"`
+	Description   string            `json:"description"`
+	DueAt         string            `json:"dueAt"`
+	DisplayMode   string            `json:"displayMode"`
+	Published     bool              `json:"published"`
+	Items         []homeworkItemReq `json:"items"`
+	ProblemDrafts []problemPayload  `json:"problemDrafts"`
 }
 
 type homeworkItemReq struct {
@@ -178,6 +179,9 @@ func (a *API) handleCreateHomework(c *fiber.Ctx) error {
 	if req.DisplayMode == "" {
 		return respondError(c, fiber.StatusBadRequest, "invalid display mode")
 	}
+	if len(req.Items) > 0 && len(req.ProblemDrafts) > 0 {
+		return respondError(c, fiber.StatusBadRequest, "invalid request")
+	}
 
 	tx, err := a.DB.BeginTx(c.Context(), nil)
 	if err != nil {
@@ -193,6 +197,24 @@ VALUES(?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Title, req.Description, nullToInterfa
 		return err
 	}
 	homeworkID, _ := res.LastInsertId()
+	if len(req.ProblemDrafts) > 0 {
+		autoItems := make([]homeworkItemReq, 0, len(req.ProblemDrafts))
+		for index := range req.ProblemDrafts {
+			if err := normalizeProblemPayload(&req.ProblemDrafts[index]); err != nil {
+				return respondError(c, fiber.StatusBadRequest, err.Error())
+			}
+			problemID, err := insertSpaceProblem(tx, spaceID, user.ID, req.ProblemDrafts[index])
+			if err != nil {
+				return err
+			}
+			autoItems = append(autoItems, homeworkItemReq{
+				ProblemID: problemID,
+				OrderNo:   index + 1,
+				Score:     100,
+			})
+		}
+		req.Items = autoItems
+	}
 	if err := upsertHomeworkItems(tx, homeworkID, spaceID, req.Items); err != nil {
 		return err
 	}
@@ -870,4 +892,3 @@ func stringFromAny(v interface{}) string {
 	s, _ := v.(string)
 	return s
 }
-

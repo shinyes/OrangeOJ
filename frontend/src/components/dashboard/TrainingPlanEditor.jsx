@@ -12,16 +12,21 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import ToastMessage from '../ToastMessage'
+import { parseProblemDraftArray } from '../../utils/problemDrafts'
 
 function blankChapter(index) {
   return {
     title: `第 ${index + 1} 章`,
-    problemIds: []
+    problemIds: [],
+    problemSourceMode: 'manual',
+    problemDraftsJSON: ''
   }
 }
 
@@ -43,7 +48,9 @@ function buildInitialForm(plan) {
   const chapters = Array.isArray(plan?.chapters)
     ? plan.chapters.map((chapter, index) => ({
         title: String(chapter?.title || `第 ${index + 1} 章`),
-        problemIds: normalizeProblemIds(chapter)
+        problemIds: normalizeProblemIds(chapter),
+        problemSourceMode: 'manual',
+        problemDraftsJSON: ''
       }))
     : [blankChapter(0)]
 
@@ -142,11 +149,28 @@ export default function TrainingPlanEditor({
       return
     }
 
-    const chapters = form.chapters.map((chapter, index) => ({
-      title: String(chapter.title || '').trim() || `第 ${index + 1} 章`,
-      orderNo: index + 1,
-      problemIds: normalizeProblemIds(chapter)
-    }))
+    let chapters
+    try {
+      chapters = form.chapters.map((chapter, index) => {
+        const normalizedChapter = {
+          title: String(chapter.title || '').trim() || `第 ${index + 1} 章`,
+          orderNo: index + 1,
+          problemIds: [],
+          problemDrafts: []
+        }
+
+        if (!isEditMode && chapter.problemSourceMode === 'import') {
+          normalizedChapter.problemDrafts = parseProblemDraftArray(chapter.problemDraftsJSON)
+          return normalizedChapter
+        }
+
+        normalizedChapter.problemIds = normalizeProblemIds(chapter)
+        return normalizedChapter
+      })
+    } catch (err) {
+      setSubmitError(err.message || '题目 JSON 数组不合法')
+      return
+    }
 
     try {
       setSubmitting(true)
@@ -242,49 +266,90 @@ export default function TrainingPlanEditor({
                   onChange={(event) => updateChapter(index, { title: event.target.value })}
                 />
 
-                <Autocomplete
-                  multiple
-                  size="small"
-                  options={problemOptions}
-                  value={chapter.problemIds.map((problemId) => resolveProblemOption(problemId))}
-                  onChange={(event, value) => updateChapter(index, { problemIds: value.map((item) => item.id) })}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  getOptionLabel={(option) => `#${option.id} ${option.title}`}
-                  filterSelectedOptions
-                  filterOptions={(options, state) => {
-                    const keyword = state.inputValue.trim().toLowerCase()
-                    if (!keyword) {
-                      return []
-                    }
-                    return options.filter((option) => {
-                      const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
-                      return (
-                        String(option.id).includes(keyword) ||
-                        String(option.title || '').toLowerCase().includes(keyword) ||
-                        tagsText.includes(keyword)
-                      )
-                    })
-                  }}
-                  noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
-                  renderTags={(value, getTagProps) => value.map((option, itemIndex) => {
-                    const { key, ...tagProps } = getTagProps({ index: itemIndex })
-                    return (
-                      <Chip
-                        key={key || option.id}
-                        size="small"
-                        label={`#${option.id} ${option.title}`}
-                        {...tagProps}
-                      />
-                    )
-                  })}
-                  renderInput={(params) => (
+                {!isEditMode && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      本章节题目来源
+                    </Typography>
+                    <Tabs
+                      value={chapter.problemSourceMode || 'manual'}
+                      onChange={(event, value) => {
+                        if (!value) return
+                        updateChapter(index, { problemSourceMode: value })
+                        setSubmitError('')
+                      }}
+                      variant="fullWidth"
+                      sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+                    >
+                      <Tab label="从题库选题" value="manual" />
+                      <Tab label="导入题目 JSON 数组" value="import" />
+                    </Tabs>
+                  </Box>
+                )}
+
+                {!isEditMode && chapter.problemSourceMode === 'import' ? (
+                  <>
+                    <Typography variant="caption" color="text.secondary">
+                      这里接收本章节题目的 JSON 数组。每一项对应一题，字段与题目编辑器 JSON 模式一致。
+                      保存后会先在当前空间自动创建这些题目，再按数组顺序挂到本章节下。
+                    </Typography>
                     <TextField
-                      {...params}
-                      label="章节题目"
-                      placeholder="输入题号、标题或标签搜索"
+                      fullWidth
+                      size="small"
+                      label="章节题目 JSON 数组"
+                      value={chapter.problemDraftsJSON || ''}
+                      onChange={(event) => updateChapter(index, { problemDraftsJSON: event.target.value })}
+                      multiline
+                      minRows={10}
+                      InputProps={{ sx: { fontFamily: 'monospace' } }}
+                      helperText={'示例：[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'}
                     />
-                  )}
-                />
+                  </>
+                ) : (
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={problemOptions}
+                    value={chapter.problemIds.map((problemId) => resolveProblemOption(problemId))}
+                    onChange={(event, value) => updateChapter(index, { problemIds: value.map((item) => item.id) })}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    getOptionLabel={(option) => `#${option.id} ${option.title}`}
+                    filterSelectedOptions
+                    filterOptions={(options, state) => {
+                      const keyword = state.inputValue.trim().toLowerCase()
+                      if (!keyword) {
+                        return []
+                      }
+                      return options.filter((option) => {
+                        const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
+                        return (
+                          String(option.id).includes(keyword) ||
+                          String(option.title || '').toLowerCase().includes(keyword) ||
+                          tagsText.includes(keyword)
+                        )
+                      })
+                    }}
+                    noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
+                    renderTags={(value, getTagProps) => value.map((option, itemIndex) => {
+                      const { key, ...tagProps } = getTagProps({ index: itemIndex })
+                      return (
+                        <Chip
+                          key={key || option.id}
+                          size="small"
+                          label={`#${option.id} ${option.title}`}
+                          {...tagProps}
+                        />
+                      )
+                    })}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="章节题目"
+                        placeholder="输入题号、标题或标签搜索"
+                      />
+                    )}
+                  />
+                )}
               </Stack>
             </Paper>
           ))}

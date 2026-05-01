@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,9 +18,10 @@ type trainingPlanPayload struct {
 }
 
 type trainingChapterBody struct {
-	Title      string  `json:"title"`
-	OrderNo    int     `json:"orderNo"`
-	ProblemIDs []int64 `json:"problemIds"`
+	Title         string           `json:"title"`
+	OrderNo       int              `json:"orderNo"`
+	ProblemIDs    []int64          `json:"problemIds"`
+	ProblemDrafts []problemPayload `json:"problemDrafts"`
 }
 
 type participantPayload struct {
@@ -121,6 +123,10 @@ func (a *API) handleCreateTrainingPlan(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	user, err := getUser(c)
+	if err != nil {
+		return err
+	}
 	var req trainingPlanPayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
@@ -147,7 +153,7 @@ VALUES(?, ?, ?, ?, ?)`, spaceID, req.Title, boolToInt(req.AllowSelfJoin), boolTo
 		return err
 	}
 	planID, _ := res.LastInsertId()
-	if err := upsertTrainingChapters(tx, planID, spaceID, req.Chapters); err != nil {
+	if err := upsertTrainingChapters(tx, planID, spaceID, user.ID, req.Chapters); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -207,6 +213,10 @@ func (a *API) handleUpdateTrainingPlan(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	user, err := getUser(c)
+	if err != nil {
+		return err
+	}
 	var req trainingPlanPayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
@@ -240,7 +250,7 @@ WHERE id=? AND space_id=?`, req.Title, boolToInt(req.AllowSelfJoin), boolToInt(t
 	if affected == 0 {
 		return respondError(c, fiber.StatusNotFound, "training plan not found in this space")
 	}
-	if err := upsertTrainingChapters(tx, planID, spaceID, req.Chapters); err != nil {
+	if err := upsertTrainingChapters(tx, planID, spaceID, user.ID, req.Chapters); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -488,21 +498,42 @@ ORDER BY p.joined_at DESC`, planID)
 	return participants, nil
 }
 
-func upsertTrainingChapters(tx *sql.Tx, planID, spaceID int64, chapters []trainingChapterBody) error {
+func upsertTrainingChapters(tx *sql.Tx, planID, spaceID, createdBy int64, chapters []trainingChapterBody) error {
 	if _, err := tx.Exec(`DELETE FROM training_chapters WHERE plan_id=?`, planID); err != nil {
 		return err
 	}
 	for idx, chapter := range chapters {
+		if len(chapter.ProblemIDs) > 0 && len(chapter.ProblemDrafts) > 0 {
+			return fiber.NewError(fiber.StatusBadRequest, "problemIds and problemDrafts cannot be used together")
+		}
 		orderNo := chapter.OrderNo
 		if orderNo == 0 {
 			orderNo = idx + 1
 		}
-		res, err := tx.Exec(`INSERT INTO training_chapters(plan_id, title, order_no) VALUES(?, ?, ?)`, planID, chapter.Title, orderNo)
+		title := strings.TrimSpace(chapter.Title)
+		if title == "" {
+			title = "第 " + strconv.Itoa(idx+1) + " 章"
+		}
+		res, err := tx.Exec(`INSERT INTO training_chapters(plan_id, title, order_no) VALUES(?, ?, ?)`, planID, title, orderNo)
 		if err != nil {
 			return err
 		}
 		chapterID, _ := res.LastInsertId()
-		for i, problemID := range chapter.ProblemIDs {
+		problemIDs := append([]int64{}, chapter.ProblemIDs...)
+		if len(chapter.ProblemDrafts) > 0 {
+			problemIDs = make([]int64, 0, len(chapter.ProblemDrafts))
+			for draftIndex := range chapter.ProblemDrafts {
+				if err := normalizeProblemPayload(&chapter.ProblemDrafts[draftIndex]); err != nil {
+					return err
+				}
+				problemID, err := insertSpaceProblem(tx, spaceID, createdBy, chapter.ProblemDrafts[draftIndex])
+				if err != nil {
+					return err
+				}
+				problemIDs = append(problemIDs, problemID)
+			}
+		}
+		for i, problemID := range problemIDs {
 			ok, err := spaceProblemExistsTx(tx, spaceID, problemID)
 			if err != nil {
 				return err
@@ -546,4 +577,3 @@ func nullToInterface(v sql.NullString) interface{} {
 	}
 	return v.String
 }
-
