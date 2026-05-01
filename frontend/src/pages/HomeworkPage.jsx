@@ -396,11 +396,17 @@ export default function HomeworkPage() {
   }, [homework, problemsById])
 
   const groupedItems = useMemo(() => {
+    let nextDisplayOrder = 1
     return ['single_choice', 'true_false', 'programming']
       .map((type) => ({
         type,
         title: sectionTitleMap[type] || problemTypeText(type),
-        items: orderedItems.filter((item) => (item.problem?.type || item.type) === type)
+        items: orderedItems
+          .filter((item) => (item.problem?.type || item.type) === type)
+          .map((item) => ({
+            ...item,
+            displayOrder: nextDisplayOrder++
+          }))
       }))
       .filter((group) => group.items.length > 0)
   }, [orderedItems])
