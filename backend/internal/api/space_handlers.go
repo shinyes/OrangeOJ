@@ -56,6 +56,9 @@ func normalizeProblemPayload(req *problemPayload) error {
 	if len(req.AnswerJSON) == 0 {
 		req.AnswerJSON = json.RawMessage(`{}`)
 	}
+	if err := normalizeObjectiveAnswerPayload(req); err != nil {
+		return err
+	}
 	return nil
 }
 

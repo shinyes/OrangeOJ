@@ -12,6 +12,92 @@ export function normalizeProblemTypeValue(value) {
   return ''
 }
 
+function getOptionStrings(bodyJson) {
+  return Array.isArray(bodyJson?.options) ? bodyJson.options.map((item) => String(item ?? '').trim()) : []
+}
+
+function optionIndexFromLabel(value) {
+  const raw = String(value || '').trim().toUpperCase()
+  if (raw.length === 1 && raw >= 'A' && raw <= 'Z') {
+    return raw.charCodeAt(0) - 65
+  }
+  return -1
+}
+
+function integerFromValue(value) {
+  if (value === null || value === undefined || String(value).trim() === '') return null
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : null
+}
+
+export function normalizeSingleChoiceAnswerJson(bodyJson, answerJson) {
+  const options = getOptionStrings(bodyJson)
+  if (options.length === 0 || !answerJson || Array.isArray(answerJson) || typeof answerJson !== 'object') {
+    return answerJson && typeof answerJson === 'object' && !Array.isArray(answerJson) ? answerJson : {}
+  }
+
+  const normalizeAnswerValue = (value) => {
+    const raw = String(value ?? '').trim()
+    const exactMatch = options.find((option) => option.toLowerCase() === raw.toLowerCase())
+    if (exactMatch) return exactMatch
+
+    const labelIndex = optionIndexFromLabel(raw)
+    if (labelIndex >= 0 && labelIndex < options.length) {
+      return options[labelIndex]
+    }
+
+    return raw
+  }
+
+  if (Object.prototype.hasOwnProperty.call(answerJson, 'answer')) {
+    return {
+      ...answerJson,
+      answer: normalizeAnswerValue(answerJson.answer)
+    }
+  }
+
+  for (const key of ['correctIndex', 'answerIndex', 'correctAnswerIndex']) {
+    const index = integerFromValue(answerJson[key])
+    if (index !== null && index >= 0 && index < options.length) {
+      return {
+        ...answerJson,
+        answer: options[index]
+      }
+    }
+  }
+
+  for (const key of ['correctOption', 'correctLabel', 'correctAnswer']) {
+    if (Object.prototype.hasOwnProperty.call(answerJson, key)) {
+      return {
+        ...answerJson,
+        answer: normalizeAnswerValue(answerJson[key])
+      }
+    }
+  }
+
+  return answerJson
+}
+
+export function normalizeObjectiveAnswerJson(type, bodyJson, answerJson) {
+  if (type === 'single_choice') {
+    return normalizeSingleChoiceAnswerJson(bodyJson, answerJson)
+  }
+  if (type === 'true_false' && answerJson && typeof answerJson === 'object' && !Array.isArray(answerJson)) {
+    for (const key of ['answer', 'correct', 'correctAnswer', 'value']) {
+      if (Object.prototype.hasOwnProperty.call(answerJson, key)) {
+        const value = answerJson[key]
+        if (value === true || String(value).trim().toLowerCase() === 'true' || String(value).trim() === '1') {
+          return { ...answerJson, answer: true }
+        }
+        if (value === false || String(value).trim().toLowerCase() === 'false' || String(value).trim() === '0') {
+          return { ...answerJson, answer: false }
+        }
+      }
+    }
+  }
+  return answerJson
+}
+
 export function parseProblemDraftArray(raw) {
   const trimmed = String(raw || '').trim()
   if (!trimmed) {
@@ -45,7 +131,8 @@ export function parseProblemDraftArray(raw) {
     }
 
     const bodyJson = item.bodyJson && typeof item.bodyJson === 'object' && !Array.isArray(item.bodyJson) ? item.bodyJson : {}
-    const answerJson = item.answerJson && typeof item.answerJson === 'object' && !Array.isArray(item.answerJson) ? item.answerJson : {}
+    const rawAnswerJson = item.answerJson && typeof item.answerJson === 'object' && !Array.isArray(item.answerJson) ? item.answerJson : {}
+    const answerJson = normalizeObjectiveAnswerJson(type, bodyJson, rawAnswerJson)
 
     return {
       type,

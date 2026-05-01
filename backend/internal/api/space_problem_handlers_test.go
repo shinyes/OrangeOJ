@@ -109,6 +109,53 @@ func TestSpaceAdminCreateAndUpdateProblemTags(t *testing.T) {
 	}
 }
 
+func TestCreateSpaceProblemNormalizesSingleChoiceAnswerIndex(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_problem_answer_index_admin", "spaceanswerindex123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Answer-Index")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+
+	cookie := mustLogin(t, app, "space_problem_answer_index_admin", "spaceanswerindex123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems", cookie, map[string]interface{}{
+		"type":        "single_choice",
+		"title":       "索引答案单选题",
+		"statementMd": "请选择正确答案",
+		"bodyJson":    map[string]interface{}{"options": []string{"A1", "B2", "C3", "D4"}},
+		"answerJson":  map[string]interface{}{"correctIndex": 2},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	createEnv := decodeEnvelope[map[string]interface{}](t, createResp)
+	problemID := int64(createEnv.Data["id"].(float64))
+
+	var storedAnswerJSON string
+	if err := database.QueryRow(`SELECT answer_json FROM space_problems WHERE id=?`, problemID).Scan(&storedAnswerJSON); err != nil {
+		t.Fatalf("query answer json: %v", err)
+	}
+	var storedAnswer map[string]interface{}
+	if err := json.Unmarshal([]byte(storedAnswerJSON), &storedAnswer); err != nil {
+		t.Fatalf("decode stored answer json: %v", err)
+	}
+	if storedAnswer["answer"] != "C3" {
+		t.Fatalf("expected stored answer C3, got %+v", storedAnswer)
+	}
+
+	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"?includeAnswer=1", cookie, nil)
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected get 200, got %d", getResp.StatusCode)
+	}
+	getEnv := decodeEnvelope[map[string]interface{}](t, getResp)
+	answerJSON, ok := getEnv.Data["answerJson"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected answerJson in response, got %+v", getEnv.Data["answerJson"])
+	}
+	if answerJSON["answer"] != "C3" {
+		t.Fatalf("expected response answer C3, got %+v", answerJSON)
+	}
+}
+
 func TestGetSpaceProblemIncludeAnswerRequiresSpaceAdmin(t *testing.T) {
 	app, database := newTestApp(t, false)
 
@@ -355,4 +402,3 @@ func interfaceSliceToStringSlice(t *testing.T, value interface{}) []string {
 	}
 	return result
 }
-

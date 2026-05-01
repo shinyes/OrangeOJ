@@ -43,8 +43,8 @@ func (a *API) handleObjectiveSubmit(c *fiber.Ctx) error {
 		return err
 	}
 
-	var pType, answerJSON string
-	if err := a.DB.QueryRow(`SELECT type, answer_json FROM space_problems WHERE id=?`, problemID).Scan(&pType, &answerJSON); err != nil {
+	var pType, answerJSON, bodyJSON string
+	if err := a.DB.QueryRow(`SELECT type, answer_json, body_json FROM space_problems WHERE id=?`, problemID).Scan(&pType, &answerJSON, &bodyJSON); err != nil {
 		return err
 	}
 	if pType == string(model.ProblemTypeProgramming) {
@@ -56,7 +56,7 @@ func (a *API) handleObjectiveSubmit(c *fiber.Ctx) error {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
 
-	correct, err := evaluateObjectiveAnswer(pType, answerJSON, req.Answer)
+	correct, err := evaluateObjectiveAnswer(pType, answerJSON, req.Answer, bodyJSON)
 	if err != nil {
 		return respondError(c, fiber.StatusBadRequest, err.Error())
 	}
@@ -222,12 +222,12 @@ LIMIT 50`
 	var submissions []map[string]interface{}
 	for rows.Next() {
 		var (
-			id, userID, spID, problemID                                                 int64
+			id, userID, spID, problemID                                                   int64
 			username, qType, language, sourceCode, inputData, submitType, status, verdict string
-			timeMS, memoryKiB, score                                                    int
-			stdout, stderr, caseDetailsJSON                                             string
-			createdAt                                                                   string
-			finishedAt                                                                  sql.NullString
+			timeMS, memoryKiB, score                                                      int
+			stdout, stderr, caseDetailsJSON                                               string
+			createdAt                                                                     string
+			finishedAt                                                                    sql.NullString
 		)
 		if err := rows.Scan(&id, &userID, &username, &spID, &problemID, &qType, &language, &sourceCode, &inputData, &submitType, &status, &verdict, &timeMS, &memoryKiB, &score, &stdout, &stderr, &caseDetailsJSON, &createdAt, &finishedAt); err != nil {
 			return err
@@ -399,14 +399,14 @@ func mustJSON(v interface{}) string {
 	return string(b)
 }
 
-func evaluateObjectiveAnswer(problemType string, answerJSON string, answer interface{}) (bool, error) {
-	var target map[string]interface{}
-	if err := json.Unmarshal([]byte(answerJSON), &target); err != nil {
-		return false, fmt.Errorf("invalid answer_json")
+func evaluateObjectiveAnswer(problemType string, answerJSON string, answer interface{}, bodyJSON ...string) (bool, error) {
+	body := ""
+	if len(bodyJSON) > 0 {
+		body = bodyJSON[0]
 	}
-	expected, ok := target["answer"]
-	if !ok {
-		return false, fmt.Errorf("answer_json.answer required")
+	expected, err := expectedObjectiveAnswer(problemType, answerJSON, body)
+	if err != nil {
+		return false, err
 	}
 	switch problemType {
 	case string(model.ProblemTypeSingleChoice):
@@ -447,4 +447,3 @@ func (a *API) isSpaceMember(spaceID, userID int64) (bool, error) {
 	}
 	return count > 0, nil
 }
-

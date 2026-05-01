@@ -22,6 +22,7 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import ToastMessage from '../ToastMessage'
 import RemoveIcon from '@mui/icons-material/Remove'
+import { normalizeObjectiveAnswerJson } from '../../utils/problemDrafts'
 
 const DEFAULT_TIME_LIMIT_MS = 1000
 const DEFAULT_MEMORY_LIMIT_MIB = 256
@@ -172,13 +173,17 @@ function parseStorageDraft(raw, options = {}) {
     throw new Error('题目 JSON 中的 type 不合法')
   }
 
+  const bodyJson = draft.bodyJson && typeof draft.bodyJson === 'object' && !Array.isArray(draft.bodyJson) ? draft.bodyJson : {}
+  const rawAnswerJson = draft.answerJson && typeof draft.answerJson === 'object' && !Array.isArray(draft.answerJson) ? draft.answerJson : {}
+  const answerJson = normalizeObjectiveAnswerJson(type, bodyJson, rawAnswerJson)
+
   return {
     type,
     title: String(draft.title || ''),
     tags: normalizeTagList(draft.tags),
     statementMd: String(draft.statementMd || ''),
-    bodyJson: draft.bodyJson && typeof draft.bodyJson === 'object' && !Array.isArray(draft.bodyJson) ? draft.bodyJson : {},
-    answerJson: draft.answerJson && typeof draft.answerJson === 'object' && !Array.isArray(draft.answerJson) ? draft.answerJson : {},
+    bodyJson,
+    answerJson,
     timeLimitMs: normalizePositiveInteger(draft.timeLimitMs, DEFAULT_TIME_LIMIT_MS),
     memoryLimitMiB: normalizePositiveInteger(draft.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
   }
@@ -215,12 +220,24 @@ function formsEqual(left, right) {
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
+function resolveSingleChoiceAnswerIndex(options, answerJson) {
+  const normalizedAnswerJson = normalizeObjectiveAnswerJson('single_choice', { options }, answerJson)
+  const raw = String(normalizedAnswerJson?.answer ?? '').trim()
+  if (!raw) return 0
+
+  const exactIndex = options.findIndex((item) => String(item) === raw)
+  if (exactIndex >= 0) return exactIndex
+
+  const normalizedIndex = options.findIndex((item) => String(item).trim().toLowerCase() === raw.toLowerCase())
+  return normalizedIndex >= 0 ? normalizedIndex : 0
+}
+
 function buildInitialForm(problem) {
   const type = problem?.type || 'programming'
   const body = problem?.bodyJson || {}
   const answer = problem?.answerJson || {}
   const options = normalizeOptions(body.options)
-  const answerIndex = Math.max(0, options.findIndex((item) => item === String(answer.answer ?? '')))
+  const answerIndex = resolveSingleChoiceAnswerIndex(options, answer)
 
   return {
     type,

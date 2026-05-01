@@ -14,6 +14,22 @@ func TestEvaluateObjectiveAnswer(t *testing.T) {
 		t.Fatalf("expected single choice answer to be correct")
 	}
 
+	ok, err = evaluateObjectiveAnswer("single_choice", `{"correctIndex":1}`, "B", `{"options":["A","B","C"]}`)
+	if err != nil {
+		t.Fatalf("single choice correctIndex error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected correctIndex single choice answer to be correct")
+	}
+
+	ok, err = evaluateObjectiveAnswer("single_choice", `{"answer":"B"}`, "Beta", `{"options":["Alpha","Beta","Gamma"]}`)
+	if err != nil {
+		t.Fatalf("single choice label answer error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected label-style single choice answer to match option text")
+	}
+
 	ok, err = evaluateObjectiveAnswer("true_false", `{"answer":true}`, false)
 	if err != nil {
 		t.Fatalf("true false error: %v", err)
@@ -119,4 +135,3 @@ VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){return 0;}', '', 'submit', 'do
 		t.Fatalf("expected system admin to see 2 submissions, got %d", len(systemAdminSubmissions))
 	}
 }
-

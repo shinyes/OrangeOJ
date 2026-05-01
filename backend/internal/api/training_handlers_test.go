@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -189,6 +190,18 @@ func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
 	}
 	if problemCount != 2 {
 		t.Fatalf("expected 2 created problems, got %d", problemCount)
+	}
+
+	var importedAnswerJSON string
+	if err := database.QueryRow(`SELECT answer_json FROM space_problems WHERE space_id=? AND title=?`, spaceID, "选择题 1").Scan(&importedAnswerJSON); err != nil {
+		t.Fatalf("query imported answer json: %v", err)
+	}
+	var importedAnswer map[string]interface{}
+	if err := json.Unmarshal([]byte(importedAnswerJSON), &importedAnswer); err != nil {
+		t.Fatalf("decode imported answer json: %v", err)
+	}
+	if importedAnswer["answer"] != "C" {
+		t.Fatalf("expected imported answer C, got %+v", importedAnswer)
 	}
 }
 
