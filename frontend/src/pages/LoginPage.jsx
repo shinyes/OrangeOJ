@@ -10,7 +10,7 @@ import Button from '@mui/material/Button'
 import ToastMessage from '../components/ToastMessage'
 
 export default function LoginPage({ onLogin, user }) {
-  const [username, setUsername] = useState('admin')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)

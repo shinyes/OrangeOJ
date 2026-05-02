@@ -115,6 +115,113 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 	}
 }
 
+func TestDeleteTrainingPlanCanDeleteAssociatedProblems(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "training_delete_problem_admin", "trainingdeleteproblem123")
+	spaceID := mustCreateSpace(t, database, "Training-Delete-Problem-Space")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+
+	exclusiveProblemID := mustCreateSpaceProblem(t, database, "训练独占题目")
+	sharedProblemID := mustCreateSpaceProblem(t, database, "训练共享题目")
+
+	targetPlanRes, err := database.Exec(`
+INSERT INTO training_plans(space_id, title, allow_self_join, is_public)
+VALUES(?, '待删除训练', 1, 1)`, spaceID)
+	if err != nil {
+		t.Fatalf("create target plan: %v", err)
+	}
+	targetPlanID, _ := targetPlanRes.LastInsertId()
+	targetChapterRes, err := database.Exec(`
+INSERT INTO training_chapters(plan_id, title, order_no)
+VALUES(?, '第一章', 1)`, targetPlanID)
+	if err != nil {
+		t.Fatalf("create target chapter: %v", err)
+	}
+	targetChapterID, _ := targetChapterRes.LastInsertId()
+	if _, err := database.Exec(`
+INSERT INTO training_items(chapter_id, problem_id, order_no)
+VALUES(?, ?, 1), (?, ?, 2)`, targetChapterID, exclusiveProblemID, targetChapterID, sharedProblemID); err != nil {
+		t.Fatalf("create target training items: %v", err)
+	}
+	submissionRes, err := database.Exec(`
+INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
+VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){return 0;}', '', 'submit', 'done', 'AC', 100, '', '', CURRENT_TIMESTAMP)`,
+		spaceAdminID, spaceID, exclusiveProblemID,
+	)
+	if err != nil {
+		t.Fatalf("create exclusive submission: %v", err)
+	}
+	submissionID, _ := submissionRes.LastInsertId()
+	if _, err := database.Exec(`
+INSERT INTO user_problem_progress(space_id, user_id, problem_id, best_verdict, best_score, last_submission_id)
+VALUES(?, ?, ?, 'AC', 100, ?)`, spaceID, spaceAdminID, exclusiveProblemID, submissionID); err != nil {
+		t.Fatalf("create exclusive progress: %v", err)
+	}
+
+	otherPlanRes, err := database.Exec(`
+INSERT INTO training_plans(space_id, title, allow_self_join, is_public)
+VALUES(?, '保留训练', 1, 1)`, spaceID)
+	if err != nil {
+		t.Fatalf("create other plan: %v", err)
+	}
+	otherPlanID, _ := otherPlanRes.LastInsertId()
+	otherChapterRes, err := database.Exec(`
+INSERT INTO training_chapters(plan_id, title, order_no)
+VALUES(?, '第一章', 1)`, otherPlanID)
+	if err != nil {
+		t.Fatalf("create other chapter: %v", err)
+	}
+	otherChapterID, _ := otherChapterRes.LastInsertId()
+	if _, err := database.Exec(`
+INSERT INTO training_items(chapter_id, problem_id, order_no)
+VALUES(?, ?, 1)`, otherChapterID, sharedProblemID); err != nil {
+		t.Fatalf("create other training item: %v", err)
+	}
+
+	cookie := mustLogin(t, app, "training_delete_problem_admin", "trainingdeleteproblem123")
+	deleteResp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(targetPlanID)+"?deleteProblems=1", cookie, nil)
+	if deleteResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected delete 200, got %d", deleteResp.StatusCode)
+	}
+	deleteEnv := decodeEnvelope[map[string]interface{}](t, deleteResp)
+	if deleteEnv.Data["deletedProblemCount"] != float64(1) {
+		t.Fatalf("expected one deleted problem, got %+v", deleteEnv.Data)
+	}
+
+	var exclusiveCount int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM space_problems WHERE id=?`, exclusiveProblemID).Scan(&exclusiveCount); err != nil {
+		t.Fatalf("count exclusive problem: %v", err)
+	}
+	if exclusiveCount != 0 {
+		t.Fatalf("expected exclusive problem deleted, count=%d", exclusiveCount)
+	}
+
+	var sharedCount int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM space_problems WHERE id=?`, sharedProblemID).Scan(&sharedCount); err != nil {
+		t.Fatalf("count shared problem: %v", err)
+	}
+	if sharedCount != 1 {
+		t.Fatalf("expected shared problem retained, count=%d", sharedCount)
+	}
+
+	var submissionCount int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM submissions WHERE id=?`, submissionID).Scan(&submissionCount); err != nil {
+		t.Fatalf("count exclusive submission: %v", err)
+	}
+	if submissionCount != 0 {
+		t.Fatalf("expected exclusive submission deleted, count=%d", submissionCount)
+	}
+
+	var progressCount int
+	if err := database.QueryRow(`SELECT COUNT(1) FROM user_problem_progress WHERE problem_id=? AND space_id=?`, exclusiveProblemID, spaceID).Scan(&progressCount); err != nil {
+		t.Fatalf("count exclusive progress: %v", err)
+	}
+	if progressCount != 0 {
+		t.Fatalf("expected exclusive progress deleted, count=%d", progressCount)
+	}
+}
+
 func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
 	app, database := newTestApp(t, false)
 

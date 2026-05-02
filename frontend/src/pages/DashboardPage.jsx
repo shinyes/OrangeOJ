@@ -386,6 +386,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                     onSpaceChange={setSelectedSpaceId}
                     isSystemAdmin={isSystemAdmin}
                     hasAnySpaceAdminRole={hasAnySpaceAdminRole}
+                    showManageButton={false}
                     onManage={() => navigate('/manage/space')}
                     onCreateSpace={() => openConfigModal('create-space')}
                   />

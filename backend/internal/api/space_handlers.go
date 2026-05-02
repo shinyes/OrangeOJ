@@ -438,10 +438,7 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	// Problem submission history should not block deletion. Clean dependent
 	// progress and submissions first, while keeping homework/training links as
 	// hard blockers on the problem itself.
-	if _, err := tx.Exec(`DELETE FROM user_problem_progress WHERE space_id=? AND problem_id=?`, spaceID, problemID); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(`DELETE FROM submissions WHERE space_id=? AND problem_id=?`, spaceID, problemID); err != nil {
+	if err := deleteProblemSubmissionRefsTx(tx, spaceID, problemID); err != nil {
 		return err
 	}
 

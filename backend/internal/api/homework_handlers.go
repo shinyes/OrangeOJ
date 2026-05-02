@@ -325,7 +325,22 @@ func (a *API) handleDeleteHomework(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	res, err := a.DB.Exec(`DELETE FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID)
+	deleteProblems := parseBoolQueryParam(c, "deleteProblems")
+
+	tx, err := a.DB.BeginTx(c.Context(), nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	problemIDs, err := collectHomeworkProblemIDsTx(tx, spaceID, homeworkID)
+	if err != nil {
+		return err
+	}
+	if err := deleteHomeworkOwnedRowsTx(tx, homeworkID); err != nil {
+		return err
+	}
+	res, err := tx.Exec(`DELETE FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -336,7 +351,24 @@ func (a *API) handleDeleteHomework(c *fiber.Ctx) error {
 	if affected == 0 {
 		return respondError(c, fiber.StatusNotFound, "homework not found in this space")
 	}
-	return respondData(c, fiber.Map{"ok": true})
+
+	deletedProblemCount := 0
+	problemIDs = uniquePositiveInt64s(problemIDs)
+	if deleteProblems {
+		deletedProblemCount, err = deleteUnreferencedSpaceProblemsTx(tx, spaceID, problemIDs)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return respondData(c, fiber.Map{
+		"ok":                     true,
+		"associatedProblemCount": len(problemIDs),
+		"deletedProblemCount":    deletedProblemCount,
+	})
 }
 
 func (a *API) handleAddHomeworkTarget(c *fiber.Ctx) error {

@@ -128,7 +128,7 @@ export const api = {
   createTrainingPlan: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/training-plans`, { method: 'POST', body }),
   getTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`),
   updateTrainingPlan: (spaceId, planId, body) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`, { method: 'PUT', body }),
-  deleteTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`, { method: 'DELETE' }),
+  deleteTrainingPlan: (spaceId, planId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/training-plans/${planId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
   addTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants`, { method: 'POST', body: { userId } }),
   joinTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/join`, { method: 'POST' }),
 
@@ -138,7 +138,7 @@ export const api = {
   listHomeworkSubmissionRecords: (spaceId, homeworkId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`, { all: options.all ? 1 : undefined })),
   createHomeworkSubmissionRecord: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`, { method: 'POST', body }),
   updateHomework: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { method: 'PUT', body }),
-  deleteHomework: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { method: 'DELETE' }),
+  deleteHomework: (spaceId, homeworkId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
   searchHomeworkTargetCandidates: (spaceId, homeworkId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/target-candidates`, { q: keyword })),
   addHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets`, { method: 'POST', body: { userId } }),
 

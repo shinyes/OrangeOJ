@@ -1,5 +1,20 @@
 import { api } from '../api'
 
+function countTrainingProblemIds(plan) {
+  const ids = new Set()
+  const chapters = Array.isArray(plan?.chapters) ? plan.chapters : []
+  chapters.forEach((chapter) => {
+    const items = Array.isArray(chapter?.items) ? chapter.items : []
+    items.forEach((item) => {
+      const id = Number(item?.problemId)
+      if (Number.isInteger(id) && id > 0) {
+        ids.add(id)
+      }
+    })
+  })
+  return ids.size
+}
+
 export default function useTrainingActions({
   selectedSpaceId,
   ensureCanManageSpace,
@@ -74,18 +89,38 @@ export default function useTrainingActions({
   const deleteTrainingPlan = async (planId) => {
     if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
-    if (!window.confirm(`确认删除训练计划 #${planId} 吗？`)) {
+    const plan = trainingState.trainingPlans.find((item) => item.id === planId)
+    const planLabel = plan?.title ? `「${plan.title}」(#${planId})` : `#${planId}`
+    if (!window.confirm(`确认删除训练计划 ${planLabel} 吗？`)) {
       return
     }
     try {
       setError('')
       trainingState.setTrainingActionMessage('')
-      await api.deleteTrainingPlan(selectedSpaceId, planId)
+      const detail = await api.getTrainingPlan(selectedSpaceId, planId)
+      const associatedProblemCount = countTrainingProblemIds(detail)
+      const deleteProblems = associatedProblemCount > 0
+        ? window.confirm(`是否同时从题库删除该训练关联的 ${associatedProblemCount} 道题目？\n\n确定：删除训练并删除不再被其他作业或训练引用的关联题目。\n取消：仅删除训练，保留题目。`)
+        : false
+      const result = await api.deleteTrainingPlan(selectedSpaceId, planId, { deleteProblems })
       if (trainingState.editingTrainingPlan?.id === planId) {
         trainingState.setEditingTrainingPlan(null)
       }
       await refreshSpaceData(selectedSpaceId)
-      trainingState.setTrainingActionMessage('训练计划删除成功')
+      if (deleteProblems) {
+        const deletedProblemCount = Number(result?.deletedProblemCount || 0)
+        const retainedProblemCount = Math.max(Number(result?.associatedProblemCount || associatedProblemCount) - deletedProblemCount, 0)
+        if (deletedProblemCount > 0) {
+          const retainedText = retainedProblemCount > 0 ? `，${retainedProblemCount} 道仍被其他作业或训练引用，已保留` : ''
+          trainingState.setTrainingActionMessage(`训练计划删除成功，同时删除 ${deletedProblemCount} 道关联题目${retainedText}`)
+        } else if (retainedProblemCount > 0) {
+          trainingState.setTrainingActionMessage(`训练计划删除成功，${retainedProblemCount} 道关联题目仍被其他作业或训练引用，已保留`)
+        } else {
+          trainingState.setTrainingActionMessage('训练计划删除成功')
+        }
+      } else {
+        trainingState.setTrainingActionMessage('训练计划删除成功')
+      }
     } catch (err) {
       setError(err.message)
     }

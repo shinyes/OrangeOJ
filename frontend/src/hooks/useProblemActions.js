@@ -49,6 +49,11 @@ export default function useProblemActions({
   const removeSpaceProblem = async (problemId) => {
     if (!selectedSpaceId) return
     if (!ensureCanManageSpace()) return
+    const problem = problemState.spaceProblems.find((item) => item.id === problemId)
+    const problemLabel = problem?.title ? `「${problem.title}」(#${problemId})` : `#${problemId}`
+    if (!window.confirm(`确认删除题目 ${problemLabel} 吗？删除后会同时清理该题目的提交记录。`)) {
+      return
+    }
     try {
       setError('')
       await api.deleteSpaceProblem(selectedSpaceId, problemId)
