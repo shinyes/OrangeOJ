@@ -13,6 +13,7 @@ import Container from '@mui/material/Container'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
 import ChangePasswordPanel from '../components/dashboard/ChangePasswordPanel'
+import ConfirmDialog from '../components/dashboard/ConfirmDialog'
 import DashboardDialogs from '../components/dashboard/DashboardDialogs'
 import DashboardSpaceSwitcher from '../components/dashboard/DashboardSpaceSwitcher'
 import LearningPanel from '../components/dashboard/LearningPanel'
@@ -22,6 +23,7 @@ import ToastMessage from '../components/ToastMessage'
 import useDashboardActions from '../hooks/useDashboardActions'
 import useDashboardData from '../hooks/useDashboardData'
 import useChangePasswordState from '../hooks/useChangePasswordState'
+import useConfirmDialog from '../hooks/useConfirmDialog'
 import useDashboardModalState from '../hooks/useDashboardModalState'
 import useDashboardMemberState from '../hooks/useDashboardMemberState'
 import useDashboardSearchState from '../hooks/useDashboardSearchState'
@@ -54,6 +56,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const searchState = useDashboardSearchState()
   const memberState = useDashboardMemberState()
   const passwordState = useChangePasswordState()
+  const confirmDialog = useConfirmDialog()
   const {
     spaces,
     selectedSpaceId,
@@ -225,7 +228,8 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     modalState: {
       openConfigModal,
       closeConfigModal
-    }
+    },
+    confirmAction: confirmDialog.confirm
   })
 
   useEffect(() => {
@@ -516,6 +520,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           onBatchRegister={handleBatchRegister}
           selectedSpaceId={selectedSpaceId}
         />
+        <ConfirmDialog {...confirmDialog.dialogProps} />
       </Container>
     </Box>
   )

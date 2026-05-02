@@ -27,7 +27,8 @@ export default function useProblemActions({
   setError,
   refreshSpaceData,
   problemState,
-  modalState
+  modalState,
+  confirmAction
 }) {
   const createSpaceProblem = async (problemData) => {
     if (!selectedSpaceId) return
@@ -51,7 +52,14 @@ export default function useProblemActions({
     if (!ensureCanManageSpace()) return
     const problem = problemState.spaceProblems.find((item) => item.id === problemId)
     const problemLabel = problem?.title ? `「${problem.title}」(#${problemId})` : `#${problemId}`
-    if (!window.confirm(`确认删除题目 ${problemLabel} 吗？删除后会同时清理该题目的提交记录。`)) {
+    const confirmed = await confirmAction({
+      title: '删除题目',
+      message: `确认删除题目 ${problemLabel} 吗？\n删除后会同时清理该题目的提交记录。`,
+      confirmText: '删除题目',
+      cancelText: '取消',
+      confirmColor: 'error'
+    })
+    if (!confirmed) {
       return
     }
     try {

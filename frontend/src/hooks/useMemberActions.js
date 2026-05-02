@@ -6,7 +6,8 @@ export default function useMemberActions({
   setError,
   refreshSpaces,
   refreshSpaceMemberData,
-  memberState
+  memberState,
+  confirmAction
 }) {
   const handleAddMembers = async () => {
     if (!selectedSpaceId) return
@@ -63,7 +64,13 @@ export default function useMemberActions({
     if (!ensureCanManageSpace()) return
     if (!member?.userId) return
 
-    const confirmed = window.confirm(`确认将用户 #${member.userId} ${member.username || ''} 移出当前空间？`)
+    const confirmed = await confirmAction({
+      title: '移出空间成员',
+      message: `确认将用户 #${member.userId} ${member.username || ''} 移出当前空间？`,
+      confirmText: '移出成员',
+      cancelText: '取消',
+      confirmColor: 'error'
+    })
     if (!confirmed) return
 
     try {

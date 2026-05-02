@@ -22,7 +22,8 @@ export default function useHomeworkActions({
   setError,
   refreshSpaceData,
   homeworkState,
-  modalState
+  modalState,
+  confirmAction
 }) {
   const openCreateHomeworkModal = () => {
     if (!selectedSpaceId) return
@@ -86,7 +87,14 @@ export default function useHomeworkActions({
     if (!ensureCanManageSpace()) return
     const homework = homeworkState.homeworks.find((item) => item.id === homeworkId)
     const homeworkLabel = homework?.title ? `「${homework.title}」(#${homeworkId})` : `#${homeworkId}`
-    if (!window.confirm(`确认删除作业 ${homeworkLabel} 吗？`)) {
+    const confirmed = await confirmAction({
+      title: '删除作业',
+      message: `确认删除作业 ${homeworkLabel} 吗？`,
+      confirmText: '删除作业',
+      cancelText: '取消',
+      confirmColor: 'error'
+    })
+    if (!confirmed) {
       return
     }
     try {
@@ -95,7 +103,13 @@ export default function useHomeworkActions({
       const detail = await api.getHomework(selectedSpaceId, homeworkId)
       const associatedProblemCount = countHomeworkProblemIds(detail)
       const deleteProblems = associatedProblemCount > 0
-        ? window.confirm(`是否同时从题库删除该作业关联的 ${associatedProblemCount} 道题目？\n\n确定：删除作业并删除不再被其他作业或训练引用的关联题目。\n取消：仅删除作业，保留题目。`)
+        ? await confirmAction({
+            title: '删除关联题目',
+            message: `是否同时从题库删除该作业关联的 ${associatedProblemCount} 道题目？\n\n会删除不再被其他作业或训练引用的关联题目，并连带清理提交记录。\n选择“仅删除作业”会保留题目。`,
+            confirmText: '同时删除题目',
+            cancelText: '仅删除作业',
+            confirmColor: 'error'
+          })
         : false
       const result = await api.deleteHomework(selectedSpaceId, homeworkId, { deleteProblems })
       if (homeworkState.editingHomework?.id === homeworkId) {

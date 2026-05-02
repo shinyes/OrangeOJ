@@ -21,7 +21,8 @@ export default function useTrainingActions({
   setError,
   refreshSpaceData,
   trainingState,
-  modalState
+  modalState,
+  confirmAction
 }) {
   const openCreateTrainingPlanModal = () => {
     if (!selectedSpaceId) return
@@ -91,7 +92,14 @@ export default function useTrainingActions({
     if (!ensureCanManageSpace()) return
     const plan = trainingState.trainingPlans.find((item) => item.id === planId)
     const planLabel = plan?.title ? `「${plan.title}」(#${planId})` : `#${planId}`
-    if (!window.confirm(`确认删除训练计划 ${planLabel} 吗？`)) {
+    const confirmed = await confirmAction({
+      title: '删除训练计划',
+      message: `确认删除训练计划 ${planLabel} 吗？`,
+      confirmText: '删除训练',
+      cancelText: '取消',
+      confirmColor: 'error'
+    })
+    if (!confirmed) {
       return
     }
     try {
@@ -100,7 +108,13 @@ export default function useTrainingActions({
       const detail = await api.getTrainingPlan(selectedSpaceId, planId)
       const associatedProblemCount = countTrainingProblemIds(detail)
       const deleteProblems = associatedProblemCount > 0
-        ? window.confirm(`是否同时从题库删除该训练关联的 ${associatedProblemCount} 道题目？\n\n确定：删除训练并删除不再被其他作业或训练引用的关联题目。\n取消：仅删除训练，保留题目。`)
+        ? await confirmAction({
+            title: '删除关联题目',
+            message: `是否同时从题库删除该训练关联的 ${associatedProblemCount} 道题目？\n\n会删除不再被其他作业或训练引用的关联题目，并连带清理提交记录。\n选择“仅删除训练”会保留题目。`,
+            confirmText: '同时删除题目',
+            cancelText: '仅删除训练',
+            confirmColor: 'error'
+          })
         : false
       const result = await api.deleteTrainingPlan(selectedSpaceId, planId, { deleteProblems })
       if (trainingState.editingTrainingPlan?.id === planId) {

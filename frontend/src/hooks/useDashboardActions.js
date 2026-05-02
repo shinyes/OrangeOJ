@@ -21,7 +21,8 @@ export default function useDashboardActions({
   systemState,
   passwordState,
   batchState,
-  modalState
+  modalState,
+  confirmAction
 }) {
   const ensureCanManageSpace = () => {
     if (canManageSelectedSpace) return true
@@ -35,7 +36,8 @@ export default function useDashboardActions({
     setError,
     refreshSpaceData,
     problemState,
-    modalState
+    modalState,
+    confirmAction
   })
 
   const trainingActions = useTrainingActions({
@@ -44,7 +46,8 @@ export default function useDashboardActions({
     setError,
     refreshSpaceData,
     trainingState,
-    modalState
+    modalState,
+    confirmAction
   })
 
   const homeworkActions = useHomeworkActions({
@@ -53,7 +56,8 @@ export default function useDashboardActions({
     setError,
     refreshSpaceData,
     homeworkState,
-    modalState
+    modalState,
+    confirmAction
   })
 
   const memberActions = useMemberActions({
@@ -62,7 +66,8 @@ export default function useDashboardActions({
     setError,
     refreshSpaces,
     refreshSpaceMemberData,
-    memberState
+    memberState,
+    confirmAction
   })
 
   const systemActions = useSystemActions({
