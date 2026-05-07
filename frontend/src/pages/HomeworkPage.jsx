@@ -20,6 +20,8 @@ import OutlinedFlagIcon from '@mui/icons-material/OutlinedFlag'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
+import { useAuth } from '../hooks/useAuth'
+import { homeworkDraftStorageKey } from '../utils/userScopedStorage'
 
 const sectionTitleMap = {
   single_choice: '一、单选题',
@@ -352,6 +354,7 @@ function isSubmissionRecordRouteUnavailable(error) {
 }
 
 export default function HomeworkPage() {
+  const { user } = useAuth()
   const { spaceId, homeworkId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -376,7 +379,7 @@ export default function HomeworkPage() {
   const [submittingAll, setSubmittingAll] = useState(false)
   const questionRefs = useRef({})
 
-  const draftStorageKey = `orangeoj:homework:${spaceId}:${homeworkId}:draft`
+  const draftStorageKey = homeworkDraftStorageKey(user, spaceId, homeworkId)
   const defaultBackTo = `/?spaceId=${spaceId}&tab=homework`
   const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
   const backLabel = searchParams.get('returnLabel') || '返回作业列表'
@@ -623,7 +626,7 @@ export default function HomeworkPage() {
         setLoading(false)
       }
     })()
-  }, [spaceId, homeworkId, reviewRecordId])
+  }, [spaceId, homeworkId, reviewRecordId, draftStorageKey])
 
   const updateObjectiveAnswer = (problemId, type, value) => {
     if (isReviewMode) return

@@ -39,6 +39,7 @@ import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import MarkdownContent from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
+import { homeworkDraftStorageKey } from '../utils/userScopedStorage'
 
 const editorLang = {
   cpp: 'cpp',
@@ -167,7 +168,7 @@ export default function HomeworkProgrammingPage() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
 
   const numericProblemId = Number(problemId)
-  const draftStorageKey = `orangeoj:homework:${spaceId}:${homeworkId}:draft`
+  const draftStorageKey = homeworkDraftStorageKey(user, spaceId, homeworkId)
   const defaultBackTo = `/spaces/${spaceId}/homeworks/${homeworkId}`
   const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
   const backLabel = searchParams.get('returnLabel') || '返回作业'
@@ -317,7 +318,7 @@ export default function HomeworkProgrammingPage() {
         setLoading(false)
       }
     })()
-  }, [spaceId, homeworkId, problemId, reviewSubmissionId])
+  }, [spaceId, homeworkId, problemId, reviewSubmissionId, draftStorageKey, user?.id, user?.userId, user?.username])
 
   const updateDraft = (patch) => {
     if (isReviewMode) return

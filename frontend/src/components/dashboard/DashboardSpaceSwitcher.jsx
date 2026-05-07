@@ -33,13 +33,21 @@ export default function DashboardSpaceSwitcher({
           管理
         </Button>
       )}
-      <FormControl size="small" sx={{ minWidth: 160, bgcolor: 'background.paper' }} disabled={availableSpaces.length === 0}>
+      <FormControl size="small" sx={{ minWidth: 160 }} disabled={availableSpaces.length === 0}>
         <InputLabel id={`space-select-label-${mode}`}>空间</InputLabel>
         <Select
           labelId={`space-select-label-${mode}`}
           value={selectedSpaceId || ''}
           label="空间"
           onChange={(event) => onSpaceChange(Number(event.target.value))}
+          sx={{
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            overflow: 'hidden',
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderRadius: 1
+            }
+          }}
         >
           {availableSpaces.length === 0 && (
             <MenuItem value="" disabled>

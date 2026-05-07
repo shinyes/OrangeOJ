@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
+import { selectedSpaceStorageKey } from '../utils/userScopedStorage'
 
-const SELECTED_SPACE_STORAGE_KEY = 'orangeoj:selected-space-id'
-
-function readStoredSelectedSpaceId() {
+function readStoredSelectedSpaceId(storageKey) {
   if (typeof window === 'undefined') return null
-  const raw = window.localStorage.getItem(SELECTED_SPACE_STORAGE_KEY)
+  const raw = window.localStorage.getItem(storageKey)
   const parsed = Number(raw)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
 
 export default function useDashboardData({
+  user,
   isSystemAdmin,
   isLearnView,
   isSpaceManageView,
@@ -22,8 +22,9 @@ export default function useDashboardData({
   learningHomeworkSearch,
   memberCandidateInput
 }) {
+  const selectedSpaceKey = useMemo(() => selectedSpaceStorageKey(user), [user?.id, user?.userId, user?.username])
   const [spaces, setSpaces] = useState([])
-  const [selectedSpaceId, setSelectedSpaceId] = useState(() => readStoredSelectedSpaceId())
+  const [selectedSpaceId, setSelectedSpaceId] = useState(() => readStoredSelectedSpaceId(selectedSpaceKey))
   const [spaceTab, setSpaceTab] = useState('problems')
   const [spaceManageTab, setSpaceManageTab] = useState('settings')
   const [systemTab, setSystemTab] = useState('settings')
@@ -172,13 +173,17 @@ export default function useDashboardData({
   }, [isLearnView, requestedSpaceId, spaces])
 
   useEffect(() => {
+    setSelectedSpaceId(readStoredSelectedSpaceId(selectedSpaceKey))
+  }, [selectedSpaceKey])
+
+  useEffect(() => {
     if (typeof window === 'undefined') return
     if (selectedSpaceId) {
-      window.localStorage.setItem(SELECTED_SPACE_STORAGE_KEY, String(selectedSpaceId))
+      window.localStorage.setItem(selectedSpaceKey, String(selectedSpaceId))
       return
     }
-    window.localStorage.removeItem(SELECTED_SPACE_STORAGE_KEY)
-  }, [selectedSpaceId])
+    window.localStorage.removeItem(selectedSpaceKey)
+  }, [selectedSpaceId, selectedSpaceKey])
 
   useEffect(() => {
     if (!isLearnView || !requestedSpaceTab) return

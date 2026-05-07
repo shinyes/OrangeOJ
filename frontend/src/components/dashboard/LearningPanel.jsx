@@ -10,6 +10,17 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import ToastMessage from '../ToastMessage'
 
+const learningListSx = {
+  mt: 2,
+  alignItems: 'center'
+}
+
+const learningItemPaperSx = {
+  p: 2,
+  width: '100%',
+  maxWidth: '900px'
+}
+
 export default function LearningPanel({
   selectedSpace,
   spaces,
@@ -57,14 +68,14 @@ export default function LearningPanel({
               placeholder="搜索题目（ID/标题/标签）"
               value={learningProblemSearch}
               onChange={(event) => onLearningProblemSearchChange(event.target.value)}
-              sx={{ width: 180 }}
+              sx={{ width: { xs: '100%', sm: 260 }, maxWidth: '100%' }}
             />
           </Box>
           <Stack spacing={1.5} sx={{ mt: 2, alignItems: 'center' }}>
             {filteredLearningProblems.length === 0 && (
-              <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.default' }}>
-                <Typography color="text.secondary">没有匹配题目</Typography>
-              </Paper>
+              <Typography color="text.secondary" sx={{ width: '100%', maxWidth: '900px', py: 1.5, textAlign: 'center' }}>
+                没有匹配题目
+              </Typography>
             )}
             {filteredLearningProblems.map((problem) => (
               <Card
@@ -179,66 +190,70 @@ export default function LearningPanel({
             )}
           </Box>
 
-          {filteredLearningTrainingPlans.length === 0 && (
-            <Typography color="text.secondary">暂无匹配的训练计划。</Typography>
-          )}
+          <Stack spacing={1.5} sx={learningListSx}>
+            {filteredLearningTrainingPlans.length === 0 && (
+              <Typography color="text.secondary" sx={{ width: '100%', maxWidth: '900px', py: 1.5, textAlign: 'center' }}>
+                暂无匹配的训练计划。
+              </Typography>
+            )}
 
-          {filteredLearningTrainingPlans.map((plan) => {
-            const isPublic = plan.isPublic !== false
-            const isJoined = plan.joined === true
-            const showEnterTraining = canManageSelectedSpace || isJoined
-            const showJoinTraining = !canManageSelectedSpace && !isJoined
+            {filteredLearningTrainingPlans.map((plan) => {
+              const isPublic = plan.isPublic !== false
+              const isJoined = plan.joined === true
+              const showEnterTraining = canManageSelectedSpace || isJoined
+              const showJoinTraining = !canManageSelectedSpace && !isJoined
 
-            return (
-              <Paper key={plan.id} variant="outlined" sx={{ p: 2, mb: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                  <Box>
-                    <Typography variant="subtitle2">{plan.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {isPublic ? '公开训练' : '隐藏训练'} | {plan.allowSelfJoin ? '允许自行加入' : '仅管理员分配'} | {plan.published || plan.publishedAt ? '已发布' : '未发布'}
-                    </Typography>
+              return (
+                <Paper key={plan.id} variant="outlined" sx={learningItemPaperSx}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="subtitle2" sx={{ wordBreak: 'break-word' }}>{plan.title}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {isPublic ? '公开训练' : '隐藏训练'} | {plan.allowSelfJoin ? '允许自行加入' : '仅管理员分配'} | {plan.published || plan.publishedAt ? '已发布' : '未发布'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {showEnterTraining && (
+                        <Button
+                          size="small"
+                          component={Link}
+                          to={`/spaces/${selectedSpace.id}/training-plans/${plan.id}`}
+                          variant="contained"
+                        >
+                          进入训练
+                        </Button>
+                      )}
+                      {showJoinTraining && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => onJoinTrainingPlan(plan.id)}
+                          disabled={!plan.allowSelfJoin}
+                        >
+                          {plan.allowSelfJoin ? '加入训练' : '需管理员分配'}
+                        </Button>
+                      )}
+                      {canManageSelectedSpace && (
+                        <Button size="small" variant="outlined" onClick={() => onOpenAssignTrainingParticipant(plan.id)}>
+                          分配用户
+                        </Button>
+                      )}
+                      {canManageSelectedSpace && (
+                        <Button size="small" variant="outlined" onClick={() => onOpenEditTrainingPlan(plan.id)}>
+                          编辑
+                        </Button>
+                      )}
+                      {canManageSelectedSpace && (
+                        <Button size="small" color="error" variant="outlined" onClick={() => onDeleteTrainingPlan(plan.id)}>
+                          删除
+                        </Button>
+                      )}
+                    </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {showEnterTraining && (
-                      <Button
-                        size="small"
-                        component={Link}
-                        to={`/spaces/${selectedSpace.id}/training-plans/${plan.id}`}
-                        variant="contained"
-                      >
-                        进入训练
-                      </Button>
-                    )}
-                    {showJoinTraining && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => onJoinTrainingPlan(plan.id)}
-                        disabled={!plan.allowSelfJoin}
-                      >
-                        {plan.allowSelfJoin ? '加入训练' : '需管理员分配'}
-                      </Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="small" variant="outlined" onClick={() => onOpenAssignTrainingParticipant(plan.id)}>
-                        分配用户
-                      </Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="small" variant="outlined" onClick={() => onOpenEditTrainingPlan(plan.id)}>
-                        编辑
-                      </Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="small" color="error" variant="outlined" onClick={() => onDeleteTrainingPlan(plan.id)}>
-                        删除
-                      </Button>
-                    )}
-                  </Box>
-                </Box>
-              </Paper>
-            )
-          })}
+                </Paper>
+              )
+            })}
+          </Stack>
 
           {trainingActionMessage && <ToastMessage message={trainingActionMessage} severity="success" />}
         </div>
@@ -261,62 +276,66 @@ export default function LearningPanel({
             )}
           </Box>
 
-          {filteredLearningHomeworks.length === 0 && (
-            <Typography color="text.secondary">暂无匹配的作业。</Typography>
-          )}
+          <Stack spacing={1.5} sx={learningListSx}>
+            {filteredLearningHomeworks.length === 0 && (
+              <Typography color="text.secondary" sx={{ width: '100%', maxWidth: '900px', py: 1.5, textAlign: 'center' }}>
+                暂无匹配的作业。
+              </Typography>
+            )}
 
-          {filteredLearningHomeworks.map((homework) => (
-            <Paper key={homework.id} variant="outlined" sx={{ p: 2, mb: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                <Box>
-                  <Typography variant="subtitle2">{homework.title}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {homework.published ? '已发布' : '草稿'}
-                    {homework.displayMode === 'list' ? ' | 题单模式' : ' | 试卷模式'}
-                    {homework.dueAt ? ` | 截止：${homework.dueAt}` : ' | 未设置截止时间'}
-                    {typeof homework.itemCount === 'number' ? ` | ${homework.itemCount} 道题` : ''}
-                    {typeof homework.targetCount === 'number' ? ` | ${homework.targetCount} 名目标用户` : ''}
-                    {!canManageSelectedSpace && homework.assigned ? ' | 已分配给我' : ''}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    component={Link}
-                    to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}`}
-                  >
-                    进入作业
-                  </Button>
-                  {canManageSelectedSpace && (
+            {filteredLearningHomeworks.map((homework) => (
+              <Paper key={homework.id} variant="outlined" sx={learningItemPaperSx}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="subtitle2" sx={{ wordBreak: 'break-word' }}>{homework.title}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {homework.published ? '已发布' : '草稿'}
+                      {homework.displayMode === 'list' ? ' | 题单模式' : ' | 试卷模式'}
+                      {homework.dueAt ? ` | 截止：${homework.dueAt}` : ' | 未设置截止时间'}
+                      {typeof homework.itemCount === 'number' ? ` | ${homework.itemCount} 道题` : ''}
+                      {typeof homework.targetCount === 'number' ? ` | ${homework.targetCount} 名目标用户` : ''}
+                      {!canManageSelectedSpace && homework.assigned ? ' | 已分配给我' : ''}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Button
                       size="small"
-                      variant="outlined"
+                      variant="contained"
                       component={Link}
-                      to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}/submission-records?returnTo=${encodeURIComponent(`/?spaceId=${selectedSpace.id}&tab=homework`)}&returnLabel=${encodeURIComponent('返回作业列表')}`}
+                      to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}`}
                     >
-                      提交记录
+                      进入作业
                     </Button>
-                  )}
-                  {canManageSelectedSpace && (
-                    <Button size="small" variant="outlined" onClick={() => onOpenAssignHomeworkTarget(homework.id)}>
-                      分配用户
-                    </Button>
-                  )}
-                  {canManageSelectedSpace && (
-                    <Button size="small" variant="outlined" onClick={() => onOpenEditHomework(homework.id)}>
-                      编辑
-                    </Button>
-                  )}
-                  {canManageSelectedSpace && (
-                    <Button size="small" color="error" variant="outlined" onClick={() => onDeleteHomework(homework.id)}>
-                      删除
-                    </Button>
-                  )}
+                    {canManageSelectedSpace && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        component={Link}
+                        to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}/submission-records?returnTo=${encodeURIComponent(`/?spaceId=${selectedSpace.id}&tab=homework`)}&returnLabel=${encodeURIComponent('返回作业列表')}`}
+                      >
+                        提交记录
+                      </Button>
+                    )}
+                    {canManageSelectedSpace && (
+                      <Button size="small" variant="outlined" onClick={() => onOpenAssignHomeworkTarget(homework.id)}>
+                        分配用户
+                      </Button>
+                    )}
+                    {canManageSelectedSpace && (
+                      <Button size="small" variant="outlined" onClick={() => onOpenEditHomework(homework.id)}>
+                        编辑
+                      </Button>
+                    )}
+                    {canManageSelectedSpace && (
+                      <Button size="small" color="error" variant="outlined" onClick={() => onDeleteHomework(homework.id)}>
+                        删除
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
-            </Paper>
-          ))}
+              </Paper>
+            ))}
+          </Stack>
 
           {homeworkActionMessage && <ToastMessage message={homeworkActionMessage} severity="success" />}
         </div>

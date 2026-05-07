@@ -42,6 +42,7 @@ import Snackbar from '@mui/material/Snackbar'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
+import { codeDraftStorageKey } from '../utils/userScopedStorage'
 
 const editorLang = {
   cpp: 'cpp',
@@ -212,7 +213,7 @@ export default function CodingPage() {
         setLanguage(defaultLanguage)
         setProblem(data)
         if (data.type === 'programming') {
-          const key = `orangeoj:code:${spaceId}:${problemId}:${defaultLanguage}`
+          const key = codeDraftStorageKey(user, spaceId, problemId, defaultLanguage)
           const cached = localStorage.getItem(key)
           setCode(cached || pickStarter(data.bodyJson, defaultLanguage))
         }
@@ -233,14 +234,14 @@ export default function CodingPage() {
         setLoading(false)
       }
     })()
-  }, [spaceId, problemId])
+  }, [spaceId, problemId, user?.id, user?.userId, user?.username])
 
   useEffect(() => {
     if (!problem || problem.type !== 'programming') return
-    const key = `orangeoj:code:${spaceId}:${problemId}:${language}`
+    const key = codeDraftStorageKey(user, spaceId, problemId, language)
     const cached = localStorage.getItem(key)
     setCode(cached || pickStarter(problem.bodyJson, language))
-  }, [language, problem, spaceId, problemId])
+  }, [language, problem, spaceId, problemId, user?.id, user?.userId, user?.username])
 
   const handleRunClick = () => {
     setShowCustomInputDialog(true)
@@ -252,9 +253,7 @@ export default function CodingPage() {
   }
 
   const saveDraft = () => {
-    const key = spaceId
-      ? `orangeoj:code:${spaceId}:${problemId}:${language}`
-      : `orangeoj:code:root:${problemId}:${language}`
+    const key = codeDraftStorageKey(user, spaceId, problemId, language)
     localStorage.setItem(key, code)
     setConsoleText((prev) => `${prev}\n[${nowTimeText()}] 草稿已保存到本地`)
   }

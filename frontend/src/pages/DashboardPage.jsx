@@ -87,6 +87,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     refreshSpaceData,
     refreshSpaceMemberData
   } = useDashboardData({
+    user,
     isSystemAdmin,
     isLearnView,
     isSpaceManageView,
