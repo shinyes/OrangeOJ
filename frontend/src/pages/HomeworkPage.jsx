@@ -764,6 +764,18 @@ export default function HomeworkPage() {
         setSubmissionRecordUnavailable(true)
         markDraftSaved(`已提交 ${objectiveCount} 道客观题，${programmingCount} 道编程题已进入判题队列；当前后端未启用作业提交记录接口，所以这次不会出现在左侧记录列表中`)
       }
+
+      localStorage.removeItem(draftStorageKey)
+      const emptyStored = { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
+      const freshDraft = buildInitialDraft(
+        homework?.items || [],
+        problemsById,
+        {},
+        emptyStored,
+        normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
+      )
+      setDraft(freshDraft)
+      setSubmissionsByProblemId({})
     } catch (err) {
       setError(err.message || '提交作业失败')
     } finally {
@@ -869,7 +881,7 @@ export default function HomeworkPage() {
           ) : null}
         </Stack>
       ) : (
-        <Stack spacing={1.25} sx={{ maxHeight: 360, overflowY: 'auto', pr: 0.5 }}>
+        <Stack spacing={0.75} sx={{ maxHeight: 260, overflowY: 'auto', pr: 0.5 }}>
           {submissionRecords.map((record) => {
             const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(record)
             return (
@@ -878,7 +890,7 @@ export default function HomeworkPage() {
                 variant="outlined"
                 onClick={() => openRecordReview(record)}
                 sx={{
-                  p: 1.25,
+                  p: 0.75,
                   borderRadius: 2,
                   cursor: 'pointer',
                   transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
@@ -889,7 +901,7 @@ export default function HomeworkPage() {
                   }
                 }}
               >
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
                   {formatDateTime(record.createdAt)}
                 </Typography>
 
@@ -1223,7 +1235,7 @@ export default function HomeworkPage() {
 
       {homeworkDisplayMode === 'exam' ? (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', p: { xs: 1.25, md: 1.5 }, gap: 1.5, flexDirection: { xs: 'column', md: 'row' } }}>
-          <Box sx={{ width: { xs: '100%', md: 250 }, position: { md: 'sticky' }, top: { md: 72 }, alignSelf: 'flex-start' }}>
+          <Box sx={{ width: { xs: '100%', md: 250 }, position: { md: 'sticky' }, top: { md: 72 }, alignSelf: 'flex-start', maxHeight: { md: 'calc(100vh - 88px)' }, overflowY: { md: 'auto' } }}>
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             {renderQuestionNavigatorPanel()}
           </Box>
@@ -1259,7 +1271,7 @@ export default function HomeworkPage() {
             gap: 1.5
           }}
         >
-          <Box sx={{ position: { md: 'sticky' }, top: { md: 72 }, alignSelf: 'flex-start' }}>
+          <Box sx={{ position: { md: 'sticky' }, top: { md: 72 }, alignSelf: 'flex-start', maxHeight: { md: 'calc(100vh - 88px)' }, overflowY: { md: 'auto' } }}>
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             {renderQuestionStatusPanel()}
           </Box>
