@@ -1,17 +1,12 @@
-import React, { Component } from 'react'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
+import { Component } from 'react'
+import { Button } from './ui/button'
+import { Alert, AlertTitle, AlertDescription } from './ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null
-    }
+    this.state = { hasError: false, error: null, errorInfo: null }
   }
 
   static getDerivedStateFromError(error) {
@@ -31,32 +26,16 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            gap: 3,
-            p: 3
-          }}
-        >
-          <Alert severity="error" sx={{ maxWidth: 600, width: '100%' }}>
-            <Typography variant="h6" gutterBottom>
-              出错了
-            </Typography>
-            <Typography variant="body2" paragraph>
-              {this.state.error?.toString()}
-            </Typography>
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+          <Alert variant="destructive" className="max-w-xl w-full">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>出错了</AlertTitle>
+            <AlertDescription>{this.state.error?.toString()}</AlertDescription>
           </Alert>
-          <Button variant="contained" onClick={this.handleReset}>
-            返回首页
-          </Button>
-        </Box>
+          <Button onClick={this.handleReset}>返回首页</Button>
+        </div>
       )
     }
-
     return this.props.children
   }
 }

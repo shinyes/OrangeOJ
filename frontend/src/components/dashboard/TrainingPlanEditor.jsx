@@ -1,76 +1,35 @@
 import { useEffect, useMemo, useState } from 'react'
-import Autocomplete from '@mui/material/Autocomplete'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Checkbox from '@mui/material/Checkbox'
-import Chip from '@mui/material/Chip'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import IconButton from '@mui/material/IconButton'
-import Paper from '@mui/material/Paper'
-import Stack from '@mui/material/Stack'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
-import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
-import AddIcon from '@mui/icons-material/Add'
-import RemoveIcon from '@mui/icons-material/Remove'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Textarea } from '../ui/textarea'
+import { Checkbox } from '../ui/checkbox'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
+import { Plus, Trash2 } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { parseProblemDraftArray } from '../../utils/problemDrafts'
 
 function blankChapter(index) {
-  return {
-    title: `第 ${index + 1} 章`,
-    problemIds: [],
-    problemSourceMode: 'manual',
-    problemDraftsJSON: ''
-  }
+  return { title: `第 ${index + 1} 章`, problemIds: [], problemSourceMode: 'manual', problemDraftsJSON: '' }
 }
 
 function normalizeProblemIds(chapter) {
-  if (Array.isArray(chapter?.problemIds)) {
-    return chapter.problemIds
-      .map((item) => Number(item))
-      .filter((item) => Number.isInteger(item) && item > 0)
-  }
-  if (Array.isArray(chapter?.items)) {
-    return chapter.items
-      .map((item) => Number(item?.problemId))
-      .filter((item) => Number.isInteger(item) && item > 0)
-  }
+  if (Array.isArray(chapter?.problemIds)) return chapter.problemIds.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+  if (Array.isArray(chapter?.items)) return chapter.items.map((item) => Number(item?.problemId)).filter((item) => Number.isInteger(item) && item > 0)
   return []
 }
 
 function buildInitialForm(plan) {
   const chapters = Array.isArray(plan?.chapters)
     ? plan.chapters.map((chapter, index) => ({
-        title: String(chapter?.title || `第 ${index + 1} 章`),
-        problemIds: normalizeProblemIds(chapter),
-        problemSourceMode: 'manual',
-        problemDraftsJSON: ''
+        title: String(chapter?.title || `第 ${index + 1} 章`), problemIds: normalizeProblemIds(chapter),
+        problemSourceMode: 'manual', problemDraftsJSON: ''
       }))
     : [blankChapter(0)]
-
-  return {
-    title: String(plan?.title || ''),
-    allowSelfJoin: plan?.allowSelfJoin !== false,
-    isPublic: plan?.isPublic !== false,
-    published: Boolean(plan?.published ?? plan?.publishedAt),
-    chapters
-  }
+  return { title: String(plan?.title || ''), allowSelfJoin: plan?.allowSelfJoin !== false, isPublic: plan?.isPublic !== false, published: Boolean(plan?.published ?? plan?.publishedAt), chapters }
 }
 
-export default function TrainingPlanEditor({
-  open,
-  mode = 'create',
-  plan = null,
-  problemOptions = [],
-  onClose,
-  onSubmit
-}) {
+export default function TrainingPlanEditor({ open, mode = 'create', plan = null, problemOptions = [], onClose, onSubmit }) {
   const isEditMode = mode === 'edit'
   const [form, setForm] = useState(() => buildInitialForm(plan))
   const [submitting, setSubmitting] = useState(false)
@@ -78,289 +37,158 @@ export default function TrainingPlanEditor({
 
   useEffect(() => {
     if (!open) return
-    setForm(buildInitialForm(plan))
-    setSubmitting(false)
-    setSubmitError('')
+    setForm(buildInitialForm(plan)); setSubmitting(false); setSubmitError('')
   }, [open, plan, mode])
 
   const problemMap = useMemo(() => {
     const map = new Map()
-    problemOptions.forEach((problem) => {
-      map.set(problem.id, problem)
-    })
+    problemOptions.forEach((problem) => { map.set(problem.id, problem) })
     return map
   }, [problemOptions])
 
   const resolveProblemOption = (problemId) => {
     const matched = problemMap.get(problemId)
-    if (matched) {
-      return matched
-    }
-    return {
-      id: problemId,
-      title: `题目 ${problemId}`
-    }
+    return matched || { id: problemId, title: `题目 ${problemId}` }
   }
 
-  const updateField = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value
-    }))
-  }
+  const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }))
+  const updateChapter = (index, patch) => setForm((current) => ({ ...current, chapters: current.chapters.map((chapter, i) => i !== index ? chapter : { ...chapter, ...patch }) }))
+  const addChapter = () => setForm((current) => ({ ...current, chapters: [...current.chapters, blankChapter(current.chapters.length)] }))
+  const removeChapter = (index) => setForm((current) => ({ ...current, chapters: current.chapters.filter((_, i) => i !== index) }))
 
-  const updateChapter = (index, patch) => {
-    setForm((current) => ({
-      ...current,
-      chapters: current.chapters.map((chapter, chapterIndex) => {
-        if (chapterIndex !== index) return chapter
-        return {
-          ...chapter,
-          ...patch
-        }
-      })
-    }))
-  }
-
-  const addChapter = () => {
-    setForm((current) => ({
-      ...current,
-      chapters: [...current.chapters, blankChapter(current.chapters.length)]
-    }))
-  }
-
-  const removeChapter = (index) => {
-    setForm((current) => ({
-      ...current,
-      chapters: current.chapters.filter((_, chapterIndex) => chapterIndex !== index)
-    }))
-  }
-
-  const handleClose = () => {
-    if (submitting) return
-    setSubmitError('')
-    onClose()
-  }
+  const handleClose = () => { if (submitting) return; setSubmitError(''); onClose() }
 
   const handleSubmit = async () => {
     const title = form.title.trim()
-    if (!title) {
-      setSubmitError('训练标题不能为空')
-      return
-    }
+    if (!title) { setSubmitError('训练标题不能为空'); return }
 
     let chapters
     try {
       chapters = form.chapters.map((chapter, index) => {
-        const normalizedChapter = {
-          title: String(chapter.title || '').trim() || `第 ${index + 1} 章`,
-          orderNo: index + 1,
-          problemIds: [],
-          problemDrafts: []
-        }
-
-        if (!isEditMode && chapter.problemSourceMode === 'import') {
-          normalizedChapter.problemDrafts = parseProblemDraftArray(chapter.problemDraftsJSON)
-          return normalizedChapter
-        }
-
+        const normalizedChapter = { title: String(chapter.title || '').trim() || `第 ${index + 1} 章`, orderNo: index + 1, problemIds: [], problemDrafts: [] }
+        if (!isEditMode && chapter.problemSourceMode === 'import') { normalizedChapter.problemDrafts = parseProblemDraftArray(chapter.problemDraftsJSON); return normalizedChapter }
         normalizedChapter.problemIds = normalizeProblemIds(chapter)
         return normalizedChapter
       })
-    } catch (err) {
-      setSubmitError(err.message || '题目 JSON 数组不合法')
-      return
-    }
+    } catch (err) { setSubmitError(err.message || '题目 JSON 数组不合法'); return }
 
-    try {
-      setSubmitting(true)
-      setSubmitError('')
-      await onSubmit({
-        title,
-        allowSelfJoin: form.allowSelfJoin,
-        isPublic: form.isPublic,
-        published: form.published,
-        chapters
-      })
-      onClose()
-    } catch (err) {
-      setSubmitError(err.message || '保存失败')
-    } finally {
-      setSubmitting(false)
-    }
+    try { setSubmitting(true); setSubmitError(''); await onSubmit({ title, allowSelfJoin: form.allowSelfJoin, isPublic: form.isPublic, published: form.published, chapters }); onClose() }
+    catch (err) { setSubmitError(err.message || '保存失败') }
+    finally { setSubmitting(false) }
   }
 
+  // Helper for searchable problem select
+  const [searchInputs, setSearchInputs] = useState({})
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle>{isEditMode ? '编辑训练计划' : '创建训练计划'}</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} sx={{ pt: 1 }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{isEditMode ? '编辑训练计划' : '创建训练计划'}</DialogTitle></DialogHeader>
+
+        <div className="flex flex-col gap-4 pt-2">
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
-          <TextField
-            fullWidth
-            size="small"
-            label="训练标题"
-            value={form.title}
-            onChange={(event) => updateField('title', event.target.value)}
-          />
+          <Input placeholder="训练标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
 
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <FormControlLabel
-              control={(
-                <Checkbox
-                  checked={form.allowSelfJoin}
-                  onChange={(event) => updateField('allowSelfJoin', event.target.checked)}
-                />
-              )}
-              label="允许成员自行加入"
-            />
-            <FormControlLabel
-              control={(
-                <Checkbox
-                  checked={form.isPublic}
-                  onChange={(event) => updateField('isPublic', event.target.checked)}
-                />
-              )}
-              label="公开训练（普通成员可见）"
-            />
-            <FormControlLabel
-              control={(
-                <Checkbox
-                  checked={form.published}
-                  onChange={(event) => updateField('published', event.target.checked)}
-                />
-              )}
-              label="立即发布"
-            />
-          </Box>
+          <div className="flex gap-4 flex-wrap">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={form.allowSelfJoin} onCheckedChange={(checked) => updateField('allowSelfJoin', checked)} />
+              允许成员自行加入
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={form.isPublic} onCheckedChange={(checked) => updateField('isPublic', checked)} />
+              公开训练（普通成员可见）
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={form.published} onCheckedChange={(checked) => updateField('published', checked)} />
+              立即发布
+            </label>
+          </div>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="subtitle2">章节</Typography>
-            <Button size="small" startIcon={<AddIcon />} onClick={addChapter}>
-              添加章节
-            </Button>
-          </Box>
+          <div className="flex justify-between items-center">
+            <h4 className="text-sm font-medium">章节</h4>
+            <Button size="sm" variant="outline" onClick={addChapter}><Plus className="h-4 w-4 mr-1" />添加章节</Button>
+          </div>
 
           {form.chapters.length === 0 && (
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography color="text.secondary">当前没有章节，点击“添加章节”开始配置。</Typography>
-            </Paper>
+            <div className="border rounded-lg p-4 text-center text-sm text-muted-foreground">当前没有章节，点击"添加章节"开始配置。</div>
           )}
 
           {form.chapters.map((chapter, index) => (
-            <Paper key={index} variant="outlined" sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle2">章节 {index + 1}</Typography>
-                <IconButton size="small" color="error" onClick={() => removeChapter(index)}>
-                  <RemoveIcon fontSize="small" />
-                </IconButton>
-              </Box>
-
-              <Stack spacing={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="章节标题"
-                  value={chapter.title}
-                  onChange={(event) => updateChapter(index, { title: event.target.value })}
-                />
+            <div key={index} className="border rounded-lg p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-sm font-medium">章节 {index + 1}</h4>
+                <Button size="sm" variant="ghost" onClick={() => removeChapter(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </div>
+              <div className="flex flex-col gap-3">
+                <Input placeholder="章节标题" value={chapter.title} onChange={(e) => updateChapter(index, { title: e.target.value })} />
 
                 {!isEditMode && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                      本章节题目来源
-                    </Typography>
-                    <Tabs
-                      value={chapter.problemSourceMode || 'manual'}
-                      onChange={(event, value) => {
-                        if (!value) return
-                        updateChapter(index, { problemSourceMode: value })
-                        setSubmitError('')
-                      }}
-                      variant="fullWidth"
-                      sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
-                    >
-                      <Tab label="从题库选题" value="manual" />
-                      <Tab label="导入题目 JSON 数组" value="import" />
+                  <div>
+                    <Tabs value={chapter.problemSourceMode || 'manual'} onValueChange={(v) => { if (v) updateChapter(index, { problemSourceMode: v }); setSubmitError('') }}>
+                      <TabsList className="w-full">
+                        <TabsTrigger value="manual" className="flex-1">从题库选题</TabsTrigger>
+                        <TabsTrigger value="import" className="flex-1">导入题目 JSON 数组</TabsTrigger>
+                      </TabsList>
                     </Tabs>
-                  </Box>
+                  </div>
                 )}
 
                 {!isEditMode && chapter.problemSourceMode === 'import' ? (
-                  <>
-                    <Typography variant="caption" color="text.secondary">
-                      这里接收本章节题目的 JSON 数组。每一项对应一题，字段与题目编辑器 JSON 模式一致。
-                      保存后会先在当前空间自动创建这些题目，再按数组顺序挂到本章节下。
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="章节题目 JSON 数组"
-                      value={chapter.problemDraftsJSON || ''}
-                      onChange={(event) => updateChapter(index, { problemDraftsJSON: event.target.value })}
-                      multiline
-                      minRows={10}
-                      InputProps={{ sx: { fontFamily: 'monospace' } }}
-                      helperText={'示例：[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'}
-                    />
-                  </>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">这里接收本章节题目的 JSON 数组。每一项对应一题，字段与题目编辑器 JSON 模式一致。</p>
+                    <Textarea className="font-mono min-h-[200px]" value={chapter.problemDraftsJSON || ''}
+                      onChange={(e) => updateChapter(index, { problemDraftsJSON: e.target.value })}
+                      placeholder={'[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'} />
+                  </div>
                 ) : (
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={problemOptions}
-                    value={chapter.problemIds.map((problemId) => resolveProblemOption(problemId))}
-                    onChange={(event, value) => updateChapter(index, { problemIds: value.map((item) => item.id) })}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    getOptionLabel={(option) => `#${option.id} ${option.title}`}
-                    filterSelectedOptions
-                    filterOptions={(options, state) => {
-                      const keyword = state.inputValue.trim().toLowerCase()
-                      if (!keyword) {
-                        return []
-                      }
-                      return options.filter((option) => {
-                        const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
-                        return (
-                          String(option.id).includes(keyword) ||
-                          String(option.title || '').toLowerCase().includes(keyword) ||
-                          tagsText.includes(keyword)
-                        )
-                      })
-                    }}
-                    noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
-                    renderTags={(value, getTagProps) => value.map((option, itemIndex) => {
-                      const { key, ...tagProps } = getTagProps({ index: itemIndex })
-                      return (
-                        <Chip
-                          key={key || option.id}
-                          size="small"
-                          label={`#${option.id} ${option.title}`}
-                          {...tagProps}
-                        />
-                      )
-                    })}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="章节题目"
-                        placeholder="输入题号、标题或标签搜索"
-                      />
+                  <div>
+                    <label className="text-xs font-medium mb-1 block">章节题目</label>
+                    <Input placeholder="输入题号、标题或标签搜索" className="mb-2"
+                      value={searchInputs[index] || ''}
+                      onChange={(e) => { setSearchInputs({ ...searchInputs, [index]: e.target.value }) }} />
+                    {searchInputs[index]?.trim() && (
+                      <div className="border rounded-lg max-h-40 overflow-y-auto mb-2">
+                        {problemOptions.filter((p) => {
+                          const kw = searchInputs[index].trim().toLowerCase()
+                          const tagsText = (p.tags || []).join(' ').toLowerCase()
+                          return String(p.id).includes(kw) || p.title.toLowerCase().includes(kw) || tagsText.includes(kw)
+                        }).slice(0, 20).map((p) => (
+                          <div key={p.id} className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent"
+                            onClick={() => {
+                              updateChapter(index, { problemIds: [...chapter.problemIds, p.id].filter((id, i, arr) => arr.indexOf(id) === i) })
+                              setSearchInputs({ ...searchInputs, [index]: '' })
+                            }}>
+                            #{p.id} {p.title}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  />
+                    <div className="flex flex-wrap gap-1">
+                      {chapter.problemIds.map((problemId, itemIndex) => {
+                        const p = resolveProblemOption(problemId)
+                        return (
+                          <span key={problemId} className="inline-flex items-center gap-1 bg-muted px-2 py-0.5 rounded text-xs cursor-pointer"
+                            onClick={() => updateChapter(index, { problemIds: chapter.problemIds.filter((id) => id !== problemId) })}>
+                            #{p.id} {p.title} ×
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )}
-              </Stack>
-            </Paper>
+              </div>
+            </div>
           ))}
-        </Stack>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? '保存中...' : (isEditMode ? '保存修改' : '创建计划')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={submitting}>取消</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? '保存中...' : (isEditMode ? '保存修改' : '创建计划')}
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }

@@ -1,127 +1,87 @@
-import { useState } from 'react'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Typography from '@mui/material/Typography'
-import Paper from '@mui/material/Paper'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import Tabs from '@mui/material/Tabs'
-import Tab from '@mui/material/Tab'
-import IconButton from '@mui/material/IconButton'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import ToastMessage from '../ToastMessage'
+import { Button } from '../ui/button'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
+import { Copy } from 'lucide-react'
 
 export default function SystemPanel({
-  systemTab,
-  onSystemTabChange,
-  registrationEnabled,
-  onToggleRegistration,
-  adminResetMessage,
-  onOpenAdminResetDialog,
-  batchResult,
-  onOpenBatchRegisterDialog,
-  onCopyBatchResult,
-  toFriendlyError
+  systemTab, onSystemTabChange, registrationEnabled, onToggleRegistration,
+  adminResetMessage, onOpenAdminResetDialog, batchResult, onOpenBatchRegisterDialog,
+  onCopyBatchResult, toFriendlyError
 }) {
-  const handleTabChange = (event, newValue) => {
-    onSystemTabChange(newValue)
-  }
-
   return (
-    <Paper sx={{ p: 3 }}>
-      <Tabs value={systemTab} onChange={handleTabChange} sx={{ mb: 3 }}>
-        <Tab label="系统设置" value="settings" />
-        <Tab label="账号维护" value="account" />
-        <Tab label="批量注册" value="batch" />
-      </Tabs>
+    <div className="border rounded-xl p-6 bg-background">
+      <Tabs value={systemTab} onValueChange={onSystemTabChange}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="settings">系统设置</TabsTrigger>
+          <TabsTrigger value="account">账号维护</TabsTrigger>
+          <TabsTrigger value="batch">批量注册</TabsTrigger>
+        </TabsList>
 
-      {systemTab === 'settings' && (
-        <Box>
-          <Typography variant="h6" gutterBottom>系统设置</Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2 }}>
-            <Typography>注册开关</Typography>
-            <Button 
-              variant={registrationEnabled ? 'contained' : 'outlined'}
-              onClick={onToggleRegistration}
-            >
+        <TabsContent value="settings">
+          <h2 className="text-lg font-semibold mb-4">系统设置</h2>
+          <div className="flex justify-between items-center py-3">
+            <span>注册开关</span>
+            <Button variant={registrationEnabled ? 'default' : 'outline'} onClick={onToggleRegistration}>
               {registrationEnabled ? '已开启（点击关闭）' : '已关闭（点击开启）'}
             </Button>
-          </Box>
-        </Box>
-      )}
+          </div>
+        </TabsContent>
 
-      {systemTab === 'account' && (
-        <Box>
-          <Typography variant="h6" gutterBottom>重置用户密码</Typography>
-          <Typography color="text.secondary" paragraph>
+        <TabsContent value="account">
+          <h2 className="text-lg font-semibold mb-2">重置用户密码</h2>
+          <p className="text-sm text-muted-foreground mb-4">
             系统管理员可将任意用户密码重置为 123456。
-          </Typography>
-          <Button variant="contained" onClick={onOpenAdminResetDialog}>
-            打开重置弹窗
-          </Button>
-          {adminResetMessage && <ToastMessage message={adminResetMessage} severity="success" />}
-        </Box>
-      )}
+          </p>
+          <Button onClick={onOpenAdminResetDialog}>打开重置弹窗</Button>
+        </TabsContent>
 
-      {systemTab === 'batch' && (
-        <Box>
-          <Typography variant="h6" gutterBottom>批量注册用户</Typography>
-          <Typography color="text.secondary" paragraph>
+        <TabsContent value="batch">
+          <h2 className="text-lg font-semibold mb-2">批量注册用户</h2>
+          <p className="text-sm text-muted-foreground mb-4">
             通过弹窗录入批量账号，提交后结果会展示在下方。
-          </Typography>
-          <Button variant="contained" onClick={onOpenBatchRegisterDialog}>
-            打开批量注册弹窗
-          </Button>
+          </p>
+          <Button onClick={onOpenBatchRegisterDialog}>打开批量注册弹窗</Button>
 
           {batchResult && (
-            <Box sx={{ mt: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle2">
+            <div className="mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-sm font-medium">
                   总计 {batchResult.total}条，成功{batchResult.successCount}条，失败{batchResult.failureCount}条
-                </Typography>
-                <IconButton onClick={onCopyBatchResult} size="small">
-                  <ContentCopyIcon fontSize="small" />
-                </IconButton>
-              </Box>
-              <Table size="small">
-                <TableHead>
+                </span>
+                <Button size="sm" variant="ghost" onClick={onCopyBatchResult}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell>行号</TableCell>
-                    <TableCell>用户名</TableCell>
-                    <TableCell>结果</TableCell>
-                    <TableCell>说明</TableCell>
+                    <TableHead>行号</TableHead>
+                    <TableHead>用户名</TableHead>
+                    <TableHead>结果</TableHead>
+                    <TableHead>说明</TableHead>
                   </TableRow>
-                </TableHead>
+                </TableHeader>
                 <TableBody>
                   {batchResult.results.map((row) => (
                     <TableRow key={row.index}>
                       <TableCell>{row.index}</TableCell>
                       <TableCell>{row.username || '(空)'}</TableCell>
                       <TableCell>
-                        <Typography 
-                          color={row.success ? 'success.main' : 'error.main'}
-                          fontWeight="bold"
-                        >
+                        <span className={row.success ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
                           {row.success ? '成功' : '失败'}
-                        </Typography>
+                        </span>
                       </TableCell>
                       <TableCell>
-                        {row.success 
-                          ? `用户 ID: ${row.userId}`
-                          : toFriendlyError(row.reason || '未知错误')
-                        }
+                        {row.success ? `用户 ID: ${row.userId}` : toFriendlyError(row.reason || '未知错误')}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </Box>
+            </div>
           )}
-        </Box>
-      )}
-    </Paper>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

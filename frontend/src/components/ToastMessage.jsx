@@ -12,9 +12,7 @@ export default function ToastMessage({
 
   useEffect(() => {
     const text = String(message || '').trim()
-    if (!text || shownRef.current) {
-      return
-    }
+    if (!text || shownRef.current) return
     shownRef.current = true
     showToast(text, { severity, autoHideDuration })
     onShown?.()

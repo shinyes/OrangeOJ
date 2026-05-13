@@ -1,119 +1,89 @@
 import { Link } from 'react-router-dom'
-import Box from '@mui/material/Box'
-import Autocomplete from '@mui/material/Autocomplete'
-import Button from '@mui/material/Button'
-import CircularProgress from '@mui/material/CircularProgress'
-import MenuItem from '@mui/material/MenuItem'
-import Paper from '@mui/material/Paper'
-import Stack from '@mui/material/Stack'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
-import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import { Badge } from '../ui/badge'
+import { X, Loader2 } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 
 function SummaryItem({ label, value }) {
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 1.5,
-        borderRadius: 2
-      }}
-    >
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.25 }}>
-        {value}
-      </Typography>
-    </Paper>
+    <div className="border rounded-lg p-4">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <p className="text-base font-bold mt-1">{value}</p>
+    </div>
   )
 }
 
 function ProblemRow({ text, actions }) {
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        px: 1.5,
-        py: 1.25,
-        borderRadius: 2
-      }}
-    >
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-      >
-        <Typography
-          variant="body2"
-          sx={{
-            minWidth: 0,
-            flexGrow: 1,
-            fontWeight: 500
-          }}
-          noWrap
-          title={text}
-        >
-          {text}
-        </Typography>
+    <div className="border rounded-lg px-4 py-3">
+      <div className="flex flex-col md:flex-row gap-2 justify-between items-start md:items-center">
+        <span className="text-sm font-medium truncate flex-1 min-w-0" title={text}>{text}</span>
+        <div className="flex gap-2 flex-wrap">{actions}</div>
+      </div>
+    </div>
+  )
+}
 
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-          {actions}
-        </Stack>
-      </Stack>
-    </Paper>
+function MemberComboBox({ candidates, selectedUsers, inputValue, loading, onInputChange, onSelectionChange, getCandidateLabel }) {
+  const handleSelect = (user) => {
+    if (selectedUsers.some((u) => u.id === user.id)) {
+      onSelectionChange(selectedUsers.filter((u) => u.id !== user.id))
+    } else {
+      onSelectionChange([...selectedUsers, user])
+    }
+  }
+
+  return (
+    <div className="space-y-2 mt-3">
+      <Input placeholder="输入用户 ID 或用户名搜索" value={inputValue}
+        onChange={(e) => onInputChange(e.target.value)} />
+      {loading && <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />搜索中...</p>}
+      {selectedUsers.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedUsers.map((user) => (
+            <Badge key={user.id} variant="secondary" className="gap-1 cursor-pointer" onClick={() => handleSelect(user)}>
+              {getCandidateLabel(user)}
+              <X className="h-3 w-3" />
+            </Badge>
+          ))}
+        </div>
+      )}
+      {candidates.length > 0 && (
+        <div className="border rounded-lg max-h-48 overflow-y-auto">
+          {candidates.map((user) => (
+            <div key={user.id} className="px-3 py-2 text-sm cursor-pointer hover:bg-accent" onClick={() => handleSelect(user)}>
+              {getCandidateLabel(user)}
+            </div>
+          ))}
+        </div>
+      )}
+      {!loading && !inputValue.trim() && candidates.length === 0 && (
+        <p className="text-xs text-muted-foreground">输入用户 ID 或用户名开始搜索</p>
+      )}
+      {!loading && inputValue.trim() && candidates.length === 0 && (
+        <p className="text-xs text-muted-foreground">没有匹配用户</p>
+      )}
+    </div>
   )
 }
 
 export default function SpaceManagePanel({
-  hasAnySpaceAdminRole,
-  selectedSpace,
-  canManageSelectedSpace,
-  spaceManageTab,
-  onSpaceManageTabChange,
-  normalizeLanguage,
-  openSpaceSettingsModal,
-  spaceSettingsMessage,
-  spaceProblemSearch,
-  onSpaceProblemSearchChange,
-  filteredSpaceProblems,
-  spaceProblems,
-  problemTypeText,
-  editingProblemId,
-  onOpenEditProblem,
-  onRemoveSpaceProblem,
-  spaceMembers,
-  memberRole,
-  onMemberRoleChange,
-  memberCandidateInput,
-  onMemberCandidateInputChange,
-  memberCandidates,
-  selectedMemberCandidates,
-  onSelectedMemberCandidatesChange,
-  memberSearchLoading,
-  onSubmitMembers,
-  memberSubmitting,
-  onResetMemberPassword,
-  resettingMemberId,
-  onRemoveMember,
-  removingMemberId,
-  memberMessage,
-  openUploadProblemModal,
-  selectedSpaceId
+  hasAnySpaceAdminRole, selectedSpace, canManageSelectedSpace, spaceManageTab, onSpaceManageTabChange,
+  normalizeLanguage, openSpaceSettingsModal, spaceSettingsMessage,
+  spaceProblemSearch, onSpaceProblemSearchChange, filteredSpaceProblems, spaceProblems, problemTypeText,
+  editingProblemId, onOpenEditProblem, onRemoveSpaceProblem,
+  spaceMembers, memberRole, onMemberRoleChange, memberCandidateInput, onMemberCandidateInputChange,
+  memberCandidates, selectedMemberCandidates, onSelectedMemberCandidatesChange, memberSearchLoading,
+  onSubmitMembers, memberSubmitting, onResetMemberPassword, resettingMemberId, onRemoveMember, removingMemberId,
+  memberMessage, openUploadProblemModal, selectedSpaceId
 }) {
-  const handleTabChange = (event, newValue) => {
-    onSpaceManageTabChange(newValue)
-  }
-
   const renderMemberLabel = (member) => {
     if (!member) return ''
     const parts = [`#${member.userId || member.id}`, member.username]
-    if (member.globalRole === 'system_admin') {
-      parts.push('系统管理员')
-    }
+    if (member.globalRole === 'system_admin') parts.push('系统管理员')
     parts.push(member.role === 'space_admin' ? '空间管理员' : '成员')
     return parts.join(' · ')
   }
@@ -121,327 +91,178 @@ export default function SpaceManagePanel({
   const getCandidateLabel = (candidate) => {
     if (!candidate) return ''
     const parts = [`#${candidate.id}`, candidate.username]
-    if (candidate.globalRole === 'system_admin') {
-      parts.push('系统管理员')
-    }
+    if (candidate.globalRole === 'system_admin') parts.push('系统管理员')
     return parts.join(' · ')
   }
 
   if (!hasAnySpaceAdminRole) {
     return (
-      <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <ToastMessage message="当前账号没有空间管理员权限。" severity="info" />
-        <Typography variant="h6" fontWeight={700} gutterBottom>
-          空间管理
-        </Typography>
-        <Typography color="text.secondary">
-          当前账号只能浏览空间，不能修改空间设置、题库或成员。
-        </Typography>
-      </Paper>
+      <div className="border rounded-xl p-6 bg-background">
+        <h2 className="text-lg font-bold mb-2">空间管理</h2>
+        <p className="text-muted-foreground">当前账号只能浏览空间，不能修改空间设置、题库或成员。</p>
+      </div>
     )
   }
 
   return (
-    <Box>
+    <div>
       {!selectedSpace && (
-        <Paper sx={{ p: 3, borderRadius: 3 }}>
-          <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-            还没有选中空间
-          </Typography>
-          <Typography color="text.secondary">
-            从上方选择空间后，这里才会显示对应的管理内容。
-          </Typography>
-        </Paper>
+        <div className="border rounded-xl p-6 bg-background">
+          <h3 className="text-base font-bold mb-2">还没有选中空间</h3>
+          <p className="text-muted-foreground">从上方选择空间后，这里才会显示对应的管理内容。</p>
+        </div>
       )}
 
       {!canManageSelectedSpace && selectedSpace && (
-        <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-          <ToastMessage message="当前账号不是该空间管理员，请切换到你管理的空间。" severity="warning" />
-          <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 1.5 }}>
-            已选空间：#{selectedSpace.id} {selectedSpace.name}
-          </Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            你当前只能查看这个空间，不能修改其设置、题库或成员。
-          </Typography>
-        </Paper>
+        <div className="border rounded-xl p-6 mb-6 bg-background">
+          <h3 className="text-base font-bold mt-4">已选空间：#{selectedSpace.id} {selectedSpace.name}</h3>
+          <p className="text-muted-foreground mt-1">你当前只能查看这个空间，不能修改其设置、题库或成员。</p>
+        </div>
       )}
 
       {selectedSpace && canManageSelectedSpace && (
-        <>
-          <Paper sx={{ mb: 3, borderRadius: 3 }}>
-            <Tabs value={spaceManageTab} onChange={handleTabChange} variant="fullWidth">
-              <Tab label="空间设置" value="settings" />
-              <Tab label="题库设置" value="problems" />
-              <Tab label="成员管理" value="members" />
+        <div>
+          <div className="border rounded-xl mb-6 bg-background">
+            <Tabs value={spaceManageTab} onValueChange={onSpaceManageTabChange}>
+              <TabsList className="w-full">
+                <TabsTrigger value="settings" className="flex-1">空间设置</TabsTrigger>
+                <TabsTrigger value="problems" className="flex-1">题库设置</TabsTrigger>
+                <TabsTrigger value="members" className="flex-1">成员管理</TabsTrigger>
+              </TabsList>
             </Tabs>
-          </Paper>
+          </div>
 
+          {/* Settings Tab */}
           {spaceManageTab === 'settings' && (
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                spacing={1.5}
-                justifyContent="space-between"
-                alignItems={{ xs: 'flex-start', md: 'center' }}
-              >
-                <Box>
-                  <Typography variant="h6" fontWeight={700}>
-                    空间设置
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                    #{selectedSpace.id} {selectedSpace.name} 的基础信息和默认语言。
-                  </Typography>
-                </Box>
-                <Button variant="contained" onClick={openSpaceSettingsModal}>
-                  编辑空间设置
-                </Button>
-              </Stack>
+            <div className="border rounded-xl p-6 bg-background">
+              <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+                <div>
+                  <h2 className="text-lg font-bold">空间设置</h2>
+                  <p className="text-sm text-muted-foreground mt-1">#{selectedSpace.id} {selectedSpace.name} 的基础信息和默认语言。</p>
+                </div>
+                <Button onClick={openSpaceSettingsModal}>编辑空间设置</Button>
+              </div>
 
-              <Box
-                sx={{
-                  mt: 2.5,
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-                  gap: 1.5
-                }}
-              >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 <SummaryItem label="空间名称" value={selectedSpace.name || '-'} />
                 <SummaryItem label="默认语言" value={normalizeLanguage(selectedSpace.defaultProgrammingLanguage || 'cpp')} />
                 <SummaryItem label="空间题目数" value={spaceProblems.length} />
-              </Box>
+              </div>
 
-              <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-                  空间描述
-                </Typography>
-                <Typography color="text.secondary">
-                  {selectedSpace.description || '暂无描述'}
-                </Typography>
-              </Paper>
+              <div className="border rounded-lg p-4 mt-4">
+                <h3 className="text-sm font-semibold mb-1">空间描述</h3>
+                <p className="text-sm text-muted-foreground">{selectedSpace.description || '暂无描述'}</p>
+              </div>
 
-              {spaceSettingsMessage && <Box sx={{ mt: 2 }}><ToastMessage message={spaceSettingsMessage} severity="success" /></Box>}
-            </Paper>
+              {spaceSettingsMessage && <div className="mt-4"><ToastMessage message={spaceSettingsMessage} severity="success" /></div>}
+            </div>
           )}
 
+          {/* Problems Tab */}
           {spaceManageTab === 'problems' && (
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                spacing={1.5}
-                justifyContent="space-between"
-                alignItems={{ xs: 'flex-start', md: 'center' }}
-              >
-                <Box>
-                  <Typography variant="h6" fontWeight={700}>
-                    当前空间题库
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                    题目只属于当前空间，仅管理当前空间题目。
-                  </Typography>
-                </Box>
-                <Button variant="contained" onClick={openUploadProblemModal}>
-                  新建题目
-                </Button>
-              </Stack>
+            <div className="border rounded-xl p-6 bg-background">
+              <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+                <div>
+                  <h2 className="text-lg font-bold">当前空间题库</h2>
+                  <p className="text-sm text-muted-foreground mt-1">题目只属于当前空间，仅管理当前空间题目。</p>
+                </div>
+                <Button onClick={openUploadProblemModal}>新建题目</Button>
+              </div>
 
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="按题目 ID、标题或标签搜索"
-                value={spaceProblemSearch}
-                onChange={(event) => onSpaceProblemSearchChange(event.target.value)}
-                sx={{ mt: 2 }}
-              />
+              <Input className="mt-4" placeholder="按题目 ID、标题或标签搜索" value={spaceProblemSearch}
+                onChange={(e) => onSpaceProblemSearchChange(e.target.value)} />
 
-              <Stack spacing={1.25} sx={{ mt: 2.5, maxHeight: 620, overflowY: 'auto', pr: 0.25 }}>
+              <div className="flex flex-col gap-2 mt-4 max-h-[620px] overflow-y-auto pr-1">
                 {filteredSpaceProblems.length === 0 ? (
-                  <Typography color="text.secondary">
+                  <p className="text-sm text-muted-foreground">
                     {spaceProblems.length === 0 ? '当前空间暂无题目。' : '当前检索条件下没有匹配题目。'}
-                  </Typography>
+                  </p>
                 ) : (
                   filteredSpaceProblems.map((problem) => {
                     const tagsText = (problem.tags || []).join(' / ')
-                    const lineText = [
-                      `#${problem.id}`,
-                      problem.title,
-                      problemTypeText(problem.type),
-                      `${problem.timeLimitMs}ms`,
-                      `${problem.memoryLimitMiB}MiB`,
-                      tagsText
-                    ].filter(Boolean).join(' · ')
-
+                    const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), `${problem.timeLimitMs}ms`, `${problem.memoryLimitMiB}MiB`, tagsText].filter(Boolean).join(' · ')
                     return (
-                      <ProblemRow
-                        key={problem.id}
-                        text={lineText}
-                        actions={(
-                          <>
-                            <Button
-                              size="small"
-                              component={Link}
-                              to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}
-                              variant="outlined"
-                            >
-                              去做题
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => onOpenEditProblem(problem.id)}
-                            >
-                              编辑
-                            </Button>
-                            <Button
-                              size="small"
-                              color="error"
-                              variant="outlined"
-                              onClick={() => onRemoveSpaceProblem(problem.id)}
-                            >
-                              删除
-                            </Button>
-                          </>
-                        )}
-                      />
+                      <ProblemRow key={problem.id} text={lineText} actions={(
+                        <>
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}>去做题</Link>
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => onOpenEditProblem(problem.id)}>编辑</Button>
+                          <Button size="sm" variant="destructive" onClick={() => onRemoveSpaceProblem(problem.id)}>删除</Button>
+                        </>
+                      )} />
                     )
                   })
                 )}
-              </Stack>
-
-              {editingProblemId && <Box sx={{ mt: 2 }}><ToastMessage message="题目编辑弹窗已打开。" severity="info" /></Box>}
-            </Paper>
+              </div>
+            </div>
           )}
 
+          {/* Members Tab */}
           {spaceManageTab === 'members' && (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', xl: 'minmax(320px, 420px) minmax(0, 1fr)' },
-                gap: 3
-              }}
-            >
-              <Paper sx={{ p: 3, borderRadius: 3 }}>
-                <Typography variant="h6" fontWeight={700}>
-                  添加成员
-                </Typography>
-                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                  按用户 ID 或用户名搜索，选中后加入当前空间。
-                </Typography>
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] gap-6">
+              <div className="border rounded-xl p-6 bg-background">
+                <h2 className="text-lg font-bold">添加成员</h2>
+                <p className="text-sm text-muted-foreground mt-1">按用户 ID 或用户名搜索，选中后加入当前空间。</p>
 
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="加入后角色"
-                  value={memberRole}
-                  onChange={(event) => onMemberRoleChange(event.target.value)}
-                  sx={{ mt: 2 }}
-                >
-                  <MenuItem value="member">成员</MenuItem>
-                  <MenuItem value="space_admin">空间管理员</MenuItem>
-                </TextField>
+                <label className="flex flex-col gap-2 mt-4 text-sm font-medium">
+                  加入后角色
+                  <Select value={memberRole} onValueChange={onMemberRoleChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="member">成员</SelectItem>
+                      <SelectItem value="space_admin">空间管理员</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </label>
 
-                <Autocomplete
-                  multiple
-                  options={memberCandidates}
-                  value={selectedMemberCandidates}
+                <MemberComboBox
+                  candidates={memberCandidates}
+                  selectedUsers={selectedMemberCandidates}
                   inputValue={memberCandidateInput}
                   loading={memberSearchLoading}
-                  onInputChange={(event, value) => onMemberCandidateInputChange(value)}
-                  onChange={(event, value) => onSelectedMemberCandidatesChange(value)}
-                  getOptionLabel={getCandidateLabel}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  filterOptions={(options) => options}
-                  noOptionsText={memberCandidateInput.trim() ? '没有匹配用户' : '输入用户 ID 或用户名开始搜索'}
-                  loadingText="搜索中..."
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="搜索并选择用户"
-                      placeholder="例如：12 或 alice"
-                      size="small"
-                      sx={{ mt: 2 }}
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {memberSearchLoading ? <CircularProgress color="inherit" size={16} /> : null}
-                            {params.InputProps.endAdornment}
-                          </>
-                        )
-                      }}
-                    />
-                  )}
-                  renderOption={(props, option) => {
-                    const { key, ...optionProps } = props
-                    return (
-                      <Box component="li" key={key} {...optionProps}>
-                        {getCandidateLabel(option)}
-                      </Box>
-                    )
-                  }}
+                  onInputChange={onMemberCandidateInputChange}
+                  onSelectionChange={onSelectedMemberCandidatesChange}
+                  getCandidateLabel={getCandidateLabel}
                 />
 
-                <Button
-                  variant="contained"
-                  onClick={onSubmitMembers}
-                  disabled={memberSubmitting || selectedMemberCandidates.length === 0}
-                  sx={{ mt: 2 }}
-                >
+                <Button className="mt-4" onClick={onSubmitMembers}
+                  disabled={memberSubmitting || selectedMemberCandidates.length === 0}>
                   {memberSubmitting ? '添加中...' : `添加所选用户${selectedMemberCandidates.length > 0 ? `（${selectedMemberCandidates.length}）` : ''}`}
                 </Button>
 
-                {memberMessage && <Box sx={{ mt: 2 }}><ToastMessage message={memberMessage} severity="success" /></Box>}
-              </Paper>
+                {memberMessage && <div className="mt-4"><ToastMessage message={memberMessage} severity="success" /></div>}
+              </div>
 
-              <Paper sx={{ p: 3, borderRadius: 3 }}>
-                <Typography variant="h6" fontWeight={700}>
-                  当前空间成员
-                </Typography>
-                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                  当前共有 {spaceMembers.length} 名成员。可直接重置密码或移出空间。
-                </Typography>
+              <div className="border rounded-xl p-6 bg-background">
+                <h2 className="text-lg font-bold">当前空间成员</h2>
+                <p className="text-sm text-muted-foreground mt-1">当前共有 {spaceMembers.length} 名成员。可直接重置密码或移出空间。</p>
 
-                <Stack spacing={1.25} sx={{ mt: 2.5, maxHeight: 620, overflowY: 'auto', pr: 0.25 }}>
+                <div className="flex flex-col gap-2 mt-4 max-h-[620px] overflow-y-auto pr-1">
                   {spaceMembers.length === 0 ? (
-                    <Typography color="text.secondary">
-                      当前空间还没有成员。
-                    </Typography>
+                    <p className="text-sm text-muted-foreground">当前空间还没有成员。</p>
                   ) : (
                     spaceMembers.map((member) => (
-                      <ProblemRow
-                        key={member.userId}
-                        text={renderMemberLabel(member)}
-                        actions={(
-                          <>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              disabled={resettingMemberId === member.userId}
-                              onClick={() => onResetMemberPassword(member)}
-                            >
-                              {resettingMemberId === member.userId ? '重置中...' : '重置密码'}
-                            </Button>
-                            <Button
-                              size="small"
-                              color="error"
-                              variant="outlined"
-                              disabled={removingMemberId === member.userId}
-                              onClick={() => onRemoveMember(member)}
-                            >
-                              {removingMemberId === member.userId ? '移除中...' : '移除'}
-                            </Button>
-                          </>
-                        )}
-                      />
+                      <ProblemRow key={member.userId} text={renderMemberLabel(member)} actions={(
+                        <>
+                          <Button size="sm" variant="outline" disabled={resettingMemberId === member.userId}
+                            onClick={() => onResetMemberPassword(member)}>
+                            {resettingMemberId === member.userId ? '重置中...' : '重置密码'}
+                          </Button>
+                          <Button size="sm" variant="destructive" disabled={removingMemberId === member.userId}
+                            onClick={() => onRemoveMember(member)}>
+                            {removingMemberId === member.userId ? '移除中...' : '移除'}
+                          </Button>
+                        </>
+                      )} />
                     ))
                   )}
-                </Stack>
-              </Paper>
-            </Box>
+                </div>
+              </div>
+            </div>
           )}
-        </>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }
-

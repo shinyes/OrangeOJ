@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import AppBar from '@mui/material/AppBar'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Chip from '@mui/material/Chip'
-import Container from '@mui/material/Container'
-import Divider from '@mui/material/Divider'
-import Paper from '@mui/material/Paper'
-import Stack from '@mui/material/Stack'
-import Toolbar from '@mui/material/Toolbar'
-import Typography from '@mui/material/Typography'
-import ToastMessage from '../components/ToastMessage'
+import { Button } from '../components/ui/button'
+import { Card, CardContent } from '../components/ui/card'
+import { Badge } from '../components/ui/badge'
+import { Separator } from '../components/ui/separator'
+import { Alert, AlertDescription } from '../components/ui/alert'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
 
 function problemTypeText(type) {
   if (type === 'programming') return '编程题'
@@ -29,9 +22,7 @@ function joinedByText(joinedBy) {
 }
 
 function safeInternalPath(path, fallback) {
-  if (typeof path === 'string' && path.startsWith('/')) {
-    return path
-  }
+  if (typeof path === 'string' && path.startsWith('/')) return path
   return fallback
 }
 
@@ -104,148 +95,116 @@ export default function TrainingPage({ user }) {
     }
   }
 
-  if (loading) {
-    return <div className="screen-center">训练加载中...</div>
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center">训练加载中...</div>
 
   if (error && !plan) {
     return (
-      <div className="page-shell">
-        <div className="error-box">{error}</div>
-        <Link className="ghost-btn" to={backTo}>{backLabel}</Link>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 bg-muted/30">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button variant="outline" asChild><Link to={backTo}>{backLabel}</Link></Button>
       </div>
     )
   }
 
-  if (!plan) {
-    return <div className="screen-center">训练不存在</div>
-  }
+  if (!plan) return <div className="min-h-screen flex items-center justify-center">训练不存在</div>
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="static" color="default" elevation={1}>
-        <Toolbar
-          sx={{
-            minHeight: '48px !important',
-            px: { xs: 1.25, md: 2 },
-            py: 0.35,
-            gap: 1,
-            flexWrap: { xs: 'wrap', md: 'nowrap' },
-            alignItems: 'center'
-          }}
-        >
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Stack direction="row" spacing={1} alignItems="baseline" useFlexGap flexWrap="wrap">
-              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.2 }}>
-                {plan.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+    <div className="min-h-screen bg-muted/30">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-background border-b shadow-sm">
+        <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h1 className="text-lg font-bold">{plan.title}</h1>
+              <span className="text-sm text-muted-foreground">
                 {space?.name ? `空间：${space.name}` : `空间 #${spaceId}`} | 共 {plan.chapters?.length || 0} 个章节，{totalProblemCount} 道题目
-              </Typography>
-            </Stack>
-          </Box>
-          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ flexShrink: 0 }}>
-            <Chip size="small" label={isPublic ? '公开训练' : '隐藏训练'} color={isPublic ? 'info' : 'default'} />
-            <Chip size="small" label={plan.allowSelfJoin ? '允许自主加入' : '仅管理员分配'} color={plan.allowSelfJoin ? 'success' : 'default'} />
-            <Chip size="small" label={plan.published || plan.publishedAt ? '已发布' : '未发布'} color={plan.published || plan.publishedAt ? 'primary' : 'default'} />
-            {myParticipant ? (
-              <Chip
-                size="small"
-                color="warning"
-                label={`我的状态：已加入（${joinedByText(myParticipant.joinedBy)}）`}
-              />
-            ) : null}
-          </Stack>
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 shrink-0">
+            <Badge variant={isPublic ? 'secondary' : 'outline'}>{isPublic ? '公开训练' : '隐藏训练'}</Badge>
+            <Badge variant={plan.allowSelfJoin ? 'default' : 'outline'}>{plan.allowSelfJoin ? '允许自主加入' : '仅管理员分配'}</Badge>
+            <Badge variant={plan.published || plan.publishedAt ? 'default' : 'outline'}>{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
+            {myParticipant && (
+              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                我的状态：已加入（{joinedByText(myParticipant.joinedBy)}）
+              </Badge>
+            )}
+          </div>
           {!myParticipant && (
-            <Button
-              size="small"
-              variant="contained"
-              disabled={!plan.allowSelfJoin || joining}
-              onClick={handleJoin}
-            >
+            <Button size="sm" disabled={!plan.allowSelfJoin || joining} onClick={handleJoin}>
               {!plan.allowSelfJoin ? '需管理员分配' : joining ? '加入中...' : '加入训练'}
             </Button>
           )}
-          <Button size="small" color="inherit" component={Link} to={backTo}>
-            {backLabel}
-          </Button>
-        </Toolbar>
-      </AppBar>
+          <Button size="sm" variant="outline" asChild><Link to={backTo}>{backLabel}</Link></Button>
+        </div>
+      </header>
 
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
-        {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
+      {/* Content */}
+      <div className="max-w-5xl mx-auto py-6 px-4">
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {actionMessage && (
+          <Alert variant="success" className="mb-4">
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>{actionMessage}</AlertDescription>
+          </Alert>
+        )}
 
         {(plan.chapters || []).length === 0 ? (
-          <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-            <Typography color="text.secondary">当前训练暂未配置章节。</Typography>
-          </Paper>
+          <div className="border rounded-xl p-8 text-center text-muted-foreground">
+            当前训练暂未配置章节。
+          </div>
         ) : (
-          <Stack spacing={2.5}>
+          <div className="flex flex-col gap-3">
             {(plan.chapters || []).map((chapter) => (
-              <Card key={chapter.id || `${plan.id}-${chapter.orderNo}`} variant="outlined">
-                <CardContent sx={{ p: 0 }}>
-                  <Box sx={{ px: 2.5, py: 2 }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                      <Box>
-                        <Typography variant="h6" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-                          {chapter.title || `第 ${chapter.orderNo} 章`}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          共 {chapter.items?.length || 0} 道题目
-                        </Typography>
-                      </Box>
-                      <Chip size="small" label={`第 ${chapter.orderNo} 章`} />
-                    </Stack>
-                  </Box>
+              <Card key={chapter.id || `${plan.id}-${chapter.orderNo}`} className="border">
+                <CardContent className="p-0">
+                  <div className="px-6 py-4">
+                    <div className="flex justify-between items-start gap-4 flex-wrap">
+                      <div>
+                        <h2 className="text-lg font-semibold">{chapter.title || `第 ${chapter.orderNo} 章`}</h2>
+                        <p className="text-sm text-muted-foreground">共 {chapter.items?.length || 0} 道题目</p>
+                      </div>
+                      <Badge variant="outline">第 {chapter.orderNo} 章</Badge>
+                    </div>
+                  </div>
 
-                  <Divider />
+                  <Separator />
 
-                  <Box sx={{ p: 2 }}>
+                  <div className="p-4">
                     {(chapter.items || []).length === 0 ? (
-                      <Typography variant="body2" color="text.secondary">
-                        当前章节暂无题目。
-                      </Typography>
+                      <p className="text-sm text-muted-foreground">当前章节暂无题目。</p>
                     ) : (
-                      <Stack spacing={1.25}>
+                      <div className="flex flex-col gap-1.5">
                         {(chapter.items || []).map((item, index) => (
-                          <Paper
+                          <Link
                             key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`}
-                            component={Link}
                             to={`/spaces/${spaceId}/problems/${item.problemId}/solve?returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
-                            variant="outlined"
-                            sx={{
-                              px: 1.25,
-                              py: 1,
-                              textDecoration: 'none',
-                              color: 'text.primary',
-                              transition: 'all 0.2s',
-                              '&:hover': {
-                                borderColor: 'primary.main',
-                                bgcolor: 'action.hover',
-                                transform: 'translateY(-1px)'
-                              }
-                            }}
+                            className="block px-4 py-2.5 border rounded-lg no-underline text-foreground transition-all hover:border-primary hover:bg-accent hover:-translate-y-px"
                           >
-                            <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
-                              <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                  {problemTitleWithCompletion(item, index)}
-                                </Typography>
-                              </Box>
-                              <Chip size="small" label={problemTypeText(item.type)} />
-                            </Stack>
-                          </Paper>
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="font-medium truncate">{problemTitleWithCompletion(item, index)}</span>
+                              <Badge variant="outline" className="shrink-0">{problemTypeText(item.type)}</Badge>
+                            </div>
+                          </Link>
                         ))}
-                      </Stack>
+                      </div>
                     )}
-                  </Box>
+                  </div>
                 </CardContent>
               </Card>
             ))}
-          </Stack>
+          </div>
         )}
-      </Container>
-    </Box>
+      </div>
+    </div>
   )
 }

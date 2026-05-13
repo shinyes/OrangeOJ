@@ -1,23 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import AppBar from '@mui/material/AppBar'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
-import FormControl from '@mui/material/FormControl'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import IconButton from '@mui/material/IconButton'
-import Paper from '@mui/material/Paper'
-import Radio from '@mui/material/Radio'
-import RadioGroup from '@mui/material/RadioGroup'
-import Stack from '@mui/material/Stack'
-import Toolbar from '@mui/material/Toolbar'
-import Tooltip from '@mui/material/Tooltip'
-import Typography from '@mui/material/Typography'
-import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined'
-import OutlinedFlagIcon from '@mui/icons-material/OutlinedFlag'
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
+import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
+import { cn } from '../lib/utils'
+import { Flag, Save } from 'lucide-react'
 import { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -30,9 +18,7 @@ const sectionTitleMap = {
 }
 
 function safeInternalPath(path, fallback) {
-  if (typeof path === 'string' && path.startsWith('/')) {
-    return path
-  }
+  if (typeof path === 'string' && path.startsWith('/')) return path
   return fallback
 }
 
@@ -55,9 +41,7 @@ function normalizeDefaultLanguage(language) {
 function pickStarter(body, language) {
   if (!body?.starterCode) {
     if (language === 'python') return 'print("hello")'
-    if (language === 'go') {
-      return 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}'
-    }
+    if (language === 'go') return 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}'
     return '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;\n}'
   }
   return body.starterCode[language] || body.starterCode.cpp || ''
@@ -99,23 +83,14 @@ function alphaOptionLabel(index) {
 }
 
 function normalizeObjectiveAnswer(type, value) {
-  if (type === 'true_false') {
-    return value === 'false' ? 'false' : value === 'true' ? 'true' : ''
-  }
+  if (type === 'true_false') return value === 'false' ? 'false' : value === 'true' ? 'true' : ''
   return String(value || '')
 }
 
 function loadStoredDraft(key) {
   try {
     const raw = localStorage.getItem(key)
-    if (!raw) {
-      return {
-        objectiveAnswers: {},
-        flags: {},
-        programming: {},
-        lastSavedAt: ''
-      }
-    }
+    if (!raw) return { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
     const parsed = JSON.parse(raw)
     return {
       objectiveAnswers: parsed?.objectiveAnswers && typeof parsed.objectiveAnswers === 'object' ? parsed.objectiveAnswers : {},
@@ -124,12 +99,7 @@ function loadStoredDraft(key) {
       lastSavedAt: String(parsed?.lastSavedAt || '')
     }
   } catch {
-    return {
-      objectiveAnswers: {},
-      flags: {},
-      programming: {},
-      lastSavedAt: ''
-    }
+    return { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
   }
 }
 
@@ -140,13 +110,11 @@ function buildInitialDraft(homeworkItems, problemsById, submissionsByProblemId, 
     programming: {},
     lastSavedAt: storedDraft.lastSavedAt || ''
   }
-
   homeworkItems.forEach((item) => {
     const problemId = Number(item.problemId)
     const problem = problemsById[problemId]
     const submissions = submissionsByProblemId[problemId] || []
     const problemType = problem?.type || item.type
-
     if (problemType === 'programming') {
       const savedProgramming = storedDraft.programming?.[problemId] || {}
       const latestSubmission = submissions.find((submission) => submission.questionType === 'programming')
@@ -160,7 +128,6 @@ function buildInitialDraft(homeworkItems, problemsById, submissionsByProblemId, 
       }
       return
     }
-
     if (!nextDraft.objectiveAnswers[problemId]) {
       const latestObjective = submissions.find((submission) => submission.questionType !== 'programming')
       if (latestObjective?.inputData) {
@@ -168,24 +135,16 @@ function buildInitialDraft(homeworkItems, problemsById, submissionsByProblemId, 
       }
     }
   })
-
   return nextDraft
 }
 
 function buildRecordReviewDraft(homeworkItems, problemsById, submissionDetailsByProblemId, defaultLanguage) {
-  const nextDraft = {
-    objectiveAnswers: {},
-    flags: {},
-    programming: {},
-    lastSavedAt: ''
-  }
-
+  const nextDraft = { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
   homeworkItems.forEach((item) => {
     const problemId = Number(item.problemId)
     const problem = problemsById[problemId]
     const submission = submissionDetailsByProblemId[problemId] || null
     const problemType = problem?.type || item.type
-
     if (problemType === 'programming') {
       const language = normalizeDefaultLanguage(submission?.language || defaultLanguage)
       nextDraft.programming[problemId] = {
@@ -198,10 +157,8 @@ function buildRecordReviewDraft(homeworkItems, problemsById, submissionDetailsBy
       }
       return
     }
-
     nextDraft.objectiveAnswers[problemId] = normalizeObjectiveAnswer(problemType, submission?.inputData)
   })
-
   return nextDraft
 }
 
@@ -212,62 +169,7 @@ function getProblemPromptText(problem, fallback = '暂无题面') {
   return title || fallback
 }
 
-function renderChoiceOptionLabel(index, option) {
-  return (
-    <MarkdownWithMarker
-      marker={`${alphaOptionLabel(index)}.`}
-      content={String(option || '')}
-      sx={{
-        columnGap: 0.35
-      }}
-      markerSx={{
-        minWidth: '1.8ch'
-      }}
-      contentSx={{
-        fontSize: '0.98rem',
-        '& p': {
-          my: 0.2
-        },
-        '& ul, & ol': {
-          my: 0.3
-        },
-        '& pre': {
-          my: 0.6,
-          fontSize: '0.82rem'
-        }
-      }}
-    />
-  )
-}
-
-function objectiveOptionRowSx(selected) {
-  return {
-    my: 0,
-    mr: 0,
-    ml: 0,
-    width: '100%',
-    alignItems: 'flex-start',
-    borderRadius: 1,
-    px: 0.75,
-    py: 0.15,
-    bgcolor: 'transparent',
-    transition: 'background-color 0.2s ease',
-    '&:hover': {
-      bgcolor: 'rgba(15, 23, 42, 0.03)'
-    },
-    '.MuiFormControlLabel-label': {
-      flexGrow: 1,
-      minWidth: 0
-    },
-    '.MuiButtonBase-root': {
-      p: 0.35,
-      mt: 0.1,
-      mr: 0.85
-    }
-  }
-}
-
-function recordStatusChipColor(statusText) {
+function recordStatusBadgeVariant(statusText) {
   if (statusText === '判题中') return 'warning'
   if (statusText === '全部通过') return 'success'
   if (statusText === '部分提交') return 'info'
@@ -278,22 +180,15 @@ function getRecordWrongCounts(record) {
   const items = Array.isArray(record?.items) ? record.items : []
   let objectiveWrongCount = 0
   let programmingWrongCount = 0
-
   items.forEach((item) => {
     const status = String(item?.status || '').trim()
     const verdict = String(item?.verdict || '').trim()
     const isPending = status && status !== 'done' && status !== 'failed'
     const isWrong = status === 'failed' || (status === 'done' && verdict && verdict !== 'AC' && verdict !== 'OK')
-    if (isPending || !isWrong) {
-      return
-    }
-    if (item?.problemType === 'programming') {
-      programmingWrongCount += 1
-      return
-    }
+    if (isPending || !isWrong) return
+    if (item?.problemType === 'programming') { programmingWrongCount += 1; return }
     objectiveWrongCount += 1
   })
-
   return { objectiveWrongCount, programmingWrongCount }
 }
 
@@ -303,49 +198,31 @@ function isAcceptedRecordItem(item) {
   return status === 'done' && (verdict === 'AC' || verdict === 'OK')
 }
 
-function questionNavigatorButtonSx({ active, answered, reviewState }) {
+function questionNavigatorClass({ active, answered, reviewState }) {
   const isWrongOrMissing = reviewState === 'wrong-or-missing'
   const isCorrectReview = reviewState === 'correct'
-
-  const borderColor = isWrongOrMissing
-    ? '#ff7a45'
-    : active
-      ? 'primary.main'
-      : (answered || isCorrectReview)
-        ? '#8ecdf5'
-        : 'divider'
-  const bgcolor = isWrongOrMissing
-    ? '#fff1f0'
-    : (answered || isCorrectReview)
-      ? '#bfe9ff'
-      : '#fff'
-  const color = isWrongOrMissing
-    ? '#c2410c'
-    : (answered || isCorrectReview)
-      ? '#1565c0'
-      : 'text.primary'
-  const hoverBgcolor = isWrongOrMissing
-    ? '#ffe4e0'
-    : (answered || isCorrectReview)
-      ? '#b3e5fc'
-      : '#f8fbff'
-
-  return {
-    minWidth: 0,
-    px: 0,
-    py: 0,
-    height: 32,
-    borderRadius: 0.5,
-    borderColor,
-    bgcolor,
-    color,
-    fontWeight: 700,
-    boxShadow: active ? 'inset 0 0 0 1px rgba(25, 118, 210, 0.16)' : 'none',
-    '&:hover': {
-      borderColor: isWrongOrMissing ? '#ff7a45' : 'primary.main',
-      bgcolor: hoverBgcolor
-    }
+  if (isWrongOrMissing) {
+    return cn(
+      'h-8 min-w-0 px-0 py-0 rounded font-bold text-xs border',
+      'border-orange-400 bg-orange-50 text-orange-700',
+      'hover:border-orange-400 hover:bg-orange-100',
+      active && 'shadow-[inset_0_0_0_1px_rgba(25,118,210,0.16)]'
+    )
   }
+  if (answered || isCorrectReview) {
+    return cn(
+      'h-8 min-w-0 px-0 py-0 rounded font-bold text-xs border',
+      'border-sky-300 bg-sky-100 text-blue-700',
+      'hover:border-primary hover:bg-sky-200',
+      active && 'shadow-[inset_0_0_0_1px_rgba(25,118,210,0.16)]'
+    )
+  }
+  return cn(
+    'h-8 min-w-0 px-0 py-0 rounded font-bold text-xs border',
+    'border-border bg-white',
+    'hover:border-primary hover:bg-slate-50',
+    active && 'shadow-[inset_0_0_0_1px_rgba(25,118,210,0.16)]'
+  )
 }
 
 function isSubmissionRecordRouteUnavailable(error) {
@@ -365,12 +242,7 @@ export default function HomeworkPage() {
   const [submissionRecords, setSubmissionRecords] = useState([])
   const [submissionRecordUnavailable, setSubmissionRecordUnavailable] = useState(false)
   const [reviewRecord, setReviewRecord] = useState(null)
-  const [draft, setDraft] = useState({
-    objectiveAnswers: {},
-    flags: {},
-    programming: {},
-    lastSavedAt: ''
-  })
+  const [draft, setDraft] = useState({ objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
@@ -391,11 +263,7 @@ export default function HomeworkPage() {
   const orderedItems = useMemo(() => {
     const items = Array.isArray(homework?.items) ? [...homework.items] : []
     items.sort((left, right) => Number(left.orderNo || 0) - Number(right.orderNo || 0))
-    return items.map((item, index) => ({
-      ...item,
-      displayOrder: index + 1,
-      problem: problemsById[item.problemId] || null
-    }))
+    return items.map((item, index) => ({ ...item, displayOrder: index + 1, problem: problemsById[item.problemId] || null }))
   }, [homework, problemsById])
 
   const groupedItems = useMemo(() => {
@@ -406,29 +274,20 @@ export default function HomeworkPage() {
         title: sectionTitleMap[type] || problemTypeText(type),
         items: orderedItems
           .filter((item) => (item.problem?.type || item.type) === type)
-          .map((item) => ({
-            ...item,
-            displayOrder: nextDisplayOrder++
-          }))
+          .map((item) => ({ ...item, displayOrder: nextDisplayOrder++ }))
       }))
       .filter((group) => group.items.length > 0)
   }, [orderedItems])
 
   const reviewRecordItemMap = useMemo(() => {
     const map = new Map()
-    ;(reviewRecord?.items || []).forEach((item) => {
-      map.set(Number(item.problemId), item)
-    })
+    ;(reviewRecord?.items || []).forEach((item) => { map.set(Number(item.problemId), item) })
     return map
   }, [reviewRecord])
 
   const currentHomeworkPath = useMemo(() => {
-    if (!isReviewMode || !reviewRecordId) {
-      return `/spaces/${spaceId}/homeworks/${homeworkId}`
-    }
-    return buildInternalPathWithQuery(`/spaces/${spaceId}/homeworks/${homeworkId}`, {
-      recordId: reviewRecordId
-    })
+    if (!isReviewMode || !reviewRecordId) return `/spaces/${spaceId}/homeworks/${homeworkId}`
+    return buildInternalPathWithQuery(`/spaces/${spaceId}/homeworks/${homeworkId}`, { recordId: reviewRecordId })
   }, [spaceId, homeworkId, isReviewMode, reviewRecordId])
 
   const programmingReturnTo = encodeURIComponent(currentHomeworkPath)
@@ -441,30 +300,20 @@ export default function HomeworkPage() {
       const problem = item.problem
       const problemType = problem?.type || item.type
       const submissions = submissionsByProblemId[problemId] || []
-
       if (problemType === 'programming') {
         const programmingDraft = draft.programming[problemId]
-        if (programmingDraft?.submissionId || programmingDraft?.lastSavedAt) {
-          ids.add(problemId)
-        }
+        if (programmingDraft?.submissionId || programmingDraft?.lastSavedAt) ids.add(problemId)
         return
       }
-
       const answer = normalizeObjectiveAnswer(problemType, draft.objectiveAnswers[problemId])
       const hasSubmission = submissions.some((submission) => submission.questionType !== 'programming')
-      if (answer || hasSubmission) {
-        ids.add(problemId)
-      }
+      if (answer || hasSubmission) ids.add(problemId)
     })
     return ids
   }, [draft, orderedItems, submissionsByProblemId])
 
   const flaggedProblemIds = useMemo(() => {
-    return new Set(
-      Object.entries(draft.flags)
-        .filter(([, value]) => value)
-        .map(([problemId]) => Number(problemId))
-    )
+    return new Set(Object.entries(draft.flags).filter(([, value]) => value).map(([problemId]) => Number(problemId)))
   }, [draft.flags])
 
   const getReviewProblemState = (problemId) => {
@@ -478,9 +327,7 @@ export default function HomeworkPage() {
   const isExpired = countdownText === '已截止'
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNow(Date.now())
-    }, 1000)
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [])
 
@@ -490,9 +337,7 @@ export default function HomeworkPage() {
       localStorage.setItem(draftStorageKey, JSON.stringify(nextDraft))
       return nextDraft
     })
-    if (message) {
-      setActionMessage(message)
-    }
+    if (message) setActionMessage(message)
   }
 
   const refreshHomeworkSubmissionRecords = async (preferredRecordId = null) => {
@@ -521,42 +366,24 @@ export default function HomeworkPage() {
       api.getSpace(spaceId),
       api.getHomework(spaceId, homeworkId),
       api.listHomeworkSubmissionRecords(spaceId, homeworkId).catch((err) => {
-        if (isSubmissionRecordRouteUnavailable(err)) {
-          return { records: [], unavailable: true }
-        }
+        if (isSubmissionRecordRouteUnavailable(err)) return { records: [], unavailable: true }
         return { records: [] }
       })
     ])
-
     const uniqueProblemIds = Array.from(
-      new Set(
-        (homeworkData?.items || [])
-          .map((item) => Number(item.problemId))
-          .filter((problemId) => Number.isInteger(problemId) && problemId > 0)
-      )
+      new Set((homeworkData?.items || []).map((item) => Number(item.problemId)).filter((problemId) => Number.isInteger(problemId) && problemId > 0))
     )
-
     const problemList = await Promise.all(uniqueProblemIds.map((problemId) => api.getProblem(spaceId, problemId)))
-
     const nextProblemsById = {}
-    problemList.forEach((problem) => {
-      nextProblemsById[problem.id] = problem
-    })
-
+    problemList.forEach((problem) => { nextProblemsById[problem.id] = problem })
     const nextSubmissionsByProblemId = {}
     let initialDraft = null
     let nextReviewRecord = null
 
     if (isReviewMode) {
       nextReviewRecord = (homeworkRecordData?.records || []).find((record) => Number(record.id) === reviewRecordId) || null
-      if (!nextReviewRecord) {
-        throw new Error('当前作业记录不存在')
-      }
-
-      uniqueProblemIds.forEach((problemId) => {
-        nextSubmissionsByProblemId[problemId] = []
-      })
-
+      if (!nextReviewRecord) throw new Error('当前作业记录不存在')
+      uniqueProblemIds.forEach((problemId) => { nextSubmissionsByProblemId[problemId] = [] })
       const submissionDetailsByProblemId = {}
       const detailPairs = await Promise.all(
         (nextReviewRecord.items || []).map(async (item) => {
@@ -568,35 +395,15 @@ export default function HomeworkPage() {
         submissionDetailsByProblemId[problemId] = detail
         nextSubmissionsByProblemId[problemId] = detail ? [detail] : []
       })
-
-      initialDraft = buildRecordReviewDraft(
-        homeworkData?.items || [],
-        nextProblemsById,
-        submissionDetailsByProblemId,
-        normalizeDefaultLanguage(spaceData?.defaultProgrammingLanguage)
-      )
+      initialDraft = buildRecordReviewDraft(homeworkData?.items || [], nextProblemsById, submissionDetailsByProblemId, normalizeDefaultLanguage(spaceData?.defaultProgrammingLanguage))
     } else {
       const submissionPairs = await Promise.all(uniqueProblemIds.map(async (problemId) => {
-        try {
-          const result = await api.listSubmissions(spaceId, problemId)
-          return [problemId, result?.submissions || []]
-        } catch {
-          return [problemId, []]
-        }
+        try { const result = await api.listSubmissions(spaceId, problemId); return [problemId, result?.submissions || []] }
+        catch { return [problemId, []] }
       }))
-
-      submissionPairs.forEach(([problemId, submissions]) => {
-        nextSubmissionsByProblemId[problemId] = submissions
-      })
-
+      submissionPairs.forEach(([problemId, submissions]) => { nextSubmissionsByProblemId[problemId] = submissions })
       const storedDraft = loadStoredDraft(draftStorageKey)
-      initialDraft = buildInitialDraft(
-        homeworkData?.items || [],
-        nextProblemsById,
-        nextSubmissionsByProblemId,
-        storedDraft,
-        normalizeDefaultLanguage(spaceData?.defaultProgrammingLanguage)
-      )
+      initialDraft = buildInitialDraft(homeworkData?.items || [], nextProblemsById, nextSubmissionsByProblemId, storedDraft, normalizeDefaultLanguage(spaceData?.defaultProgrammingLanguage))
     }
 
     setSpace(spaceData)
@@ -607,56 +414,31 @@ export default function HomeworkPage() {
     setSubmissionRecordUnavailable(Boolean(homeworkRecordData?.unavailable))
     setReviewRecord(nextReviewRecord)
     setDraft(initialDraft)
-
-    if (!activeProblemId && homeworkData?.items?.length) {
-      setActiveProblemId(Number(homeworkData.items[0].problemId))
-    }
+    if (!activeProblemId && homeworkData?.items?.length) setActiveProblemId(Number(homeworkData.items[0].problemId))
   }
 
   useEffect(() => {
     ;(async () => {
-      try {
-        setLoading(true)
-        setError('')
-        setActionMessage('')
-        await loadData()
-      } catch (err) {
-        setError(err.message || '作业加载失败')
-      } finally {
-        setLoading(false)
-      }
+      try { setLoading(true); setError(''); setActionMessage(''); await loadData() }
+      catch (err) { setError(err.message || '作业加载失败') }
+      finally { setLoading(false) }
     })()
   }, [spaceId, homeworkId, reviewRecordId, draftStorageKey])
 
   const updateObjectiveAnswer = (problemId, type, value) => {
     if (isReviewMode) return
-    persistDraft((current) => ({
-      ...current,
-      objectiveAnswers: {
-        ...current.objectiveAnswers,
-        [problemId]: normalizeObjectiveAnswer(type, value)
-      }
-    }))
+    persistDraft((current) => ({ ...current, objectiveAnswers: { ...current.objectiveAnswers, [problemId]: normalizeObjectiveAnswer(type, value) } }))
   }
 
   const toggleFlag = (problemId) => {
     if (isReviewMode) return
-    persistDraft((current) => ({
-      ...current,
-      flags: {
-        ...current.flags,
-        [problemId]: !current.flags[problemId]
-      }
-    }))
+    persistDraft((current) => ({ ...current, flags: { ...current.flags, [problemId]: !current.flags[problemId] } }))
   }
 
   const markDraftSaved = (message = '作业草稿已保存到本地') => {
     if (isReviewMode) return
     const savedAt = new Date().toISOString()
-    persistDraft((current) => ({
-      ...current,
-      lastSavedAt: savedAt
-    }), message)
+    persistDraft((current) => ({ ...current, lastSavedAt: savedAt }), message)
   }
 
   const scrollToProblem = (problemId) => {
@@ -665,320 +447,204 @@ export default function HomeworkPage() {
   }
 
   const handleSubmitAll = async () => {
-    if (isReviewMode) {
-      return
-    }
-    if (isExpired) {
-      setError('作业已截止，不能继续提交')
-      return
-    }
-
+    if (isReviewMode) return
+    if (isExpired) { setError('作业已截止，不能继续提交'); return }
     let objectiveCount = 0
     let programmingCount = 0
-
     try {
-      setSubmittingAll(true)
-      setError('')
-      setActionMessage('')
-
+      setSubmittingAll(true); setError(''); setActionMessage('')
       for (const item of orderedItems) {
         const problemId = Number(item.problemId)
         const problem = item.problem
         const problemType = problem?.type || item.type
-
         if (problemType === 'programming') {
           const programmingDraft = draft.programming[problemId]
           const starter = pickStarter(problem?.bodyJson || {}, programmingDraft?.language || 'cpp')
           const hasDraftCode = Boolean(programmingDraft?.code?.trim()) && programmingDraft.code.trim() !== starter.trim()
           const shouldSubmitProgramming = hasDraftCode && Boolean(programmingDraft?.touched || programmingDraft?.lastSavedAt)
-          if (!shouldSubmitProgramming) {
-            continue
-          }
-          await api.submit(spaceId, problemId, {
-            language: programmingDraft.language,
-            sourceCode: programmingDraft.code,
-            inputData: programmingDraft.customInput || ''
-          })
+          if (!shouldSubmitProgramming) continue
+          await api.submit(spaceId, problemId, { language: programmingDraft.language, sourceCode: programmingDraft.code, inputData: programmingDraft.customInput || '' })
           programmingCount += 1
           continue
         }
-
         const answer = normalizeObjectiveAnswer(problemType, draft.objectiveAnswers[problemId])
-        if (!answer) {
-          continue
-        }
-        await api.objectiveSubmit(
-          spaceId,
-          problemId,
-          problemType === 'true_false' ? answer === 'true' : answer
-        )
+        if (!answer) continue
+        await api.objectiveSubmit(spaceId, problemId, problemType === 'true_false' ? answer === 'true' : answer)
         objectiveCount += 1
       }
-
       const refreshedSubmissionPairs = await Promise.all(orderedItems.map(async (item) => {
         const problemId = Number(item.problemId)
-        try {
-          const result = await api.listSubmissions(spaceId, problemId)
-          return [problemId, result?.submissions || []]
-        } catch {
-          return [problemId, submissionsByProblemId[problemId] || []]
-        }
+        try { const result = await api.listSubmissions(spaceId, problemId); return [problemId, result?.submissions || []] }
+        catch { return [problemId, submissionsByProblemId[problemId] || []] }
       }))
-
       const nextSubmissionsByProblemId = {}
-      refreshedSubmissionPairs.forEach(([problemId, submissions]) => {
-        nextSubmissionsByProblemId[problemId] = submissions
-      })
+      refreshedSubmissionPairs.forEach(([problemId, submissions]) => { nextSubmissionsByProblemId[problemId] = submissions })
       setSubmissionsByProblemId(nextSubmissionsByProblemId)
-
-      const recordItems = orderedItems
-        .map((item) => {
-          const problemId = Number(item.problemId)
-          const latestSubmission = nextSubmissionsByProblemId[problemId]?.[0]
-          if (!latestSubmission?.id) {
-            return null
-          }
-          return {
-            problemId,
-            submissionId: Number(latestSubmission.id)
-          }
-        })
-        .filter(Boolean)
-
-      if (recordItems.length === 0) {
-        setActionMessage('当前没有可提交或可记录的作答内容')
-        return
-      }
-
+      const recordItems = orderedItems.map((item) => {
+        const problemId = Number(item.problemId)
+        const latestSubmission = nextSubmissionsByProblemId[problemId]?.[0]
+        if (!latestSubmission?.id) return null
+        return { problemId, submissionId: Number(latestSubmission.id) }
+      }).filter(Boolean)
+      if (recordItems.length === 0) { setActionMessage('当前没有可提交或可记录的作答内容'); return }
       try {
-        const createdRecord = await api.createHomeworkSubmissionRecord(spaceId, homeworkId, {
-          items: recordItems
-        })
+        const createdRecord = await api.createHomeworkSubmissionRecord(spaceId, homeworkId, { items: recordItems })
         await refreshHomeworkSubmissionRecords(createdRecord?.id)
         markDraftSaved(`已提交 ${objectiveCount} 道客观题，${programmingCount} 道编程题已进入判题队列，并生成 1 条作业提交记录`)
       } catch (recordErr) {
-        if (!isSubmissionRecordRouteUnavailable(recordErr)) {
-          throw recordErr
-        }
+        if (!isSubmissionRecordRouteUnavailable(recordErr)) throw recordErr
         console.warn('作业提交记录接口暂不可用，已跳过记录创建:', recordErr)
         setSubmissionRecordUnavailable(true)
         markDraftSaved(`已提交 ${objectiveCount} 道客观题，${programmingCount} 道编程题已进入判题队列；当前后端未启用作业提交记录接口，所以这次不会出现在左侧记录列表中`)
       }
-
       localStorage.removeItem(draftStorageKey)
       const emptyStored = { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
-      const freshDraft = buildInitialDraft(
-        homework?.items || [],
-        problemsById,
-        {},
-        emptyStored,
-        normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
-      )
+      const freshDraft = buildInitialDraft(homework?.items || [], problemsById, {}, emptyStored, normalizeDefaultLanguage(space?.defaultProgrammingLanguage))
       setDraft(freshDraft)
       setSubmissionsByProblemId({})
-    } catch (err) {
-      setError(err.message || '提交作业失败')
-    } finally {
-      setSubmittingAll(false)
-    }
+    } catch (err) { setError(err.message || '提交作业失败') }
+    finally { setSubmittingAll(false) }
   }
 
-  if (loading) {
-    return <div className="screen-center">作业加载中...</div>
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">作业加载中...</div>
 
   if (error && !homework) {
     return (
-      <div className="page-shell">
-        <div className="error-box">{error}</div>
-        <Link className="ghost-btn" to={backTo}>{backLabel}</Link>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+        <div className="border border-destructive/30 bg-destructive/10 text-destructive rounded-lg px-5 py-3 text-sm max-w-lg">{error}</div>
+        <Button variant="outline" asChild><Link to={backTo}>{backLabel}</Link></Button>
       </div>
     )
   }
 
-  if (!homework) {
-    return <div className="screen-center">作业不存在</div>
-  }
+  if (!homework) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">作业不存在</div>
 
   const homeworkDisplayMode = homework.displayMode === 'list' ? 'list' : 'exam'
 
   const openRecordReview = (record) => {
     if (!record?.id) return
-    navigate(
-      buildInternalPathWithQuery(`/spaces/${spaceId}/homeworks/${homeworkId}`, {
-        recordId: record.id,
-        returnTo: `/spaces/${spaceId}/homeworks/${homeworkId}`,
-        returnLabel: '返回作业'
-      })
-    )
+    navigate(buildInternalPathWithQuery(`/spaces/${spaceId}/homeworks/${homeworkId}`, { recordId: record.id, returnTo: `/spaces/${spaceId}/homeworks/${homeworkId}`, returnLabel: '返回作业' }))
   }
+
+  // ---- Shared sub-renderers ----
 
   const renderCurrentRecordPanel = () => {
     if (!reviewRecord) return null
     const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(reviewRecord)
     return (
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 3 }}>
-        <Stack spacing={1.1}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            当前作答记录
-          </Typography>
-          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-            <Chip size="small" color={recordStatusChipColor(reviewRecord.statusText)} label={reviewRecord.statusText || '已提交'} />
-            <Chip size="small" variant="outlined" label={formatDateTime(reviewRecord.createdAt)} />
-            {reviewRecord.username ? <Chip size="small" variant="outlined" label={`用户 ${reviewRecord.username}`} /> : null}
-          </Stack>
-          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-            <Chip size="small" variant="outlined" label={`客观错 ${objectiveWrongCount} 道`} />
-            <Chip size="small" variant="outlined" label={`编程错 ${programmingWrongCount} 道`} />
-            <Chip size="small" variant="outlined" label={`待判题 ${reviewRecord.pendingCount || 0}`} />
-          </Stack>
-          <Button
-            size="small"
-            variant="outlined"
-            component={Link}
-            to={`/spaces/${spaceId}/homeworks/${homeworkId}`}
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            返回当前作业
+      <div className="border rounded-xl p-3 mb-3 bg-background">
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-sm font-bold">当前作答记录</h3>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant={recordStatusBadgeVariant(reviewRecord.statusText)}>{reviewRecord.statusText || '已提交'}</Badge>
+            <Badge variant="outline">{formatDateTime(reviewRecord.createdAt)}</Badge>
+            {reviewRecord.username ? <Badge variant="outline">用户 {reviewRecord.username}</Badge> : null}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant="outline">客观错 {objectiveWrongCount} 道</Badge>
+            <Badge variant="outline">编程错 {programmingWrongCount} 道</Badge>
+            <Badge variant="outline">待判题 {reviewRecord.pendingCount || 0}</Badge>
+          </div>
+          <Button size="sm" variant="outline" asChild className="self-start">
+            <Link to={`/spaces/${spaceId}/homeworks/${homeworkId}`}>返回当前作业</Link>
           </Button>
-        </Stack>
-      </Paper>
+        </div>
+      </div>
     )
   }
 
   const renderSubmissionRecordsPanel = () => (
-    <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-          我的提交记录
-        </Typography>
-        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" justifyContent="flex-end">
-          <Chip size="small" label={`${submissionRecords.length} 条`} variant="outlined" />
+    <div className="border rounded-xl p-3 mb-3 bg-background">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="text-sm font-bold">我的提交记录</h3>
+        <div className="flex gap-1.5 flex-wrap justify-end">
+          <Badge variant="outline">{submissionRecords.length} 条</Badge>
           {space?.canManage ? (
-            <Button
-              size="small"
-              variant="outlined"
-              component={Link}
-              to={`/spaces/${spaceId}/homeworks/${homeworkId}/submission-records?returnTo=${allRecordsReturnTo}&returnLabel=${allRecordsReturnLabel}`}
-            >
-              全部记录
+            <Button size="sm" variant="outline" asChild>
+              <Link to={`/spaces/${spaceId}/homeworks/${homeworkId}/submission-records?returnTo=${allRecordsReturnTo}&returnLabel=${allRecordsReturnLabel}`}>全部记录</Link>
             </Button>
           ) : null}
-        </Stack>
-      </Stack>
-
+        </div>
+      </div>
       {submissionRecords.length === 0 ? (
-        <Stack spacing={1}>
-          <Typography variant="body2" color="text.secondary">
-            {submissionRecordUnavailable
-              ? '当前后端还没有启用作业提交记录接口，所以这里暂时不会生成记录。'
-              : '还没有你的整卷提交记录。点击右上角“提交”后，这里会保存你的每次作业提交快照。'}
-          </Typography>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-muted-foreground">
+            {submissionRecordUnavailable ? '当前后端还没有启用作业提交记录接口，所以这里暂时不会生成记录。' : '还没有你的整卷提交记录。点击右上角"提交"后，这里会保存你的每次作业提交快照。'}
+          </p>
           {submissionRecordUnavailable ? (
-            <Typography variant="caption" color="warning.main">
-              题目提交本身已正常完成；要让左侧记录列表生效，需要重启到最新后端版本。
-            </Typography>
+            <p className="text-xs text-amber-600">题目提交本身已正常完成；要让左侧记录列表生效，需要重启到最新后端版本。</p>
           ) : null}
-        </Stack>
+        </div>
       ) : (
-        <Stack spacing={0.75} sx={{ maxHeight: 260, overflowY: 'auto', pr: 0.5 }}>
+        <div className="flex flex-col gap-1 max-h-[260px] overflow-y-auto pr-0.5">
           {submissionRecords.map((record) => {
             const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(record)
             return (
-              <Paper
-                key={record.id}
-                variant="outlined"
-                onClick={() => openRecordReview(record)}
-                sx={{
-                  p: 0.75,
-                  borderRadius: 2,
-                  cursor: 'pointer',
-                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    boxShadow: 2,
-                    transform: 'translateY(-1px)'
-                  }
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  {formatDateTime(record.createdAt)}
-                </Typography>
-
-                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                  <Chip size="small" variant="outlined" label={`客观错 ${objectiveWrongCount} 道`} />
-                  <Chip size="small" variant="outlined" label={`编程错 ${programmingWrongCount} 道`} />
-                </Stack>
-              </Paper>
+              <div key={record.id} className="border rounded-lg p-2 cursor-pointer transition-colors hover:border-primary hover:shadow-md hover:-translate-y-px"
+                onClick={() => openRecordReview(record)}>
+                <p className="text-sm font-bold mb-1">{formatDateTime(record.createdAt)}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="outline">客观错 {objectiveWrongCount} 道</Badge>
+                  <Badge variant="outline">编程错 {programmingWrongCount} 道</Badge>
+                </div>
+              </div>
             )
           })}
-        </Stack>
+        </div>
       )}
-    </Paper>
+    </div>
   )
 
   const renderQuestionNavigatorGrid = () => (
-    <Stack spacing={2}>
+    <div className="flex flex-col gap-2">
       {groupedItems.map((group) => (
-        <Box key={group.type}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-            {group.title}
-          </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 1 }}>
+        <div key={group.type}>
+          <h4 className="text-xs font-bold mb-1">{group.title}</h4>
+          <div className="grid grid-cols-5 gap-1">
             {group.items.map((item) => {
               const problemId = Number(item.problemId)
               const answered = answeredProblemIds.has(problemId)
               const active = Number(activeProblemId) === problemId
               const reviewState = getReviewProblemState(problemId)
               return (
-                <Button
-                  key={`${group.type}-${problemId}`}
-                  variant="outlined"
-                  onClick={() => scrollToProblem(problemId)}
-                  sx={questionNavigatorButtonSx({ active, answered, reviewState })}
-                >
+                <Button key={`${group.type}-${problemId}`} variant="outline"
+                  className={questionNavigatorClass({ active, answered, reviewState })}
+                  onClick={() => scrollToProblem(problemId)}>
                   {item.displayOrder}
                 </Button>
               )
             })}
-          </Box>
-        </Box>
+          </div>
+        </div>
       ))}
-    </Stack>
+    </div>
   )
 
   const renderQuestionNavigatorPanel = () => (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-      {renderQuestionNavigatorGrid()}
-    </Paper>
+    <div className="border rounded-xl p-3 bg-background">{renderQuestionNavigatorGrid()}</div>
   )
 
   const renderQuestionStatusPanel = () => (
-    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
-      <Stack spacing={1.25}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-          完成情况
-        </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 1 }}>
+    <div className="border rounded-xl p-2 bg-background">
+      <div className="flex flex-col gap-1.5">
+        <h3 className="text-sm font-bold">完成情况</h3>
+        <div className="grid grid-cols-5 gap-1">
           {orderedItems.map((item) => {
             const problemId = Number(item.problemId)
             const answered = answeredProblemIds.has(problemId)
             const active = Number(activeProblemId) === problemId
             const reviewState = getReviewProblemState(problemId)
             return (
-              <Button
-                key={`list-status-${problemId}`}
-                variant="outlined"
-                onClick={() => scrollToProblem(problemId)}
-                sx={questionNavigatorButtonSx({ active, answered, reviewState })}
-              >
+              <Button key={`list-status-${problemId}`} variant="outline"
+                className={questionNavigatorClass({ active, answered, reviewState })}
+                onClick={() => scrollToProblem(problemId)}>
                 {item.displayOrder}
               </Button>
             )
           })}
-        </Box>
-      </Stack>
-    </Paper>
+        </div>
+      </div>
+    </div>
   )
 
   const renderProblemCard = (item, standalone = false) => {
@@ -993,323 +659,231 @@ export default function HomeworkPage() {
     const reviewRecordItem = reviewRecordItemMap.get(problemId) || null
     const programmingReviewPath = reviewRecordItem?.submissionId
       ? buildInternalPathWithQuery(`/spaces/${spaceId}/homeworks/${homeworkId}/problems/${problemId}`, {
-          submissionId: reviewRecordItem.submissionId,
-          recordId: reviewRecordId,
-          returnTo: currentHomeworkPath,
-          returnLabel: '返回作答记录'
+          submissionId: reviewRecordItem.submissionId, recordId: reviewRecordId, returnTo: currentHomeworkPath, returnLabel: '返回作答记录'
         })
       : ''
     const programmingNormalPath = `/spaces/${spaceId}/homeworks/${homeworkId}/problems/${problemId}?returnTo=${programmingReturnTo}&returnLabel=${programmingReturnLabel}`
 
     return (
-      <Box
+      <div
         key={problemId}
-        ref={(node) => {
-          questionRefs.current[problemId] = node
-        }}
-        sx={{
-          px: standalone ? { xs: 1.75, md: 2.25 } : { xs: 2, md: 2.5 },
-          py: standalone ? 1.5 : 1.65,
-          borderBottom: standalone ? 'none' : '1px solid',
-          borderColor: 'divider',
-          bgcolor: Number(activeProblemId) === problemId ? 'rgba(227, 242, 253, 0.35)' : '#fff',
-          scrollMarginTop: 84
-        }}
+        ref={(node) => { questionRefs.current[problemId] = node }}
+        className={cn(
+          standalone ? 'px-4 md:px-6 py-1.5' : 'px-4 md:px-5 py-[0.65rem]',
+          !standalone && 'border-b',
+          Number(activeProblemId) === problemId ? 'bg-sky-50/40' : 'bg-white'
+        )}
+        style={{ scrollMarginTop: 84 }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.85 }}>
-          <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+        <div className="flex justify-between items-start gap-1 mb-1">
+          <div className="min-w-0 flex-1">
             {problemType === 'programming' ? (
-              <Typography
-                variant="h6"
-                sx={{
-                  fontSize: standalone ? '0.98rem' : '1rem',
-                  fontWeight: 600,
-                  mb: 0.35,
-                  lineHeight: 1.5,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
-                }}
-              >
+              <h3 className={cn('font-semibold leading-relaxed whitespace-pre-wrap break-words', standalone ? 'text-[0.98rem]' : 'text-base')}>
                 {programmingTitle}
-              </Typography>
+              </h3>
             ) : (
               <MarkdownWithMarker
                 marker={`${item.displayOrder}.`}
                 content={promptMarkdown}
-                sx={{
-                  mb: 0.35,
-                  columnGap: 0.4
-                }}
-                markerSx={{
-                  minWidth: '2.4ch',
-                  fontSize: standalone ? '0.98rem' : '1rem',
-                  fontWeight: 600,
-                  lineHeight: 1.5
-                }}
-                contentSx={{
-                  fontSize: standalone ? '0.98rem' : '1rem',
-                  fontWeight: 600,
-                  lineHeight: 1.5,
-                  '& h1, & h2, & h3, & h4, & h5, & h6': {
-                    mt: 0.15,
-                    mb: 0.25,
-                    fontSize: 'inherit',
-                    fontWeight: 'inherit',
-                    lineHeight: 'inherit'
-                  },
-                  '& p': {
-                    my: 0.1
-                  },
-                  '& ul, & ol': {
-                    my: 0.3
-                  },
-                  '& pre': {
-                    my: 0.5
-                  }
-                }}
+                className="gap-x-[0.4rem] mb-[0.35rem]"
+                markerClassName={cn('font-semibold leading-relaxed', standalone ? 'text-[0.98rem] min-w-[2.4ch]' : 'text-base min-w-[2.4ch]')}
+                contentClassName={cn(
+                  'font-semibold leading-relaxed',
+                  standalone ? 'text-[0.98rem]' : 'text-base',
+                  '[&_h1]:mt-[0.15rem] [&_h1]:mb-[0.25rem] [&_h1]:text-inherit [&_h1]:font-inherit [&_h1]:leading-inherit',
+                  '[&_h2]:mt-[0.15rem] [&_h2]:mb-[0.25rem] [&_h2]:text-inherit [&_h2]:font-inherit [&_h2]:leading-inherit',
+                  '[&_h3]:mt-[0.15rem] [&_h3]:mb-[0.25rem] [&_h3]:text-inherit [&_h3]:font-inherit [&_h3]:leading-inherit',
+                  '[&_h4]:mt-[0.15rem] [&_h4]:mb-[0.25rem] [&_h4]:text-inherit [&_h4]:font-inherit [&_h4]:leading-inherit',
+                  '[&_p]:my-[0.1rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.5rem]'
+                )}
               />
             )}
-          </Box>
+          </div>
 
-          <Tooltip title={isFlagged ? '取消标记' : '标记本题'}>
-            <IconButton
-              size="small"
-              color={isFlagged ? 'warning' : 'default'}
-              disabled={isReviewMode}
-              onClick={() => {
-                setActiveProblemId(problemId)
-                toggleFlag(problemId)
-              }}
-              sx={{
-                mt: -0.2,
-                color: isFlagged ? 'warning.main' : 'text.disabled'
-              }}
-            >
-              {isFlagged ? <OutlinedFlagIcon fontSize="small" /> : <FlagOutlinedIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-        </Box>
+          <Button variant="ghost" size="icon"
+            className={cn('h-7 w-7 -mt-0.5', isFlagged ? 'text-amber-500' : 'text-muted-foreground')}
+            disabled={isReviewMode}
+            title={isFlagged ? '取消标记' : '标记本题'}
+            onClick={() => { setActiveProblemId(problemId); toggleFlag(problemId) }}>
+            <Flag className={cn('h-4 w-4', isFlagged && 'fill-current')} />
+          </Button>
+        </div>
 
-        <Box onMouseEnter={() => setActiveProblemId(problemId)}>
+        <div onMouseEnter={() => setActiveProblemId(problemId)}>
           {problemType === 'programming' ? (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', pt: 0.15 }}>
-              <Typography variant="body2" color="text.secondary">
+            <div className="flex justify-between items-center gap-1.5 flex-wrap pt-0.5">
+              <p className="text-sm text-muted-foreground">
                 时间限制：{problem?.timeLimitMs || '-'}ms | 内存限制：{problem?.memoryLimitMiB || '-'}MiB
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                component={Link}
-                to={isReviewMode ? programmingReviewPath : programmingNormalPath}
-                disabled={isReviewMode && !reviewRecordItem?.submissionId}
-              >
-                {isReviewMode ? (reviewRecordItem?.submissionId ? '查看提交代码' : '本次未提交') : '进入编程'}
+              </p>
+              <Button size="sm" asChild disabled={isReviewMode && !reviewRecordItem?.submissionId}>
+                <Link to={isReviewMode ? programmingReviewPath : programmingNormalPath}>
+                  {isReviewMode ? (reviewRecordItem?.submissionId ? '查看提交代码' : '本次未提交') : '进入编程'}
+                </Link>
               </Button>
-            </Box>
+            </div>
           ) : (
-            <Stack spacing={0.35}>
+            <div className="flex flex-col gap-0.5">
               {problemType === 'single_choice' ? (
-                <FormControl component="fieldset" sx={{ width: '100%' }}>
+                <fieldset className="w-full">
                   <RadioGroup
                     value={objectiveValue}
                     disabled={isReviewMode}
-                    onChange={(event) => updateObjectiveAnswer(problemId, problemType, event.target.value)}
-                    sx={{ gap: 0.15 }}
+                    onValueChange={(value) => updateObjectiveAnswer(problemId, problemType, value)}
+                    className="gap-0.5"
                   >
                     {(body.options || []).map((option, index) => (
-                      <FormControlLabel
+                      <label
                         key={`${problemId}-${index}`}
-                        value={String(option)}
-                        control={<Radio size="small" />}
-                        disableTypography
-                        label={renderChoiceOptionLabel(index, option)}
-                        sx={objectiveOptionRowSx(objectiveValue === String(option))}
-                      />
+                        htmlFor={`hw-opt-${problemId}-${index}`}
+                        className={cn(
+                          'flex items-start gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
+                          objectiveValue === String(option) && 'bg-slate-50'
+                        )}
+                      >
+                        <RadioGroupItem value={String(option)} id={`hw-opt-${problemId}-${index}`} className="mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <MarkdownWithMarker
+                            marker={`${alphaOptionLabel(index)}.`}
+                            content={String(option || '')}
+                            className="gap-x-[0.35rem]"
+                            markerClassName="min-w-[1.8ch]"
+                            contentClassName="text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.6rem] [&_pre]:text-[0.82rem]"
+                          />
+                        </div>
+                      </label>
                     ))}
                   </RadioGroup>
-                </FormControl>
+                </fieldset>
               ) : (
-                <FormControl component="fieldset" sx={{ width: '100%' }}>
+                <fieldset className="w-full">
                   <RadioGroup
                     value={objectiveValue}
                     disabled={isReviewMode}
-                    onChange={(event) => updateObjectiveAnswer(problemId, problemType, event.target.value)}
-                    sx={{ gap: 0.15 }}
+                    onValueChange={(value) => updateObjectiveAnswer(problemId, problemType, value)}
+                    className="gap-0.5"
                   >
-                    <FormControlLabel
-                      value="true"
-                      control={<Radio size="small" />}
-                      label="正确"
-                      sx={{
-                        ...objectiveOptionRowSx(objectiveValue === 'true'),
-                        '.MuiFormControlLabel-label': {
-                          flexGrow: 1,
-                          minWidth: 0,
-                          fontSize: '0.98rem'
-                        }
-                      }}
-                    />
-                    <FormControlLabel
-                      value="false"
-                      control={<Radio size="small" />}
-                      label="错误"
-                      sx={{
-                        ...objectiveOptionRowSx(objectiveValue === 'false'),
-                        '.MuiFormControlLabel-label': {
-                          flexGrow: 1,
-                          minWidth: 0,
-                          fontSize: '0.98rem'
-                        }
-                      }}
-                    />
+                    <label
+                      htmlFor={`hw-opt-${problemId}-true`}
+                      className={cn(
+                        'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
+                        objectiveValue === 'true' && 'bg-slate-50'
+                      )}
+                    >
+                      <RadioGroupItem value="true" id={`hw-opt-${problemId}-true`} className="mt-0.5" />
+                      <span className="text-[0.98rem]">正确</span>
+                    </label>
+                    <label
+                      htmlFor={`hw-opt-${problemId}-false`}
+                      className={cn(
+                        'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
+                        objectiveValue === 'false' && 'bg-slate-50'
+                      )}
+                    >
+                      <RadioGroupItem value="false" id={`hw-opt-${problemId}-false`} className="mt-0.5" />
+                      <span className="text-[0.98rem]">错误</span>
+                    </label>
                   </RadioGroup>
-                </FormControl>
+                </fieldset>
               )}
-            </Stack>
+            </div>
           )}
-        </Box>
-      </Box>
+        </div>
+      </div>
     )
   }
 
-  return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#eef2f7' }}>
-      <AppBar position="sticky" color="default" elevation={1}>
-        <Toolbar
-          sx={{
-            minHeight: '56px !important',
-            px: { xs: 1.5, md: 2.5 },
-            py: 0.5,
-            gap: 1,
-            flexWrap: 'nowrap',
-            alignItems: 'center',
-            overflowX: 'auto'
-          }}
-        >
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 'max-content' }}>
-              <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800, lineHeight: 1.1 }}>
-                {homework.title}
-              </Typography>
-              <Chip size="small" variant="outlined" label={homeworkDisplayModeText(homeworkDisplayMode)} />
-              {isReviewMode ? <Chip size="small" color="primary" variant="outlined" label="作答记录回看" /> : null}
-            </Stack>
-          </Box>
+  // ---- Main render ----
 
-          <Stack direction="row" spacing={1} sx={{ ml: 'auto', flexShrink: 0 }}>
-            <Button variant="outlined" component={Link} to={backTo}>
-              {backLabel}
-            </Button>
+  return (
+    <div className="min-h-screen bg-[#eef2f7]">
+      <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
+        <div className="flex items-center h-14 px-4 md:px-6 gap-2 overflow-x-auto">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 min-w-max">
+              <h1 className="text-sm font-extrabold leading-tight truncate">{homework.title}</h1>
+              <Badge variant="outline">{homeworkDisplayModeText(homeworkDisplayMode)}</Badge>
+              {isReviewMode ? <Badge variant="outline" className="border-primary text-primary">作答记录回看</Badge> : null}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto shrink-0">
+            <Button variant="outline" size="sm" asChild><Link to={backTo}>{backLabel}</Link></Button>
             {space?.canManage ? (
-              <Button
-                variant="outlined"
-                component={Link}
-                to={`/spaces/${spaceId}/homeworks/${homeworkId}/submission-records?returnTo=${allRecordsReturnTo}&returnLabel=${allRecordsReturnLabel}`}
-              >
-                全部提交记录
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/spaces/${spaceId}/homeworks/${homeworkId}/submission-records?returnTo=${allRecordsReturnTo}&returnLabel=${allRecordsReturnLabel}`}>
+                  全部提交记录
+                </Link>
               </Button>
             ) : null}
             {!isReviewMode ? (
               <>
-                <Button
-                  variant="contained"
-                  color="inherit"
-                  startIcon={<SaveRoundedIcon />}
-                  onClick={() => markDraftSaved()}
-                >
-                  保存
+                <Button variant="secondary" size="sm" onClick={() => markDraftSaved()}>
+                  <Save className="h-3.5 w-3.5 mr-1" />保存
                 </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={submittingAll || isExpired}
-                  onClick={handleSubmitAll}
-                >
+                <Button size="sm" disabled={submittingAll || isExpired} onClick={handleSubmitAll}>
                   {submittingAll ? '提交中...' : '提交'}
                 </Button>
               </>
             ) : null}
-          </Stack>
-        </Toolbar>
-      </AppBar>
+          </div>
+        </div>
+      </header>
 
       {homeworkDisplayMode === 'exam' ? (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', p: { xs: 1.25, md: 1.5 }, gap: 1.5, flexDirection: { xs: 'column', md: 'row' } }}>
-          <Box sx={{ width: { xs: '100%', md: 250 }, position: { md: 'sticky' }, top: { md: 72 }, alignSelf: 'flex-start', maxHeight: { md: 'calc(100vh - 88px)' }, overflowY: { md: 'auto' } }}>
+        <div className="flex items-start p-3 md:p-4 gap-3 flex-col md:flex-row">
+          <div className="w-full md:w-[250px] md:sticky md:top-[72px] self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto shrink-0">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             {renderQuestionNavigatorPanel()}
-          </Box>
+          </div>
 
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <div className="flex-1 min-w-0">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
-            <Stack spacing={1.5}>
+            <div className="flex flex-col gap-2">
               {groupedItems.map((group) => (
-                <Paper key={group.type} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
-                  <Box sx={{ px: { xs: 2, md: 2.5 }, pt: 1.35, pb: 0.45 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-                      {group.title}
-                    </Typography>
-                  </Box>
-
-                  <Stack spacing={0}>
+                <div key={group.type} className="border rounded-lg overflow-hidden bg-white">
+                  <div className="px-4 md:px-5 pt-[0.55rem] pb-[0.2rem]">
+                    <h3 className="text-xs font-bold text-muted-foreground">{group.title}</h3>
+                  </div>
+                  <div className="flex flex-col">
                     {group.items.map((item) => renderProblemCard(item))}
-                  </Stack>
-                </Paper>
+                  </div>
+                </div>
               ))}
-            </Stack>
-          </Box>
-        </Box>
+            </div>
+          </div>
+        </div>
       ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '280px minmax(0, 1fr)' },
-            alignItems: 'flex-start',
-            p: { xs: 1.25, md: 1.5 },
-            gap: 1.5
-          }}
-        >
-          <Box sx={{ position: { md: 'sticky' }, top: { md: 72 }, alignSelf: 'flex-start', maxHeight: { md: 'calc(100vh - 88px)' }, overflowY: { md: 'auto' } }}>
+        <div className="grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] items-start p-3 md:p-4 gap-3">
+          <div className="md:sticky md:top-[72px] self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             {renderQuestionStatusPanel()}
-          </Box>
+          </div>
 
-          <Box sx={{ minWidth: 0 }}>
+          <div className="min-w-0">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
-            <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5, borderRadius: 3 }}>
-              <Stack spacing={1}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  题目列表
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  当前按题单形式展示，题目按作业顺序依次排列；保存和提交逻辑与试卷模式一致。
-                </Typography>
-              </Stack>
-            </Paper>
+            <div className="border rounded-xl p-2 mb-2 bg-background">
+              <h2 className="text-base font-bold mb-1">题目列表</h2>
+              <p className="text-sm text-muted-foreground">
+                当前按题单形式展示，题目按作业顺序依次排列；保存和提交逻辑与试卷模式一致。
+              </p>
+            </div>
 
-            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
-              <Stack spacing={0}>
+            <div className="border rounded-lg overflow-hidden bg-white">
+              <div className="flex flex-col">
                 {orderedItems.map((item, index) => (
-                  <Box
-                    key={item.problemId}
-                    sx={{
-                      borderBottom: index === orderedItems.length - 1 ? 'none' : '1px solid',
-                      borderColor: 'divider'
-                    }}
-                  >
+                  <div key={item.problemId} className={index === orderedItems.length - 1 ? '' : 'border-b'}>
                     {renderProblemCard(item, true)}
-                  </Box>
+                  </div>
                 ))}
-              </Stack>
-            </Paper>
-          </Box>
-        </Box>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
-
-    </Box>
+    </div>
   )
 }

@@ -1,37 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import Autocomplete from '@mui/material/Autocomplete'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Checkbox from '@mui/material/Checkbox'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
-import FormControl from '@mui/material/FormControl'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import IconButton from '@mui/material/IconButton'
-import InputLabel from '@mui/material/InputLabel'
-import MenuItem from '@mui/material/MenuItem'
-import Paper from '@mui/material/Paper'
-import Select from '@mui/material/Select'
-import Stack from '@mui/material/Stack'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
-import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
-import AddIcon from '@mui/icons-material/Add'
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
-import RemoveIcon from '@mui/icons-material/Remove'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Textarea } from '../ui/textarea'
+import { Checkbox } from '../ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
+import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { parseProblemDraftArray } from '../../utils/problemDrafts'
 
-function blankItem() {
-  return {
-    problemId: null
-  }
-}
+function blankItem() { return { problemId: null } }
 
 function formatDatetimeLocal(value) {
   if (!value) return ''
@@ -51,408 +30,216 @@ function toDueAtISO(value) {
 function buildInitialForm(homework) {
   const rawItems = Array.isArray(homework?.items) ? homework.items : []
   return {
-    title: String(homework?.title || ''),
-    description: String(homework?.description || ''),
-    dueAt: formatDatetimeLocal(homework?.dueAt),
-    displayMode: String(homework?.displayMode || 'exam'),
+    title: String(homework?.title || ''), description: String(homework?.description || ''),
+    dueAt: formatDatetimeLocal(homework?.dueAt), displayMode: String(homework?.displayMode || 'exam'),
     published: Boolean(homework?.published),
-    items: rawItems.length > 0
-      ? rawItems.map((item) => ({
-          problemId: Number(item?.problemId) || null
-        }))
-      : [blankItem()]
+    items: rawItems.length > 0 ? rawItems.map((item) => ({ problemId: Number(item?.problemId) || null })) : [blankItem()]
   }
 }
 
-export default function HomeworkEditor({
-  open,
-  mode = 'create',
-  homework = null,
-  problemOptions = [],
-  onClose,
-  onSubmit
-}) {
+export default function HomeworkEditor({ open, mode = 'create', homework = null, problemOptions = [], onClose, onSubmit }) {
   const isEditMode = mode === 'edit'
   const [form, setForm] = useState(() => buildInitialForm(homework))
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [draggingItemIndex, setDraggingItemIndex] = useState(null)
-  const [dragOverItemIndex, setDragOverItemIndex] = useState(null)
+  const [draggingIndex, setDraggingIndex] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
   const [problemSourceMode, setProblemSourceMode] = useState('manual')
   const [problemDraftsJSON, setProblemDraftsJSON] = useState('')
+  const [searchPerItem, setSearchPerItem] = useState({})
 
   useEffect(() => {
     if (!open) return
-    setForm(buildInitialForm(homework))
-    setSubmitting(false)
-    setSubmitError('')
-    setDraggingItemIndex(null)
-    setDragOverItemIndex(null)
-    setProblemSourceMode('manual')
-    setProblemDraftsJSON('')
+    setForm(buildInitialForm(homework)); setSubmitting(false); setSubmitError('')
+    setDraggingIndex(null); setDragOverIndex(null); setProblemSourceMode('manual'); setProblemDraftsJSON(''); setSearchPerItem({})
   }, [open, homework, mode])
 
   const problemMap = useMemo(() => {
     const map = new Map()
-    problemOptions.forEach((problem) => {
-      map.set(problem.id, problem)
-    })
+    problemOptions.forEach((p) => map.set(p.id, p))
     return map
   }, [problemOptions])
 
   const resolveProblem = (problemId) => {
     const matched = problemMap.get(problemId)
-    if (matched) return matched
-    return problemId ? { id: problemId, title: `题目 ${problemId}` } : null
+    return matched || (problemId ? { id: problemId, title: `题目 ${problemId}` } : null)
   }
 
-  const updateField = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value
-    }))
-  }
+  const updateField = (field, value) => setForm((c) => ({ ...c, [field]: value }))
+  const updateItem = (index, patch) => setForm((c) => ({ ...c, items: c.items.map((item, i) => i !== index ? item : { ...item, ...patch }) }))
+  const addItem = () => setForm((c) => ({ ...c, items: [...c.items, blankItem()] }))
 
-  const updateItem = (index, patch) => {
-    setForm((current) => ({
-      ...current,
-      items: current.items.map((item, itemIndex) => {
-        if (itemIndex !== index) return item
-        return {
-          ...item,
-          ...patch
-        }
-      })
-    }))
-  }
-
-  const addItem = () => {
-    setForm((current) => ({
-      ...current,
-      items: [...current.items, blankItem()]
-    }))
-  }
-
-  const reorderItems = (fromIndex, toIndex) => {
-    setForm((current) => {
-      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= current.items.length || toIndex >= current.items.length) {
-        return current
-      }
-      const nextItems = [...current.items]
-      const [movedItem] = nextItems.splice(fromIndex, 1)
-      nextItems.splice(toIndex, 0, movedItem)
-      return {
-        ...current,
-        items: nextItems
-      }
+  const reorderItems = (from, to) => {
+    setForm((c) => {
+      if (from === to || from < 0 || to < 0 || from >= c.items.length || to >= c.items.length) return c
+      const next = [...c.items]; next.splice(to, 0, ...next.splice(from, 1)); return { ...c, items: next }
     })
   }
 
-  const moveItem = (index, direction) => {
-    reorderItems(index, index + direction)
-  }
+  const moveItem = (index, dir) => reorderItems(index, index + dir)
 
-  const removeItem = (index) => {
-    setForm((current) => {
-      if (current.items.length === 1) {
-        return current
-      }
-      return {
-        ...current,
-        items: current.items.filter((_, itemIndex) => itemIndex !== index)
-      }
-    })
-  }
+  const removeItem = (index) => setForm((c) => {
+    if (c.items.length === 1) return c
+    return { ...c, items: c.items.filter((_, i) => i !== index) }
+  })
 
-  const handleClose = () => {
-    if (submitting) return
-    setSubmitError('')
-    onClose()
-  }
+  const handleClose = () => { if (submitting) return; setSubmitError(''); onClose() }
 
   const handleSubmit = async () => {
     const title = form.title.trim()
-    if (!title) {
-      setSubmitError('作业标题不能为空')
-      return
-    }
+    if (!title) { setSubmitError('作业标题不能为空'); return }
 
     let problemDrafts = []
-
-    const normalizedItems = problemSourceMode === 'import'
-      ? []
-      : form.items.map((item, index) => ({
-          problemId: Number(item.problemId),
-          orderNo: index + 1,
-          score: 100
-        }))
+    const normalizedItems = problemSourceMode === 'import' ? [] : form.items.map((item, index) => ({ problemId: Number(item.problemId), orderNo: index + 1, score: 100 }))
 
     if (problemSourceMode === 'import') {
-      try {
-        problemDrafts = parseProblemDraftArray(problemDraftsJSON)
-      } catch (err) {
-        setSubmitError(err.message || '题目 JSON 数组不合法')
-        return
-      }
+      try { problemDrafts = parseProblemDraftArray(problemDraftsJSON) }
+      catch (err) { setSubmitError(err.message || '题目 JSON 数组不合法'); return }
     } else {
-      if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) {
-        setSubmitError('请为每一道作业题选择有效题目')
-        return
-      }
-
-      const uniqueProblemIds = new Set(normalizedItems.map((item) => item.problemId))
-      if (uniqueProblemIds.size !== normalizedItems.length) {
-        setSubmitError('作业中不能重复添加同一道题')
-        return
-      }
+      if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) { setSubmitError('请为每一道作业题选择有效题目'); return }
+      if (new Set(normalizedItems.map((item) => item.problemId)).size !== normalizedItems.length) { setSubmitError('作业中不能重复添加同一道题'); return }
     }
 
     try {
-      setSubmitting(true)
-      setSubmitError('')
-      await onSubmit({
-        title,
-        description: form.description.trim(),
-        dueAt: toDueAtISO(form.dueAt),
-        displayMode: form.displayMode || 'exam',
-        published: form.published,
-        items: normalizedItems,
-        problemDrafts
-      })
+      setSubmitting(true); setSubmitError('')
+      await onSubmit({ title, description: form.description.trim(), dueAt: toDueAtISO(form.dueAt), displayMode: form.displayMode || 'exam', published: form.published, items: normalizedItems, problemDrafts })
       onClose()
-    } catch (err) {
-      setSubmitError(err.message || '保存失败')
-    } finally {
-      setSubmitting(false)
-    }
+    } catch (err) { setSubmitError(err.message || '保存失败') }
+    finally { setSubmitting(false) }
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle>{isEditMode ? '编辑作业' : '创建作业'}</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} sx={{ pt: 1 }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{isEditMode ? '编辑作业' : '创建作业'}</DialogTitle></DialogHeader>
+
+        <div className="flex flex-col gap-4 pt-2">
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
-          <TextField
-            fullWidth
-            size="small"
-            label="作业标题"
-            value={form.title}
-            onChange={(event) => updateField('title', event.target.value)}
-          />
+          <Input placeholder="作业标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
+          <Textarea placeholder="作业说明" value={form.description} onChange={(e) => updateField('description', e.target.value)} className="min-h-[80px]" />
 
-          <TextField
-            fullWidth
-            size="small"
-            label="作业说明"
-            value={form.description}
-            onChange={(event) => updateField('description', event.target.value)}
-            multiline
-            minRows={3}
-          />
-
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <TextField
-              size="small"
-              type="datetime-local"
-              label="截止时间"
-              value={form.dueAt}
-              onChange={(event) => updateField('dueAt', event.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 240 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel id="homework-display-mode-label">页面模式</InputLabel>
-              <Select
-                labelId="homework-display-mode-label"
-                label="页面模式"
-                value={form.displayMode}
-                onChange={(event) => updateField('displayMode', event.target.value)}
-              >
-                <MenuItem value="exam">试卷模式</MenuItem>
-                <MenuItem value="list">题单模式</MenuItem>
+          <div className="flex gap-3 flex-wrap items-end">
+            <div>
+              <label className="text-xs font-medium mb-1 block">截止时间</label>
+              <Input type="datetime-local" value={form.dueAt} onChange={(e) => updateField('dueAt', e.target.value)} className="min-w-[240px]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block">页面模式</label>
+              <Select value={form.displayMode} onValueChange={(v) => updateField('displayMode', v)}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="exam">试卷模式</SelectItem>
+                  <SelectItem value="list">题单模式</SelectItem>
+                </SelectContent>
               </Select>
-            </FormControl>
-            <FormControlLabel
-              control={(
-                <Checkbox
-                  checked={form.published}
-                  onChange={(event) => updateField('published', event.target.checked)}
-                />
-              )}
-              label="立即发布"
-            />
-          </Box>
+            </div>
+            <label className="flex items-center gap-2 text-sm pb-1.5">
+              <Checkbox checked={form.published} onCheckedChange={(c) => updateField('published', c)} />
+              立即发布
+            </label>
+          </div>
 
           {!isEditMode && (
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                题目来源
-              </Typography>
-              <Tabs
-                value={problemSourceMode}
-                onChange={(event, value) => {
-                  if (!value) return
-                  setProblemSourceMode(value)
-                  setSubmitError('')
-                }}
-                variant="fullWidth"
-                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
-              >
-                <Tab label="从题库选题" value="manual" />
-                <Tab label="导入题目 JSON 数组" value="import" />
+            <div>
+              <h4 className="text-sm font-medium mb-2">题目来源</h4>
+              <Tabs value={problemSourceMode} onValueChange={(v) => { if (v) { setProblemSourceMode(v); setSubmitError('') } }}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="manual" className="flex-1">从题库选题</TabsTrigger>
+                  <TabsTrigger value="import" className="flex-1">导入题目 JSON 数组</TabsTrigger>
+                </TabsList>
               </Tabs>
-            </Box>
+            </div>
           )}
 
           {problemSourceMode === 'import' && !isEditMode ? (
-            <>
-              <Typography variant="caption" color="text.secondary">
-                这里接收题目存储对象的 JSON 数组。每一项对应一题，字段与题目编辑器 JSON 模式一致：
-                `type / title / tags / statementMd / bodyJson / answerJson / timeLimitMs / memoryLimitMiB`。
-                保存后会先在当前空间自动创建这些题目，再按数组顺序创建作业。
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                label="题目 JSON 数组"
-                value={problemDraftsJSON}
-                onChange={(event) => setProblemDraftsJSON(event.target.value)}
-                multiline
-                minRows={18}
-                InputProps={{ sx: { fontFamily: 'monospace' } }}
-                helperText={'示例：[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'}
-              />
-            </>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">这里接收题目存储对象的 JSON 数组。每一项对应一题。</p>
+              <Textarea className="font-mono min-h-[300px]" value={problemDraftsJSON} onChange={(e) => setProblemDraftsJSON(e.target.value)} placeholder={'[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'} />
+            </div>
           ) : (
             <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle2">作业题目</Typography>
-                <Button size="small" startIcon={<AddIcon />} onClick={addItem}>
-                  添加题目
-                </Button>
-              </Box>
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-medium">作业题目</h4>
+                <Button size="sm" variant="outline" onClick={addItem}><Plus className="h-4 w-4 mr-1" />添加题目</Button>
+              </div>
 
               {form.displayMode === 'list' && (
-                <ToastMessage
-                  message="题单模式会严格按下面的题目顺序展示。可以直接拖拽每道题右上角的手柄调整顺序，也可以继续使用上移、下移按钮。"
-                  severity="info"
-                />
+                <ToastMessage message="题单模式会严格按下面的题目顺序展示。可以直接拖拽手柄调整顺序。" severity="info" />
               )}
 
               {form.items.map((item, index) => (
-                <Paper
-                  key={index}
-                  variant="outlined"
-                  onDragOver={(event) => {
-                    if (form.displayMode !== 'list' || draggingItemIndex === null) return
-                    event.preventDefault()
-                    event.dataTransfer.dropEffect = 'move'
-                    if (dragOverItemIndex !== index) {
-                      setDragOverItemIndex(index)
-                    }
+                <div key={index} className={`border rounded-lg p-4 ${form.displayMode === 'list' && dragOverIndex === index ? 'border-primary shadow-sm' : ''} ${draggingIndex === index ? 'opacity-70' : ''}`}
+                  onDragOver={(e) => {
+                    if (form.displayMode !== 'list' || draggingIndex === null) return
+                    e.preventDefault(); e.dataTransfer.dropEffect = 'move'
+                    if (dragOverIndex !== index) setDragOverIndex(index)
                   }}
-                  onDrop={(event) => {
-                    if (form.displayMode !== 'list' || draggingItemIndex === null) return
-                    event.preventDefault()
-                    reorderItems(draggingItemIndex, index)
-                    setDraggingItemIndex(null)
-                    setDragOverItemIndex(null)
-                  }}
-                  sx={{
-                    p: 2,
-                    borderColor: form.displayMode === 'list' && dragOverItemIndex === index ? 'primary.main' : undefined,
-                    boxShadow: form.displayMode === 'list' && dragOverItemIndex === index ? 1 : 'none',
-                    opacity: draggingItemIndex === index ? 0.7 : 1
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="subtitle2">第 {index + 1} 题</Typography>
-                    <Stack direction="row" spacing={0.5}>
-                      <IconButton
-                        size="small"
+                  onDrop={(e) => {
+                    if (form.displayMode !== 'list' || draggingIndex === null) return
+                    e.preventDefault(); reorderItems(draggingIndex, index); setDraggingIndex(null); setDragOverIndex(null)
+                  }}>
+                  <div className="flex justify-between items-center mb-3">
+                    <h5 className="text-sm font-medium">第 {index + 1} 题</h5>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost"
                         draggable={form.displayMode === 'list'}
-                        onDragStart={(event) => {
+                        onDragStart={(e) => {
                           if (form.displayMode !== 'list') return
-                          event.dataTransfer.effectAllowed = 'move'
-                          event.dataTransfer.setData('text/plain', String(index))
-                          setDraggingItemIndex(index)
-                          setDragOverItemIndex(index)
+                          e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(index))
+                          setDraggingIndex(index); setDragOverIndex(index)
                         }}
-                        onDragEnd={() => {
-                          setDraggingItemIndex(null)
-                          setDragOverItemIndex(null)
-                        }}
-                        aria-label="拖拽排序"
-                        sx={{ cursor: form.displayMode === 'list' ? 'grab' : 'default' }}
-                      >
-                        <DragIndicatorIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => moveItem(index, -1)}
-                        disabled={index === 0}
-                        aria-label="上移题目"
-                      >
-                        <ArrowUpwardIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => moveItem(index, 1)}
-                        disabled={index === form.items.length - 1}
-                        aria-label="下移题目"
-                      >
-                        <ArrowDownwardIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => removeItem(index)} disabled={form.items.length <= 1}>
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  </Box>
+                        onDragEnd={() => { setDraggingIndex(null); setDragOverIndex(null) }}
+                        className={`cursor-${form.displayMode === 'list' ? 'grab' : 'default'}`}>
+                        <GripVertical className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => moveItem(index, -1)} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => moveItem(index, 1)} disabled={index === form.items.length - 1}><ArrowDown className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => removeItem(index)} disabled={form.items.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                  </div>
 
-                  <Stack spacing={2}>
-                    <Autocomplete
-                      size="small"
-                      options={problemOptions}
-                      value={resolveProblem(item.problemId)}
-                      onChange={(event, value) => updateItem(index, { problemId: value?.id || null })}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                      getOptionLabel={(option) => `#${option.id} ${option.title}`}
-                      filterOptions={(options, state) => {
-                        const keyword = state.inputValue.trim().toLowerCase()
-                        if (!keyword) return []
-                        return options.filter((option) => {
-                          const tagsText = Array.isArray(option.tags) ? option.tags.join(' ').toLowerCase() : ''
-                          return (
-                            String(option.id).includes(keyword) ||
-                            String(option.title || '').toLowerCase().includes(keyword) ||
-                            tagsText.includes(keyword)
-                          )
-                        })
-                      }}
-                      noOptionsText={problemOptions.length === 0 ? '当前空间题库为空' : '请输入题号、标题或标签搜索'}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="选择题目"
-                          placeholder="输入题号、标题或标签搜索"
-                        />
-                      )}
-                    />
-                  </Stack>
-                </Paper>
+                  <div>
+                    <Input placeholder="输入题号、标题或标签搜索" className="mb-2"
+                      value={searchPerItem[index] || ''}
+                      onChange={(e) => setSearchPerItem({ ...searchPerItem, [index]: e.target.value })} />
+                    {searchPerItem[index]?.trim() && (
+                      <div className="border rounded-lg max-h-40 overflow-y-auto mb-2">
+                        {problemOptions.filter((p) => {
+                          const kw = searchPerItem[index].trim().toLowerCase()
+                          const tagsText = (p.tags || []).join(' ').toLowerCase()
+                          return String(p.id).includes(kw) || p.title.toLowerCase().includes(kw) || tagsText.includes(kw)
+                        }).slice(0, 20).map((p) => (
+                          <div key={p.id} className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent"
+                            onClick={() => {
+                              updateItem(index, { problemId: p.id })
+                              setSearchPerItem({ ...searchPerItem, [index]: '' })
+                            }}>
+                            #{p.id} {p.title}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {item.problemId && (
+                      <div className="inline-flex items-center gap-1 bg-muted px-2 py-0.5 rounded text-xs cursor-pointer"
+                        onClick={() => updateItem(index, { problemId: null })}>
+                        #{item.problemId} {resolveProblem(item.problemId)?.title || `题目 ${item.problemId}`} ×
+                      </div>
+                    )}
+                  </div>
+                </div>
               ))}
             </>
           )}
-        </Stack>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? '保存中...' : (isEditMode ? '保存修改' : '创建作业')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={submitting}>取消</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? '保存中...' : isEditMode ? '保存修改' : '创建作业'}
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }

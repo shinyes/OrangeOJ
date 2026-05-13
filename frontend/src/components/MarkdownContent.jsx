@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import Box from '@mui/material/Box'
 import DOMPurify from 'dompurify'
 import { Marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
+import { cn } from '../lib/utils'
 import 'katex/dist/katex.min.css'
 
 const markdownRenderer = new Marked({
@@ -16,190 +16,67 @@ markdownRenderer.use(markedKatex({
   nonStandard: true
 }))
 
-function toSxArray(sx) {
-  if (!sx) return []
-  return Array.isArray(sx) ? sx : [sx]
-}
-
 function renderMarkdown(content) {
   const source = String(content || '').trim()
   if (!source) return ''
   const html = markdownRenderer.parse(source)
   return DOMPurify.sanitize(typeof html === 'string' ? html : '', {
-    USE_PROFILES: {
-      html: true,
-      svg: true,
-      mathMl: true
-    }
+    USE_PROFILES: { html: true, svg: true, mathMl: true }
   })
 }
 
-export default function MarkdownContent({ content = '', sx, ...props }) {
+export default function MarkdownContent({ content = '', className, ...props }) {
   const html = useMemo(() => renderMarkdown(content), [content])
 
-  if (!html) {
-    return null
-  }
+  if (!html) return null
 
   return (
-    <Box
+    <div
       {...props}
-      sx={[
-        {
-          minWidth: 0,
-          color: 'text.primary',
-          lineHeight: 1.7,
-          wordBreak: 'break-word',
-          overflowWrap: 'anywhere',
-          '& > :first-of-type': {
-            mt: 0
-          },
-          '& > :last-child': {
-            mb: 0
-          },
-          '& h1, & h2, & h3, & h4, & h5, & h6': {
-            mt: 1.5,
-            mb: 0.75,
-            fontWeight: 700,
-            lineHeight: 1.35
-          },
-          '& h1': {
-            fontSize: '1.5rem'
-          },
-          '& h2': {
-            fontSize: '1.3rem'
-          },
-          '& h3': {
-            fontSize: '1.15rem'
-          },
-          '& h4, & h5, & h6': {
-            fontSize: '1rem'
-          },
-          '& p': {
-            my: 0.75
-          },
-          '& ul, & ol': {
-            my: 0.75,
-            pl: 3
-          },
-          '& li + li': {
-            mt: 0.4
-          },
-          '& blockquote': {
-            my: 1,
-            mx: 0,
-            pl: 1.5,
-            borderLeft: '4px solid',
-            borderColor: 'divider',
-            color: 'text.secondary'
-          },
-          '& pre': {
-            my: 1.25,
-            py: 1.25,
-            px: 1.5,
-            display: 'inline-block',
-            width: 'fit-content',
-            maxWidth: '100%',
-            boxSizing: 'border-box',
-            verticalAlign: 'top',
-            overflowX: 'auto',
-            borderRadius: 2,
-            bgcolor: 'grey.100',
-            color: 'text.primary',
-            border: '1px solid',
-            borderColor: 'divider',
-            fontSize: '0.875rem',
-            lineHeight: 1.6,
-            whiteSpace: 'pre',
-            overflowWrap: 'normal'
-          },
-          '& code': {
-            fontFamily: 'Consolas, "Liberation Mono", Menlo, Courier, monospace'
-          },
-          '& :not(pre) > code': {
-            px: 0.5,
-            py: 0.2,
-            borderRadius: 1,
-            bgcolor: 'rgba(15, 23, 42, 0.08)',
-            fontSize: '0.875em'
-          },
-          '& pre code': {
-            backgroundColor: 'transparent',
-            fontSize: 'inherit'
-          },
-          '& table': {
-            width: '100%',
-            my: 1.25,
-            borderCollapse: 'collapse'
-          },
-          '& th, & td': {
-            border: '1px solid',
-            borderColor: 'divider',
-            px: 1,
-            py: 0.75,
-            textAlign: 'left',
-            verticalAlign: 'top'
-          },
-          '& a': {
-            color: 'primary.main'
-          },
-          '& img': {
-            maxWidth: '100%'
-          },
-          '& .katex-display': {
-            my: 1,
-            overflowX: 'auto',
-            overflowY: 'hidden'
-          },
-          '& .katex-display > .katex': {
-            whiteSpace: 'nowrap'
-          }
-        },
-        ...toSxArray(sx)
-      ]}
+      className={cn(
+        'min-w-0 text-foreground leading-relaxed break-words',
+        '[&>:first-child]:mt-0 [&>:last-child]:mb-0',
+        '[&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:leading-tight',
+        '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:leading-tight',
+        '[&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:leading-tight',
+        '[&_h4]:mt-3 [&_h4]:mb-1 [&_h4]:text-base [&_h4]:font-semibold',
+        '[&_p]:my-3',
+        '[&_ul]:my-3 [&_ul]:pl-8 [&_ul]:list-disc',
+        '[&_ol]:my-3 [&_ol]:pl-8 [&_ol]:list-decimal',
+        '[&_li+li]:mt-1.5',
+        '[&_blockquote]:my-4 [&_blockquote]:mx-0 [&_blockquote]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:text-muted-foreground',
+        '[&_pre]:my-4 [&_pre]:p-4 [&_pre]:inline-block [&_pre]:w-fit [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:border [&_pre]:border-border [&_pre]:text-sm [&_pre]:leading-relaxed [&_pre]:whitespace-pre',
+        '[&_code]:font-mono',
+        '[&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:text-sm',
+        '[&_pre_code]:bg-transparent [&_pre_code]:text-inherit',
+        '[&_table]:w-full [&_table]:my-5 [&_table]:border-collapse',
+        '[&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left',
+        '[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-left',
+        '[&_a]:text-primary [&_a]:underline',
+        '[&_img]:max-w-full',
+        '[&_.katex-display]:my-4 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden',
+        '[&_.katex-display>.katex]:whitespace-nowrap',
+        className
+      )}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )
 }
 
-export function MarkdownWithMarker({ marker, content = '', sx, markerSx, contentSx }) {
+export function MarkdownWithMarker({ marker, content = '', className, markerClassName, contentClassName }) {
   return (
-    <Box
-      sx={[
-        {
-          display: 'grid',
-          gridTemplateColumns: 'max-content minmax(0, 1fr)',
-          columnGap: 0.5,
-          alignItems: 'start'
-        },
-        ...toSxArray(sx)
-      ]}
+    <div className={cn('grid gap-x-2 items-start', className)}
+      style={{ gridTemplateColumns: 'max-content minmax(0, 1fr)' }}
     >
-      <Box
-        component="span"
-        sx={[
-          {
-            flexShrink: 0,
-            minWidth: '2.6ch',
-            fontWeight: 700,
-            lineHeight: 1.7,
-            fontVariantNumeric: 'tabular-nums',
-            textAlign: 'right'
-          },
-          ...toSxArray(markerSx)
-        ]}
+      <span className={cn(
+        'shrink-0 min-w-[2.4ch] font-bold text-right tabular-nums',
+        markerClassName
+      )}
+        style={{ lineHeight: 1.7 }}
       >
         {marker}
-      </Box>
-      <MarkdownContent
-        content={content}
-        sx={[
-          {
-            flexGrow: 1
-          },
-          ...toSxArray(contentSx)
-        ]}
-      />
-    </Box>
+      </span>
+      <MarkdownContent content={content} className={cn('flex-1', contentClassName)} />
+    </div>
   )
 }

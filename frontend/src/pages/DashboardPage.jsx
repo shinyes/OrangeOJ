@@ -1,17 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toFriendlyError } from '../api'
-import Box from '@mui/material/Box'
-import AppBar from '@mui/material/AppBar'
-import Toolbar from '@mui/material/Toolbar'
-import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
-import Menu from '@mui/material/Menu'
-import MenuItem from '@mui/material/MenuItem'
-import Divider from '@mui/material/Divider'
-import Container from '@mui/material/Container'
-import Tabs from '@mui/material/Tabs'
-import Tab from '@mui/material/Tab'
+import { Button } from '../components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu'
+import { ChevronDown } from 'lucide-react'
 import ChangePasswordPanel from '../components/dashboard/ChangePasswordPanel'
 import ConfirmDialog from '../components/dashboard/ConfirmDialog'
 import DashboardDialogs from '../components/dashboard/DashboardDialogs'
@@ -49,8 +42,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const isSpaceManageView = view === 'space-manage'
   const isSystemManageView = view === 'system-manage'
   const [error, setError] = useState('')
-  const [userMenuAnchorEl, setUserMenuAnchorEl] = useState(null)
-  const userMenuOpen = Boolean(userMenuAnchorEl)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [trainingActionMessage, setTrainingActionMessage] = useState('')
   const [homeworkActionMessage, setHomeworkActionMessage] = useState('')
   const searchState = useDashboardSearchState()
@@ -236,7 +228,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   useEffect(() => {
     const handleEsc = (event) => {
       if (event.key !== 'Escape') return
-      setUserMenuAnchorEl(null)
+      setUserMenuOpen(false)
       if (passwordState.changePasswordOpen) {
         passwordState.closeChangePassword()
       }
@@ -339,19 +331,19 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     if (isSystemManageView) {
       if (!isSystemAdmin) {
         return (
-          <section className="panel">
-            <h2>系统管理</h2>
-            <p className="muted">当前账号无系统管理员权限。</p>
-          </section>
+          <div className="border rounded-xl p-6 bg-background">
+            <h2 className="text-base font-bold">系统管理</h2>
+            <p className="text-muted-foreground">当前账号无系统管理员权限。</p>
+          </div>
         )
       }
       return renderSystemSection()
     }
 
     return (
-      <section className="panel">
-        <p className="muted">未知页面。</p>
-      </section>
+      <div className="border rounded-xl p-6 bg-background">
+        <p className="text-muted-foreground">未知页面。</p>
+      </div>
     )
   }
 
@@ -362,29 +354,21 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       : '系统管理'
 
   return (
-    <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
-      <AppBar position="static" color="default" elevation={1}>
-        <Container maxWidth="xl">
-          <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
-            {/* Left section: Brand + Space Switcher + Tabs */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1,
-                  cursor: 'pointer',
-                  '&:hover': { opacity: 0.9 }
-                }}
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
+        <div className="max-w-screen-xl mx-auto px-4">
+          <div className="flex items-center justify-between h-14">
+            {/* Left section */}
+            <div className="flex items-center gap-3">
+              <div
+                className="flex items-center gap-1 cursor-pointer hover:opacity-90"
                 onClick={() => navigate('/')}
               >
-                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                  OrangeOJ
-                </Typography>
-              </Box>
-              
+                <span className="text-lg font-bold text-primary">🍊 OrangeOJ</span>
+              </div>
+
               {isLearnView && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <div className="flex items-center gap-2">
                   <DashboardSpaceSwitcher
                     spaces={spaces}
                     selectedSpaceId={selectedSpaceId}
@@ -395,24 +379,19 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                     onManage={() => navigate('/manage/space')}
                     onCreateSpace={() => openConfigModal('create-space')}
                   />
-                  <Tabs 
-                    value={spaceTab} 
-                    onChange={(e, newValue) => setSpaceTab(newValue)}
-                    size="small"
-                    sx={{ minHeight: 36 }}
-                  >
-                    <Tab label="题库" value="problems" sx={{ minHeight: 36, minWidth: 64 }} />
-                    <Tab label="作业" value="homework" sx={{ minHeight: 36, minWidth: 64 }} />
-                    <Tab label="训练" value="training" sx={{ minHeight: 36, minWidth: 64 }} />
+                  <Tabs value={spaceTab} onValueChange={setSpaceTab}>
+                    <TabsList className="h-9">
+                      <TabsTrigger value="problems" className="text-xs px-3">题库</TabsTrigger>
+                      <TabsTrigger value="homework" className="text-xs px-3">作业</TabsTrigger>
+                      <TabsTrigger value="training" className="text-xs px-3">训练</TabsTrigger>
+                    </TabsList>
                   </Tabs>
-                </Box>
+                </div>
               )}
 
               {isSpaceManageView && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: 2 }}>
-                  <Typography variant="h6" sx={{ fontSize: '1rem' }}>
-                    {pageTitle}
-                  </Typography>
+                <div className="flex items-center gap-2 ml-3">
+                  <span className="text-base font-semibold">{pageTitle}</span>
                   <DashboardSpaceSwitcher
                     spaces={spaces}
                     selectedSpaceId={selectedSpaceId}
@@ -425,66 +404,60 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                     onManage={() => navigate('/manage/space')}
                     onCreateSpace={() => openConfigModal('create-space')}
                   />
-                </Box>
+                </div>
               )}
-              
+
               {!isLearnView && !isSpaceManageView && (
-                <Typography variant="h6" sx={{ fontSize: '1rem', ml: 2 }}>
-                  {pageTitle}
-                </Typography>
+                <span className="text-base font-semibold ml-3">{pageTitle}</span>
               )}
-            </Box>
-            
+            </div>
+
             {/* Right section: User menu */}
-            <Box>
-              <Button
-                color="inherit"
-                onClick={(e) => setUserMenuAnchorEl(e.currentTarget)}
-                startIcon={userMenuOpen ? '^' : 'v'}
-              >
-                {user.username}
-              </Button>
-              <Menu
-                anchorEl={userMenuAnchorEl}
-                open={Boolean(userMenuAnchorEl)}
-                onClose={() => setUserMenuAnchorEl(null)}
-                PaperProps={{ elevation: 3 }}
-              >
-                {location.pathname !== '/' && (
-                  <MenuItem onClick={() => { navigate('/'); setUserMenuAnchorEl(null); }}>
-                    学习主页
-                  </MenuItem>
-                )}
-                {hasAnySpaceAdminRole && (
-                  <MenuItem onClick={() => { navigate('/manage/space'); setUserMenuAnchorEl(null); }}>
-                    空间管理
-                  </MenuItem>
-                )}
-                {isSystemAdmin && (
-                  <MenuItem onClick={() => { navigate('/manage/system'); setUserMenuAnchorEl(null); }}>
-                    系统管理
-                  </MenuItem>
-                )}
-                <Divider />
-                <MenuItem onClick={() => {
-                  setUserMenuAnchorEl(null);
-                  passwordState.openChangePassword();
-                }}>
-                  修改密码
-                </MenuItem>
-                <MenuItem onClick={() => {
-                  setUserMenuAnchorEl(null);
-                  onLogout();
-                }}>
-                  退出登录
-                </MenuItem>
-              </Menu>
-            </Box>
-          </Toolbar>
-        </Container>
-      </AppBar>
-      
-      <Container maxWidth="xl" sx={{ mt: 2, mb: 3 }}>
+            <div>
+              <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost">
+                    {user.username}
+                    <ChevronDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {location.pathname !== '/' && (
+                    <DropdownMenuItem onClick={() => { navigate('/'); setUserMenuOpen(false); }}>
+                      学习主页
+                    </DropdownMenuItem>
+                  )}
+                  {hasAnySpaceAdminRole && (
+                    <DropdownMenuItem onClick={() => { navigate('/manage/space'); setUserMenuOpen(false); }}>
+                      空间管理
+                    </DropdownMenuItem>
+                  )}
+                  {isSystemAdmin && (
+                    <DropdownMenuItem onClick={() => { navigate('/manage/system'); setUserMenuOpen(false); }}>
+                      系统管理
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => {
+                    setUserMenuOpen(false);
+                    passwordState.openChangePassword();
+                  }}>
+                    修改密码
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setUserMenuOpen(false);
+                    onLogout();
+                  }}>
+                    退出登录
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-screen-xl mx-auto px-4 mt-4 mb-6">
         {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
         {passwordState.changePasswordOpen && (
           <ChangePasswordPanel
@@ -522,9 +495,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           selectedSpaceId={selectedSpaceId}
         />
         <ConfirmDialog {...confirmDialog.dialogProps} />
-      </Container>
-    </Box>
+      </div>
+    </div>
   )
 }
-
-

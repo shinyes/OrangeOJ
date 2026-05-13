@@ -1,41 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import Autocomplete from '@mui/material/Autocomplete'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
-import FormControl from '@mui/material/FormControl'
-import Grid from '@mui/material/Grid'
-import IconButton from '@mui/material/IconButton'
-import InputLabel from '@mui/material/InputLabel'
-import MenuItem from '@mui/material/MenuItem'
-import Paper from '@mui/material/Paper'
-import Select from '@mui/material/Select'
-import Stack from '@mui/material/Stack'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
-import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
-import AddIcon from '@mui/icons-material/Add'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Textarea } from '../ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import { Badge } from '../ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
+import { Plus, Trash2, X } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
-import RemoveIcon from '@mui/icons-material/Remove'
 import { normalizeObjectiveAnswerJson } from '../../utils/problemDrafts'
 
 const DEFAULT_TIME_LIMIT_MS = 1000
 const DEFAULT_MEMORY_LIMIT_MIB = 256
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
-const PROBLEM_TYPE_LABELS = {
-  programming: '编程题',
-  single_choice: '单选题',
-  true_false: '判断题'
-}
+const PROBLEM_TYPE_LABELS = { programming: '编程题', single_choice: '单选题', true_false: '判断题' }
 
-function blankCase() {
-  return { input: '', output: '' }
-}
+function blankCase() { return { input: '', output: '' } }
 
 function defaultStarterCode() {
   return {
@@ -46,13 +26,8 @@ function defaultStarterCode() {
 }
 
 function normalizeCaseList(list) {
-  if (!Array.isArray(list) || list.length === 0) {
-    return [blankCase()]
-  }
-  return list.map((item) => ({
-    input: String(item?.input || ''),
-    output: String(item?.output || '')
-  }))
+  if (!Array.isArray(list) || list.length === 0) return [blankCase()]
+  return list.map((item) => ({ input: String(item?.input || ''), output: String(item?.output || '') }))
 }
 
 function normalizeOptions(options) {
@@ -64,172 +39,56 @@ function normalizeOptions(options) {
 function normalizeTagList(tags) {
   if (!Array.isArray(tags)) return []
   const seen = new Set()
-  return tags
-    .map((item) => String(item || '').trim())
-    .filter((item) => {
-      if (!item) return false
-      const key = item.toLowerCase()
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+  return tags.map((item) => String(item || '').trim()).filter((item) => {
+    if (!item) return false
+    const key = item.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
-function parseTagInput(raw) {
-  return String(raw || '')
-    .split(/[\n,，]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
+function parseTagInput(raw) { return String(raw || '').split(/[\n,，]+/).map((item) => item.trim()).filter(Boolean) }
 
-function formatJSON(value) {
-  return JSON.stringify(value ?? {}, null, 2)
-}
+function normalizePositiveInteger(value, fallback) { const parsed = Number(value); return parsed > 0 ? parsed : fallback }
 
-function normalizePositiveInteger(value, fallback) {
-  const parsed = Number(value)
-  return parsed > 0 ? parsed : fallback
+function resolveSingleChoiceAnswerIndex(options, answerJson) {
+  const normalizedAnswerJson = normalizeObjectiveAnswerJson('single_choice', { options }, answerJson)
+  const raw = String(normalizedAnswerJson?.answer ?? '').trim()
+  if (!raw) return 0
+  const exactIndex = options.findIndex((item) => String(item) === raw)
+  if (exactIndex >= 0) return exactIndex
+  const normalizedIndex = options.findIndex((item) => String(item).trim().toLowerCase() === raw.toLowerCase())
+  return normalizedIndex >= 0 ? normalizedIndex : 0
 }
 
 function buildProblemDataFromForm(form, options = {}) {
   const strict = options.strict !== false
-  let bodyJson = {}
-  let answerJson = {}
+  let bodyJson = {}, answerJson = {}
 
   if (form.type === 'programming') {
     bodyJson = {
-      inputFormat: form.programming.inputFormat,
-      outputFormat: form.programming.outputFormat,
+      inputFormat: form.programming.inputFormat, outputFormat: form.programming.outputFormat,
       samples: form.programming.samples.filter((item) => item.input || item.output),
       testCases: form.programming.testCases.filter((item) => item.input || item.output),
-      starterCode: {
-        cpp: form.programming.starterCode.cpp,
-        python: form.programming.starterCode.python,
-        go: form.programming.starterCode.go
-      }
+      starterCode: { cpp: form.programming.starterCode.cpp, python: form.programming.starterCode.python, go: form.programming.starterCode.go }
     }
     return { bodyJson, answerJson }
   }
 
   if (form.type === 'single_choice') {
-    const optionsList = strict
-      ? form.singleChoice.options.map((item) => item.trim())
-      : form.singleChoice.options.map((item) => String(item ?? ''))
+    const optionsList = strict ? form.singleChoice.options.map((item) => item.trim()) : form.singleChoice.options.map((item) => String(item ?? ''))
     if (strict) {
-      if (optionsList.length < 2 || optionsList.some((item) => !item)) {
-        throw new Error('单选题至少需要两个非空选项')
-      }
-      const optionSet = new Set(optionsList.map((item) => item.toLowerCase()))
-      if (optionSet.size !== optionsList.length) {
-        throw new Error('单选题选项不能重复')
-      }
+      if (optionsList.length < 2 || optionsList.some((item) => !item)) throw new Error('单选题至少需要两个非空选项')
+      if (new Set(optionsList.map((item) => item.toLowerCase())).size !== optionsList.length) throw new Error('单选题选项不能重复')
     }
     bodyJson = { options: optionsList }
     answerJson = { answer: optionsList[form.singleChoice.answerIndex] || optionsList[0] || '' }
     return { bodyJson, answerJson }
   }
 
-  if (form.type === 'true_false') {
-    answerJson = { answer: form.trueFalse.answer === 'true' }
-  }
-
+  if (form.type === 'true_false') { answerJson = { answer: form.trueFalse.answer === 'true' } }
   return { bodyJson, answerJson }
-}
-
-function buildStorageDraftFromForm(form, options = {}) {
-  const { bodyJson, answerJson } = buildProblemDataFromForm(form, { strict: false })
-  const draft = {
-    type: options.lockedProblemType || form.type,
-    title: form.title,
-    tags: normalizeTagList(form.tags),
-    statementMd: form.statementMd,
-    bodyJson,
-    answerJson,
-    timeLimitMs: normalizePositiveInteger(form.timeLimitMs, DEFAULT_TIME_LIMIT_MS),
-    memoryLimitMiB: normalizePositiveInteger(form.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
-  }
-  return formatJSON(draft)
-}
-
-function parseJSONText(raw, fieldLabel) {
-  const trimmed = String(raw || '').trim()
-  if (!trimmed) return {}
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    throw new Error(`${fieldLabel} 不是合法 JSON`)
-  }
-}
-
-function parseStorageDraft(raw, options = {}) {
-  const draft = parseJSONText(raw, '题目 JSON')
-  if (!draft || Array.isArray(draft) || typeof draft !== 'object') {
-    throw new Error('题目 JSON 必须是对象')
-  }
-
-  const requestedType = normalizeProblemTypeValue(draft.type)
-  const type = options.lockedProblemType || requestedType || 'programming'
-  if (!PROBLEM_TYPE_LABELS[type]) {
-    throw new Error('题目 JSON 中的 type 不合法')
-  }
-
-  const bodyJson = draft.bodyJson && typeof draft.bodyJson === 'object' && !Array.isArray(draft.bodyJson) ? draft.bodyJson : {}
-  const rawAnswerJson = draft.answerJson && typeof draft.answerJson === 'object' && !Array.isArray(draft.answerJson) ? draft.answerJson : {}
-  const answerJson = normalizeObjectiveAnswerJson(type, bodyJson, rawAnswerJson)
-
-  return {
-    type,
-    title: String(draft.title || ''),
-    tags: normalizeTagList(draft.tags),
-    statementMd: String(draft.statementMd || ''),
-    bodyJson,
-    answerJson,
-    timeLimitMs: normalizePositiveInteger(draft.timeLimitMs, DEFAULT_TIME_LIMIT_MS),
-    memoryLimitMiB: normalizePositiveInteger(draft.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
-  }
-}
-
-function normalizeProblemTypeValue(value) {
-  const normalized = String(value || '').trim().toLowerCase()
-  if (normalized === 'single_choice' || normalized === 'single-choice' || normalized === 'singlechoice') {
-    return 'single_choice'
-  }
-  if (normalized === 'true_false' || normalized === 'true-false' || normalized === 'truefalse') {
-    return 'true_false'
-  }
-  if (normalized === 'programming') {
-    return 'programming'
-  }
-  return ''
-}
-
-function buildFormFromStorageDraft(draft) {
-  return buildInitialForm({
-    type: draft.type,
-    title: draft.title,
-    tags: draft.tags,
-    statementMd: draft.statementMd,
-    bodyJson: draft.bodyJson,
-    answerJson: draft.answerJson,
-    timeLimitMs: draft.timeLimitMs,
-    memoryLimitMiB: draft.memoryLimitMiB
-  })
-}
-
-function formsEqual(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right)
-}
-
-function resolveSingleChoiceAnswerIndex(options, answerJson) {
-  const normalizedAnswerJson = normalizeObjectiveAnswerJson('single_choice', { options }, answerJson)
-  const raw = String(normalizedAnswerJson?.answer ?? '').trim()
-  if (!raw) return 0
-
-  const exactIndex = options.findIndex((item) => String(item) === raw)
-  if (exactIndex >= 0) return exactIndex
-
-  const normalizedIndex = options.findIndex((item) => String(item).trim().toLowerCase() === raw.toLowerCase())
-  return normalizedIndex >= 0 ? normalizedIndex : 0
 }
 
 function buildInitialForm(problem) {
@@ -240,93 +99,97 @@ function buildInitialForm(problem) {
   const answerIndex = resolveSingleChoiceAnswerIndex(options, answer)
 
   return {
-    type,
-    title: problem?.title || '',
-    tags: normalizeTagList(problem?.tags),
+    type, title: problem?.title || '', tags: normalizeTagList(problem?.tags),
     statementMd: problem?.statementMd || '',
     timeLimitMs: String(problem?.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS),
     memoryLimitMiB: String(problem?.memoryLimitMiB ?? DEFAULT_MEMORY_LIMIT_MIB),
     programming: {
-      inputFormat: String(body.inputFormat || ''),
-      outputFormat: String(body.outputFormat || ''),
-      samples: normalizeCaseList(body.samples),
-      testCases: normalizeCaseList(body.testCases),
-      starterCode: {
-        ...defaultStarterCode(),
-        ...(body.starterCode || {})
-      }
+      inputFormat: String(body.inputFormat || ''), outputFormat: String(body.outputFormat || ''),
+      samples: normalizeCaseList(body.samples), testCases: normalizeCaseList(body.testCases),
+      starterCode: { ...defaultStarterCode(), ...(body.starterCode || {}) }
     },
-    singleChoice: {
-      options,
-      answerIndex
-    },
-    trueFalse: {
-      answer: answer.answer === false ? 'false' : 'true'
-    }
+    singleChoice: { options, answerIndex },
+    trueFalse: { answer: answer.answer === false ? 'false' : 'true' }
   }
 }
 
+function buildStorageDraftFromForm(form, options = {}) {
+  const { bodyJson, answerJson } = buildProblemDataFromForm(form, { strict: false })
+  const draft = {
+    type: options.lockedProblemType || form.type, title: form.title, tags: normalizeTagList(form.tags),
+    statementMd: form.statementMd, bodyJson, answerJson,
+    timeLimitMs: normalizePositiveInteger(form.timeLimitMs, DEFAULT_TIME_LIMIT_MS),
+    memoryLimitMiB: normalizePositiveInteger(form.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
+  }
+  return JSON.stringify(draft ?? {}, null, 2)
+}
+
+function parseJSONText(raw, fieldLabel) {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return {}
+  try { return JSON.parse(trimmed) } catch { throw new Error(`${fieldLabel} 不是合法 JSON`) }
+}
+
+function normalizeProblemTypeValue(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'single_choice' || normalized === 'single-choice') return 'single_choice'
+  if (normalized === 'true_false' || normalized === 'true-false') return 'true_false'
+  if (normalized === 'programming') return 'programming'
+  return ''
+}
+
+function parseStorageDraft(raw, options = {}) {
+  const draft = parseJSONText(raw, '题目 JSON')
+  if (!draft || Array.isArray(draft) || typeof draft !== 'object') throw new Error('题目 JSON 必须是对象')
+  const requestedType = normalizeProblemTypeValue(draft.type)
+  const type = options.lockedProblemType || requestedType || 'programming'
+  if (!PROBLEM_TYPE_LABELS[type]) throw new Error('题目 JSON 中的 type 不合法')
+  const bodyJson = draft.bodyJson && typeof draft.bodyJson === 'object' && !Array.isArray(draft.bodyJson) ? draft.bodyJson : {}
+  const rawAnswerJson = draft.answerJson && typeof draft.answerJson === 'object' && !Array.isArray(draft.answerJson) ? draft.answerJson : {}
+  const answerJson = normalizeObjectiveAnswerJson(type, bodyJson, rawAnswerJson)
+  return { type, title: String(draft.title || ''), tags: normalizeTagList(draft.tags), statementMd: String(draft.statementMd || ''), bodyJson, answerJson, timeLimitMs: normalizePositiveInteger(draft.timeLimitMs, DEFAULT_TIME_LIMIT_MS), memoryLimitMiB: normalizePositiveInteger(draft.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB) }
+}
+
+function buildFormFromStorageDraft(draft) {
+  return buildInitialForm({ type: draft.type, title: draft.title, tags: draft.tags, statementMd: draft.statementMd, bodyJson: draft.bodyJson, answerJson: draft.answerJson, timeLimitMs: draft.timeLimitMs, memoryLimitMiB: draft.memoryLimitMiB })
+}
+
+function formsEqual(left, right) { return JSON.stringify(left) === JSON.stringify(right) }
+
 function renderCaseRows(title, rows, onAdd, onRemove, onChange) {
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="subtitle2">{title}</Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={onAdd}>
-          添加
-        </Button>
-      </Box>
-      <Stack spacing={1.5}>
+    <div>
+      <div className="flex justify-between items-center mb-2">
+        <h4 className="text-sm font-medium">{title}</h4>
+        <Button size="sm" variant="outline" onClick={onAdd}><Plus className="h-4 w-4 mr-1" />添加</Button>
+      </div>
+      <div className="flex flex-col gap-2">
         {rows.map((item, index) => (
-          <Paper key={index} variant="outlined" sx={{ p: 1.5 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">{title} {index + 1}</Typography>
-              <IconButton size="small" onClick={() => onRemove(index)} disabled={rows.length === 1}>
-                <RemoveIcon fontSize="small" />
-              </IconButton>
-            </Box>
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="输入"
-                  value={item.input}
-                  onChange={(event) => onChange(index, 'input', event.target.value)}
-                  multiline
-                  minRows={3}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="输出"
-                  value={item.output}
-                  onChange={(event) => onChange(index, 'output', event.target.value)}
-                  multiline
-                  minRows={3}
-                />
-              </Grid>
-            </Grid>
-          </Paper>
+          <div key={index} className="border rounded-lg p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs text-muted-foreground">{title} {index + 1}</span>
+              <Button size="sm" variant="ghost" onClick={() => onRemove(index)} disabled={rows.length === 1}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium">输入</label>
+                <Textarea className="mt-1 min-h-[80px]" value={item.input} onChange={(e) => onChange(index, 'input', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">输出</label>
+                <Textarea className="mt-1 min-h-[80px]" value={item.output} onChange={(e) => onChange(index, 'output', e.target.value)} />
+              </div>
+            </div>
+          </div>
         ))}
-      </Stack>
-    </Box>
+      </div>
+    </div>
   )
 }
 
-export default function ProblemEditor({
-  open,
-  mode = 'create',
-  problem = null,
-  createTitle = '创建题目',
-  editTitle = null,
-  createSubmitText = '创建题目',
-  editSubmitText = '保存修改',
-  tagSuggestions = [],
-  onClose,
-  onSubmit
-}) {
+export default function ProblemEditor({ open, mode = 'create', problem = null, createTitle = '创建题目', editTitle = null, createSubmitText = '创建题目', editSubmitText = '保存修改', tagSuggestions = [], onClose, onSubmit }) {
   const isEditMode = mode === 'edit'
   const [form, setForm] = useState(() => buildInitialForm(problem))
   const lockedProblemType = isEditMode && problem?.type ? problem.type : form.type
@@ -342,11 +205,7 @@ export default function ProblemEditor({
     const nextForm = buildInitialForm(problem)
     setForm(nextForm)
     setJSONDraft(buildStorageDraftFromForm(nextForm, { lockedProblemType: isEditMode && problem?.type ? problem.type : undefined }))
-    setEditorMode('ui')
-    setSubmitting(false)
-    setSubmitError('')
-    setJSONSyncError('')
-    setTagInputValue('')
+    setEditorMode('ui'); setSubmitting(false); setSubmitError(''); setJSONSyncError(''); setTagInputValue('')
   }, [open, problem, mode])
 
   useEffect(() => {
@@ -363,573 +222,269 @@ export default function ProblemEditor({
       const nextForm = buildFormFromStorageDraft(draft)
       setForm((current) => (formsEqual(current, nextForm) ? current : nextForm))
       setJSONSyncError('')
-    } catch (err) {
-      setJSONSyncError(err.message || 'JSON 模式内容有误')
-    }
+    } catch (err) { setJSONSyncError(err.message || 'JSON 模式内容有误') }
   }, [open, editorMode, jsonDraft, lockedProblemType])
 
   const dialogTitle = useMemo(() => {
-    if (isEditMode) {
-      if (editTitle) return editTitle
-      return problem?.id ? `编辑题目 #${problem.id}` : '编辑题目'
-    }
+    if (isEditMode) return editTitle || (problem?.id ? `编辑题目 #${problem.id}` : '编辑题目')
     return createTitle
   }, [createTitle, editTitle, isEditMode, problem])
-  const normalizedTagSuggestions = useMemo(
-    () => normalizeTagList(tagSuggestions),
-    [tagSuggestions]
-  )
 
-  const updateField = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value
-    }))
-  }
+  const normalizedTagSuggestions = useMemo(() => normalizeTagList(tagSuggestions), [tagSuggestions])
+
+  const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }))
 
   const mergePendingTags = (rawInput = tagInputValue) => {
     const nextTags = normalizeTagList([...form.tags, ...parseTagInput(rawInput)])
     if (nextTags.length !== form.tags.length || nextTags.some((tag, index) => tag !== form.tags[index])) {
-      setForm((current) => ({
-        ...current,
-        tags: nextTags
-      }))
+      setForm((current) => ({ ...current, tags: nextTags }))
     }
     setTagInputValue('')
     return nextTags
   }
 
-  const handleEditorModeChange = (event, nextMode) => {
+  const handleEditorModeChange = (nextMode) => {
     if (!nextMode || nextMode === editorMode) return
     if (nextMode === 'json') {
       const nextTags = normalizeTagList([...form.tags, ...parseTagInput(tagInputValue)])
-      const snapshot = {
-        ...form,
-        tags: nextTags
-      }
-      setForm(snapshot)
-      setTagInputValue('')
+      const snapshot = { ...form, tags: nextTags }
+      setForm(snapshot); setTagInputValue('')
       setJSONDraft(buildStorageDraftFromForm(snapshot, { lockedProblemType }))
-      setEditorMode('json')
-      setSubmitError('')
+      setEditorMode('json'); setSubmitError('')
       return
     }
-
-    try {
-      parseStorageDraft(jsonDraft, { lockedProblemType })
-      setEditorMode('ui')
-      setSubmitError('')
-      setJSONSyncError('')
-    } catch (err) {
-      const message = err.message || 'JSON 模式内容有误'
-      setSubmitError(message)
-      setJSONSyncError(message)
-    }
+    try { parseStorageDraft(jsonDraft, { lockedProblemType }); setEditorMode('ui'); setSubmitError(''); setJSONSyncError('') }
+    catch (err) { const message = err.message || 'JSON 模式内容有误'; setSubmitError(message); setJSONSyncError(message) }
   }
 
-  const updateNestedField = (section, field, value) => {
-    setForm((current) => ({
-      ...current,
-      [section]: {
-        ...current[section],
-        [field]: value
-      }
-    }))
-  }
+  const updateNestedField = (section, field, value) => setForm((current) => ({ ...current, [section]: { ...current[section], [field]: value } }))
+  const updateProgrammingField = (field, value) => setForm((current) => ({ ...current, programming: { ...current.programming, [field]: value } }))
+  const updateStarterCode = (language, value) => setForm((current) => ({ ...current, programming: { ...current.programming, starterCode: { ...current.programming.starterCode, [language]: value } } }))
 
-  const updateProgrammingField = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      programming: {
-        ...current.programming,
-        [field]: value
-      }
-    }))
-  }
+  const updateCaseList = (field, updater) => setForm((current) => ({ ...current, programming: { ...current.programming, [field]: updater(current.programming[field]) } }))
+  const addCase = (field) => updateCaseList(field, (items) => [...items, blankCase()])
+  const removeCase = (field, index) => updateCaseList(field, (items) => { if (items.length === 1) return items; return items.filter((_, itemIndex) => itemIndex !== index) })
+  const updateCase = (field, index, key, value) => updateCaseList(field, (items) => items.map((item, itemIndex) => { if (itemIndex !== index) return item; return { ...item, [key]: value } }))
 
-  const updateStarterCode = (language, value) => {
-    setForm((current) => ({
-      ...current,
-      programming: {
-        ...current.programming,
-        starterCode: {
-          ...current.programming.starterCode,
-          [language]: value
-        }
-      }
-    }))
-  }
-
-  const updateCaseList = (field, updater) => {
-    setForm((current) => ({
-      ...current,
-      programming: {
-        ...current.programming,
-        [field]: updater(current.programming[field])
-      }
-    }))
-  }
-
-  const addCase = (field) => {
-    updateCaseList(field, (items) => [...items, blankCase()])
-  }
-
-  const removeCase = (field, index) => {
-    updateCaseList(field, (items) => {
-      if (items.length === 1) return items
-      return items.filter((_, itemIndex) => itemIndex !== index)
-    })
-  }
-
-  const updateCase = (field, index, key, value) => {
-    updateCaseList(field, (items) => items.map((item, itemIndex) => {
-      if (itemIndex !== index) return item
-      return {
-        ...item,
-        [key]: value
-      }
-    }))
-  }
-
-  const handleTypeChange = (event) => {
-    if (isEditMode) {
-      return
-    }
-    const nextType = event.target.value
+  const handleTypeChange = (nextType) => {
+    if (isEditMode) return
     const blankForm = buildInitialForm({ type: nextType })
-    setForm((current) => ({
-      ...current,
-      type: nextType,
-      programming: blankForm.programming,
-      singleChoice: blankForm.singleChoice,
-      trueFalse: blankForm.trueFalse
-    }))
+    setForm((current) => ({ ...current, type: nextType, programming: blankForm.programming, singleChoice: blankForm.singleChoice, trueFalse: blankForm.trueFalse }))
   }
 
-  const addOption = () => {
-    setForm((current) => {
-      if (current.singleChoice.options.length >= OPTION_LABELS.length) {
-        return current
-      }
-      return {
-        ...current,
-        singleChoice: {
-          ...current.singleChoice,
-          options: [...current.singleChoice.options, '']
-        }
-      }
-    })
-  }
+  const addOption = () => setForm((current) => { if (current.singleChoice.options.length >= OPTION_LABELS.length) return current; return { ...current, singleChoice: { ...current.singleChoice, options: [...current.singleChoice.options, ''] } } })
+  const removeOption = (index) => setForm((current) => {
+    if (current.singleChoice.options.length <= 2) return current
+    const nextOptions = current.singleChoice.options.filter((_, itemIndex) => itemIndex !== index)
+    return { ...current, singleChoice: { ...current.singleChoice, options: nextOptions, answerIndex: Math.min(current.singleChoice.answerIndex, nextOptions.length - 1) } }
+  })
+  const updateOption = (index, value) => setForm((current) => ({ ...current, singleChoice: { ...current.singleChoice, options: current.singleChoice.options.map((item, itemIndex) => (itemIndex === index ? value : item)) } }))
 
-  const removeOption = (index) => {
-    setForm((current) => {
-      if (current.singleChoice.options.length <= 2) {
-        return current
-      }
-      const nextOptions = current.singleChoice.options.filter((_, itemIndex) => itemIndex !== index)
-      const nextAnswerIndex = Math.min(current.singleChoice.answerIndex, nextOptions.length - 1)
-      return {
-        ...current,
-        singleChoice: {
-          ...current.singleChoice,
-          options: nextOptions,
-          answerIndex: nextAnswerIndex
-        }
-      }
-    })
-  }
-
-  const updateOption = (index, value) => {
-    setForm((current) => ({
-      ...current,
-      singleChoice: {
-        ...current.singleChoice,
-        options: current.singleChoice.options.map((item, itemIndex) => (itemIndex === index ? value : item))
-      }
-    }))
-  }
-
-  const handleClose = () => {
-    if (submitting) return
-    setSubmitError('')
-    onClose()
-  }
+  const handleClose = () => { if (submitting) return; setSubmitError(''); onClose() }
 
   const handleSubmit = async () => {
-    let problemType = lockedProblemType
-    let title = form.title.trim()
+    let problemType = lockedProblemType, title = form.title.trim()
     let mergedTags = normalizeTagList([...form.tags, ...parseTagInput(tagInputValue)])
     let statementMd = form.statementMd
     let timeLimitMs = Number(form.timeLimitMs) > 0 ? Number(form.timeLimitMs) : DEFAULT_TIME_LIMIT_MS
     let memoryLimitMiB = Number(form.memoryLimitMiB) > 0 ? Number(form.memoryLimitMiB) : DEFAULT_MEMORY_LIMIT_MIB
-    let bodyJson = {}
-    let answerJson = {}
+    let bodyJson = {}, answerJson = {}
 
     try {
       if (editorMode === 'json') {
         const draft = parseStorageDraft(jsonDraft, { lockedProblemType })
-        problemType = draft.type
-        title = draft.title.trim()
-        mergedTags = draft.tags
-        statementMd = draft.statementMd
-        timeLimitMs = draft.timeLimitMs
-        memoryLimitMiB = draft.memoryLimitMiB
-        bodyJson = draft.bodyJson
-        answerJson = draft.answerJson
-      } else {
-        const payload = buildProblemDataFromForm(form, { strict: true })
-        bodyJson = payload.bodyJson
-        answerJson = payload.answerJson
-      }
-    } catch (err) {
-      setSubmitError(err.message || '题目内容格式不正确')
-      return
-    }
-
-    if (!title) {
-      setSubmitError('题目标题不能为空')
-      return
-    }
+        problemType = draft.type; title = draft.title.trim(); mergedTags = draft.tags; statementMd = draft.statementMd
+        timeLimitMs = draft.timeLimitMs; memoryLimitMiB = draft.memoryLimitMiB; bodyJson = draft.bodyJson; answerJson = draft.answerJson
+      } else { const payload = buildProblemDataFromForm(form, { strict: true }); bodyJson = payload.bodyJson; answerJson = payload.answerJson }
+    } catch (err) { setSubmitError(err.message || '题目内容格式不正确'); return }
+    if (!title) { setSubmitError('题目标题不能为空'); return }
 
     try {
-      setSubmitting(true)
-      setSubmitError('')
-      await onSubmit({
-        type: problemType,
-        title,
-        tags: mergedTags,
-        statementMd,
-        bodyJson,
-        answerJson,
-        timeLimitMs,
-        memoryLimitMiB
-      })
-      setTagInputValue('')
-      onClose()
-    } catch (err) {
-      setSubmitError(err.message || '保存失败')
-    } finally {
-      setSubmitting(false)
-    }
+      setSubmitting(true); setSubmitError('')
+      await onSubmit({ type: problemType, title, tags: mergedTags, statementMd, bodyJson, answerJson, timeLimitMs, memoryLimitMiB })
+      setTagInputValue(''); onClose()
+    } catch (err) { setSubmitError(err.message || '保存失败') }
+    finally { setSubmitting(false) }
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle>{dialogTitle}</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} sx={{ pt: 1 }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{dialogTitle}</DialogTitle></DialogHeader>
+
+        <div className="flex flex-col gap-4 pt-2">
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
-          <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              编辑模式
-            </Typography>
-            <Tabs
-              value={editorMode}
-              onChange={handleEditorModeChange}
-              variant="fullWidth"
-              sx={{
-                minHeight: 36,
-                '& .MuiTab-root': {
-                  minHeight: 36
-                }
-              }}
-            >
-              <Tab label="UI 模式" value="ui" />
-              <Tab label="JSON 模式" value="json" />
+          <div>
+            <Tabs value={editorMode} onValueChange={handleEditorModeChange}>
+              <TabsList className="w-full">
+                <TabsTrigger value="ui" className="flex-1">UI 模式</TabsTrigger>
+                <TabsTrigger value="json" className="flex-1">JSON 模式</TabsTrigger>
+              </TabsList>
             </Tabs>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-              UI 模式适合常规录题；JSON 模式直接编辑整道题提交给后端的完整结构，字段和落库内容一一对应。
-            </Typography>
-          </Box>
+            <p className="text-xs text-muted-foreground mt-2">UI 模式适合常规录题；JSON 模式直接编辑整道题提交给后端的完整结构。</p>
+          </div>
 
           {editorMode === 'json' ? (
             <>
-              <Typography variant="caption" color="text.secondary">
-                当前 JSON 对应题库接口 payload：`type / title / tags / statementMd / bodyJson / answerJson / timeLimitMs / memoryLimitMiB`。
-                编辑态会强制沿用原题型，不会因为 JSON 里的 `type` 改变题型。
-              </Typography>
-              {jsonSyncError ? (
-                <ToastMessage message={`JSON 未同步到 UI：${jsonSyncError}`} severity="warning" onShown={() => {}} />
-              ) : null}
-              <TextField
-                fullWidth
-                size="small"
-                label="题目存储 JSON"
-                value={jsonDraft}
-                onChange={(event) => setJSONDraft(event.target.value)}
-                multiline
-                minRows={24}
-                InputProps={{ sx: { fontFamily: 'monospace' } }}
-                error={Boolean(jsonSyncError)}
-                helperText={jsonSyncError || 'JSON 合法时会实时同步到 UI 模式；切回 UI 模式前必须先修正 JSON。'}
-              />
+              {jsonSyncError && <ToastMessage message={`JSON 未同步到 UI：${jsonSyncError}`} severity="warning" />}
+              <div>
+                <label className="text-sm font-medium mb-1 block">题目存储 JSON</label>
+                <Textarea className="font-mono min-h-[400px]" value={jsonDraft}
+                  onChange={(e) => setJSONDraft(e.target.value)} />
+                {jsonSyncError && <p className="text-xs text-destructive mt-1">{jsonSyncError}</p>}
+                <p className="text-xs text-muted-foreground mt-1">{jsonSyncError || 'JSON 合法时会实时同步到 UI 模式；切回 UI 模式前必须先修正 JSON。'}</p>
+              </div>
             </>
           ) : (
             <>
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} md={3}>
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-12 md:col-span-3">
                   {isEditMode ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="题目类型"
-                      value={PROBLEM_TYPE_LABELS[lockedProblemType] || lockedProblemType}
-                      disabled
-                    />
+                    <Input disabled value={PROBLEM_TYPE_LABELS[lockedProblemType] || lockedProblemType} />
                   ) : (
-                    <FormControl fullWidth size="small">
-                      <InputLabel>题目类型</InputLabel>
-                      <Select value={form.type} label="题目类型" onChange={handleTypeChange}>
-                        <MenuItem value="programming">编程题</MenuItem>
-                        <MenuItem value="single_choice">单选题</MenuItem>
-                        <MenuItem value="true_false">判断题</MenuItem>
-                      </Select>
-                    </FormControl>
+                    <Select value={form.type} onValueChange={handleTypeChange}>
+                      <SelectTrigger><SelectValue placeholder="题目类型" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="programming">编程题</SelectItem>
+                        <SelectItem value="single_choice">单选题</SelectItem>
+                        <SelectItem value="true_false">判断题</SelectItem>
+                      </SelectContent>
+                    </Select>
                   )}
-                </Grid>
-                <Grid item xs={12} md={5}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="题目标题"
-                    value={form.title}
-                    onChange={(event) => updateField('title', event.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6} md={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="时间限制 (ms)"
-                    type="number"
-                    value={form.timeLimitMs}
-                    onChange={(event) => updateField('timeLimitMs', event.target.value)}
-                    inputProps={{ min: 1 }}
-                  />
-                </Grid>
-                <Grid item xs={6} md={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="内存限制 (MiB)"
-                    type="number"
-                    value={form.memoryLimitMiB}
-                    onChange={(event) => updateField('memoryLimitMiB', event.target.value)}
-                    inputProps={{ min: 1 }}
-                  />
-                </Grid>
-              </Grid>
+                </div>
+                <div className="col-span-12 md:col-span-5">
+                  <Input placeholder="题目标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
+                </div>
+                <div className="col-span-6 md:col-span-2">
+                  <Input type="number" placeholder="时间限制 (ms)" value={form.timeLimitMs} onChange={(e) => updateField('timeLimitMs', e.target.value)} min={1} />
+                </div>
+                <div className="col-span-6 md:col-span-2">
+                  <Input type="number" placeholder="内存限制 (MiB)" value={form.memoryLimitMiB} onChange={(e) => updateField('memoryLimitMiB', e.target.value)} min={1} />
+                </div>
+              </div>
 
-              <Autocomplete
-                multiple
-                freeSolo
-                options={normalizedTagSuggestions}
-                value={form.tags}
-                onChange={(event, value) => updateField('tags', normalizeTagList(value))}
-                inputValue={tagInputValue}
-                onInputChange={(event, value, reason) => {
-                  if (reason === 'reset') {
-                    setTagInputValue('')
-                    return
-                  }
-                  setTagInputValue(value)
-                }}
-                filterSelectedOptions
-                renderTags={(value, getTagProps) => value.map((option, index) => {
-                  const { key, ...tagProps } = getTagProps({ index })
-                  return (
-                    <Chip
-                      key={key || `${option}-${index}`}
-                      size="small"
-                      label={option}
-                      {...tagProps}
-                    />
-                  )
-                })}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    size="small"
-                    label="题目标签"
-                    placeholder="输入标签后按回车"
-                    helperText="可选。用于按主题、难度、知识点检索题目。"
-                    onBlur={(event) => {
-                      mergePendingTags(event.target.value)
-                    }}
-                  />
-                )}
-              />
+              <div>
+                <label className="text-sm font-medium mb-1 block">题目标签</label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {form.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="gap-1">
+                      {tag}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => {
+                        setForm((current) => ({ ...current, tags: current.tags.filter((_, i) => i !== index) }))
+                      }} />
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input placeholder="输入标签后按回车" value={tagInputValue}
+                    onChange={(e) => setTagInputValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); mergePendingTags() } }}
+                    onBlur={(e) => { mergePendingTags(e.target.value) }} />
+                  {normalizedTagSuggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {normalizedTagSuggestions.filter((t) => !form.tags.includes(t)).slice(0, 5).map((tag) => (
+                        <Badge key={tag} variant="outline" className="cursor-pointer hover:bg-accent"
+                          onClick={() => { setForm((c) => ({ ...c, tags: [...c.tags, tag] })) }}>
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-              <TextField
-                fullWidth
-                size="small"
-                label="题面 Markdown"
-                value={form.statementMd}
-                onChange={(event) => updateField('statementMd', event.target.value)}
-                multiline
-                minRows={6}
-              />
+              <div>
+                <label className="text-sm font-medium mb-1 block">题面 Markdown</label>
+                <Textarea className="min-h-[160px]" value={form.statementMd} onChange={(e) => updateField('statementMd', e.target.value)} />
+              </div>
             </>
           )}
 
-          {editorMode === 'ui' && form.type === 'programming' ? (
+          {editorMode === 'ui' && form.type === 'programming' && (
             <>
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="输入格式"
-                    value={form.programming.inputFormat}
-                    onChange={(event) => updateProgrammingField('inputFormat', event.target.value)}
-                    multiline
-                    minRows={3}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="输出格式"
-                    value={form.programming.outputFormat}
-                    onChange={(event) => updateProgrammingField('outputFormat', event.target.value)}
-                    multiline
-                    minRows={3}
-                  />
-                </Grid>
-              </Grid>
-
-              {renderCaseRows(
-                '样例',
-                form.programming.samples,
-                () => addCase('samples'),
-                (index) => removeCase('samples', index),
-                (index, field, value) => updateCase('samples', index, field, value)
-              )}
-
-              {renderCaseRows(
-                '测试用例',
-                form.programming.testCases,
-                () => addCase('testCases'),
-                (index) => removeCase('testCases', index),
-                (index, field, value) => updateCase('testCases', index, field, value)
-              )}
-
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>默认代码模板</Typography>
-                <Stack spacing={1.5}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="C++"
-                    value={form.programming.starterCode.cpp}
-                    onChange={(event) => updateStarterCode('cpp', event.target.value)}
-                    multiline
-                    minRows={5}
-                    InputProps={{ sx: { fontFamily: 'monospace' } }}
-                  />
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Python"
-                    value={form.programming.starterCode.python}
-                    onChange={(event) => updateStarterCode('python', event.target.value)}
-                    multiline
-                    minRows={4}
-                    InputProps={{ sx: { fontFamily: 'monospace' } }}
-                  />
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Go"
-                    value={form.programming.starterCode.go}
-                    onChange={(event) => updateStarterCode('go', event.target.value)}
-                    multiline
-                    minRows={5}
-                    InputProps={{ sx: { fontFamily: 'monospace' } }}
-                  />
-                </Stack>
-              </Box>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">输入格式</label>
+                  <Textarea className="min-h-[80px]" value={form.programming.inputFormat} onChange={(e) => updateProgrammingField('inputFormat', e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">输出格式</label>
+                  <Textarea className="min-h-[80px]" value={form.programming.outputFormat} onChange={(e) => updateProgrammingField('outputFormat', e.target.value)} />
+                </div>
+              </div>
+              {renderCaseRows('样例', form.programming.samples, () => addCase('samples'), (index) => removeCase('samples', index), (index, field, value) => updateCase('samples', index, field, value))}
+              {renderCaseRows('测试用例', form.programming.testCases, () => addCase('testCases'), (index) => removeCase('testCases', index), (index, field, value) => updateCase('testCases', index, field, value))}
+              <div>
+                <h4 className="text-sm font-medium mb-2">默认代码模板</h4>
+                <div className="flex flex-col gap-2">
+                  {['cpp', 'python', 'go'].map((lang) => (
+                    <div key={lang}>
+                      <label className="text-xs font-medium mb-1 block">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : 'Go'}</label>
+                      <Textarea className="font-mono min-h-[100px]" value={form.programming.starterCode[lang]} onChange={(e) => updateStarterCode(lang, e.target.value)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </>
-          ) : null}
+          )}
 
           {editorMode === 'ui' && form.type === 'single_choice' && (
             <>
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle2">选项</Typography>
-                  <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={addOption}
-                    disabled={form.singleChoice.options.length >= OPTION_LABELS.length}
-                  >
-                    添加选项
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-sm font-medium">选项</h4>
+                  <Button size="sm" variant="outline" onClick={addOption} disabled={form.singleChoice.options.length >= OPTION_LABELS.length}>
+                    <Plus className="h-4 w-4 mr-1" />添加选项
                   </Button>
-                </Box>
-                <Stack spacing={1}>
+                </div>
+                <div className="flex flex-col gap-2">
                   {form.singleChoice.options.map((option, index) => (
-                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip label={OPTION_LABELS[index]} size="small" sx={{ minWidth: 42 }} />
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label={`选项 ${OPTION_LABELS[index]}`}
-                        value={option}
-                        onChange={(event) => updateOption(index, event.target.value)}
-                      />
-                      <IconButton
-                        size="small"
-                        onClick={() => removeOption(index)}
-                        disabled={form.singleChoice.options.length <= 2}
-                      >
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
+                    <div key={index} className="flex items-center gap-2">
+                      <Badge variant="outline" className="min-w-[42px] justify-center">{OPTION_LABELS[index]}</Badge>
+                      <Input placeholder={`选项 ${OPTION_LABELS[index]}`} value={option} onChange={(e) => updateOption(index, e.target.value)} />
+                      <Button size="sm" variant="ghost" onClick={() => removeOption(index)} disabled={form.singleChoice.options.length <= 2}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))}
-                </Stack>
-              </Box>
-
-              <FormControl fullWidth size="small">
-                <InputLabel>正确答案</InputLabel>
-                <Select
-                  value={String(form.singleChoice.answerIndex)}
-                  label="正确答案"
-                  onChange={(event) => updateNestedField('singleChoice', 'answerIndex', Number(event.target.value))}
-                >
-                  {form.singleChoice.options.map((_, index) => (
-                    <MenuItem key={index} value={String(index)}>
-                      {OPTION_LABELS[index]}
-                    </MenuItem>
-                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">正确答案</label>
+                <Select value={String(form.singleChoice.answerIndex)} onValueChange={(v) => updateNestedField('singleChoice', 'answerIndex', Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {form.singleChoice.options.map((_, index) => (
+                      <SelectItem key={index} value={String(index)}>{OPTION_LABELS[index]}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
-              </FormControl>
+              </div>
             </>
           )}
 
           {editorMode === 'ui' && form.type === 'true_false' && (
-            <FormControl fullWidth size="small">
-              <InputLabel>正确答案</InputLabel>
-              <Select
-                value={form.trueFalse.answer}
-                label="正确答案"
-                onChange={(event) => updateNestedField('trueFalse', 'answer', event.target.value)}
-              >
-                <MenuItem value="true">正确</MenuItem>
-                <MenuItem value="false">错误</MenuItem>
+            <div>
+              <label className="text-sm font-medium mb-1 block">正确答案</label>
+              <Select value={form.trueFalse.answer} onValueChange={(v) => updateNestedField('trueFalse', 'answer', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">正确</SelectItem>
+                  <SelectItem value="false">错误</SelectItem>
+                </SelectContent>
               </Select>
-            </FormControl>
+            </div>
           )}
-        </Stack>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? '保存中...' : (isEditMode ? editSubmitText : createSubmitText)}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={submitting}>取消</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? '保存中...' : isEditMode ? editSubmitText : createSubmitText}
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }
-

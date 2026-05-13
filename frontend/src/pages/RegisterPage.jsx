@@ -1,13 +1,11 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import Box from '@mui/material/Box'
-import Container from '@mui/material/Container'
-import Paper from '@mui/material/Paper'
-import Typography from '@mui/material/Typography'
-import TextField from '@mui/material/TextField'
-import Button from '@mui/material/Button'
-import ToastMessage from '../components/ToastMessage'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Card, CardContent } from '../components/ui/card'
+import { Alert, AlertDescription } from '../components/ui/alert'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
 
 export default function RegisterPage({ user }) {
   const navigate = useNavigate()
@@ -25,29 +23,20 @@ export default function RegisterPage({ user }) {
     ;(async () => {
       try {
         const status = await api.registrationStatus()
-        if (active) {
-          setEnabled(Boolean(status?.enabled))
-        }
+        if (active) setEnabled(Boolean(status?.enabled))
       } catch (err) {
         if (active) {
           setError(err.message || '无法获取注册状态')
           setEnabled(false)
         }
       } finally {
-        if (active) {
-          setLoadingStatus(false)
-        }
+        if (active) setLoadingStatus(false)
       }
     })()
-
-    return () => {
-      active = false
-    }
+    return () => { active = false }
   }, [])
 
-  if (user) {
-    return <Navigate to="/" replace />
-  }
+  if (user) return <Navigate to="/" replace />
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -82,126 +71,96 @@ export default function RegisterPage({ user }) {
 
   if (loadingStatus) {
     return (
-      <Container component="main" maxWidth="xs">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-          <Typography>加载中...</Typography>
-        </Box>
-      </Container>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">加载中...</p>
+      </div>
     )
   }
 
   if (!enabled) {
     return (
-      <Container component="main" maxWidth="xs">
-        <Box
-          sx={{
-            marginTop: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <Typography component="h1" variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
-            OrangeOJ
-          </Typography>
-          <Paper elevation={3} sx={{ p: 4, width: '100%', textAlign: 'center' }}>
-            <Typography variant="body1" gutterBottom>
-              当前未开放注册，请联系管理员开启后再试。
-            </Typography>
-            <Button
-              component={Link}
-              to="/login"
-              variant="outlined"
-              sx={{ mt: 2 }}
-            >
-              返回登录
-            </Button>
-          </Paper>
-        </Box>
-      </Container>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-sm flex flex-col items-center gap-2">
+          <h1 className="text-3xl font-bold mb-2">🍊 OrangeOJ</h1>
+          <Card className="w-full">
+            <CardContent className="pt-6 text-center">
+              <p className="mb-4">当前未开放注册，请联系管理员开启后再试。</p>
+              <Button variant="outline" asChild>
+                <Link to="/login">返回登录</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Typography component="h1" variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
-          OrangeOJ
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          创建账号后即可进入系统。
-        </Typography>
-        
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <form onSubmit={handleSubmit}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="username"
-              label="用户名"
-              name="username"
-              autoComplete="username"
-              autoFocus
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="密码"
-              type="password"
-              id="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="confirmPassword"
-              label="确认密码"
-              type="password"
-              id="confirmPassword"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-            />
-            
-            {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
-            
-            {success && <ToastMessage message={success} severity="success" onShown={() => setSuccess('')} />}
-            
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={submitting}
-              sx={{ mt: 3, mb: 2 }}
-            >
-              {submitting ? '提交中...' : '注册'}
-            </Button>
-            
-            <Typography variant="body2" align="center">
-              已有账号？{' '}
-              <Link to="/login" style={{ textDecoration: 'none' }}>
-                返回登录
-              </Link>
-            </Typography>
-          </form>
-        </Paper>
-      </Box>
-    </Container>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <div className="w-full max-w-sm flex flex-col items-center gap-2">
+        <h1 className="text-3xl font-bold">🍊 OrangeOJ</h1>
+        <p className="text-sm text-muted-foreground mb-6">创建账号后即可进入系统。</p>
+
+        <Card className="w-full">
+          <CardContent className="pt-6">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <Input
+                required
+                id="username"
+                placeholder="用户名"
+                name="username"
+                autoComplete="username"
+                autoFocus
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+              <Input
+                required
+                name="password"
+                placeholder="密码"
+                type="password"
+                id="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Input
+                required
+                name="confirmPassword"
+                placeholder="确认密码"
+                type="password"
+                id="confirmPassword"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {success && (
+                <Alert variant="success">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+                {submitting ? '提交中...' : '注册'}
+              </Button>
+
+              <p className="text-sm text-center">
+                已有账号？{' '}
+                <Link to="/login" className="text-primary hover:underline">返回登录</Link>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 }

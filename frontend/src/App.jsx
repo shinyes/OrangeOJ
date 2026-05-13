@@ -12,7 +12,7 @@ const HomeworkProgrammingPage = lazy(() => import('./pages/HomeworkProgrammingPa
 const HomeworkSubmissionRecordsPage = lazy(() => import('./pages/HomeworkSubmissionRecordsPage'))
 
 function PageFallback() {
-  return <div className="screen-center">加载中...</div>
+  return <div className="min-h-screen flex items-center justify-center text-muted-foreground">加载中...</div>
 }
 
 function Protected({ children }) {
@@ -20,7 +20,7 @@ function Protected({ children }) {
   const location = useLocation()
 
   if (loading) {
-    return <div className="screen-center">加载中...</div>
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">加载中...</div>
   }
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
