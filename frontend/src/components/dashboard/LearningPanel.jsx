@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'
-import { Card, CardContent } from '../ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card'
 
 export default function LearningPanel({
   selectedSpace, spaces, spaceTab,
@@ -71,16 +71,16 @@ export default function LearningPanel({
       {/* Training Tab */}
       {spaceTab === 'training' && (
         <div>
-          <div className="flex gap-3 mb-4 flex-wrap">
+          <div className="flex gap-3 mb-4 items-center">
             <Input placeholder="搜索训练计划标题" value={learningTrainingSearch}
-              onChange={(e) => onLearningTrainingSearchChange(e.target.value)} className="min-w-[220px]" />
-            {canManageSelectedSpace && <Button onClick={onOpenCreateTrainingPlan}>创建训练计划</Button>}
+              onChange={(e) => onLearningTrainingSearchChange(e.target.value)} className="flex-1" />
+            {canManageSelectedSpace && <Button onClick={onOpenCreateTrainingPlan} className="shrink-0">创建训练计划</Button>}
           </div>
 
-          <div className="flex flex-col gap-2 max-w-3xl mx-auto">
-            {filteredLearningTrainingPlans.length === 0 && (
-              <p className="text-muted-foreground text-center py-4 w-full">暂无匹配的训练计划。</p>
-            )}
+          {filteredLearningTrainingPlans.length === 0 && (
+            <p className="text-muted-foreground text-center py-8 w-full">暂无匹配的训练计划。</p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredLearningTrainingPlans.map((plan) => {
               const isPublic = plan.isPublic !== false
               const isJoined = plan.joined === true
@@ -88,35 +88,35 @@ export default function LearningPanel({
               const showJoinTraining = !canManageSelectedSpace && !isJoined
 
               return (
-                <div key={plan.id} className="border rounded-lg p-4 w-full bg-background">
-                  <div className="flex justify-between items-start gap-3 flex-wrap">
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold break-words">{plan.title}</h3>
-                      <span className="text-xs text-muted-foreground block">
-                        {isPublic ? '公开训练' : '隐藏训练'} | {plan.allowSelfJoin ? '允许自行加入' : '仅管理员分配'} | {plan.published || plan.publishedAt ? '已发布' : '未发布'}
-                      </span>
+                <Card key={plan.id} className="flex flex-col">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base line-clamp-2">{plan.title}</CardTitle>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <Badge variant={isPublic ? 'default' : 'secondary'} className="text-[11px]">{isPublic ? '公开' : '隐藏'}</Badge>
+                      <Badge variant="outline" className="text-[11px]">{plan.allowSelfJoin ? '可自行加入' : '仅管理员分配'}</Badge>
+                      <Badge variant={plan.published || plan.publishedAt ? 'success' : 'secondary'} className="text-[11px]">{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {showEnterTraining && (
-                        <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/training-plans/${plan.id}`}>进入训练</Link></Button>
-                      )}
-                      {showJoinTraining && (
-                        <Button size="sm" onClick={() => onJoinTrainingPlan(plan.id)} disabled={!plan.allowSelfJoin}>
-                          {plan.allowSelfJoin ? '加入训练' : '需管理员分配'}
-                        </Button>
-                      )}
-                      {canManageSelectedSpace && (
-                        <Button size="sm" variant="outline" onClick={() => onOpenAssignTrainingParticipant(plan.id)}>分配用户</Button>
-                      )}
-                      {canManageSelectedSpace && (
-                        <Button size="sm" variant="outline" onClick={() => onOpenEditTrainingPlan(plan.id)}>编辑</Button>
-                      )}
-                      {canManageSelectedSpace && (
-                        <Button size="sm" variant="destructive" onClick={() => onDeleteTrainingPlan(plan.id)}>删除</Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  </CardHeader>
+                  <CardFooter className="mt-auto pt-2 flex flex-wrap gap-2">
+                    {showEnterTraining && (
+                      <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/training-plans/${plan.id}`}>进入训练</Link></Button>
+                    )}
+                    {showJoinTraining && (
+                      <Button size="sm" onClick={() => onJoinTrainingPlan(plan.id)} disabled={!plan.allowSelfJoin}>
+                        {plan.allowSelfJoin ? '加入训练' : '需管理员分配'}
+                      </Button>
+                    )}
+                    {canManageSelectedSpace && (
+                      <Button size="sm" variant="outline" onClick={() => onOpenAssignTrainingParticipant(plan.id)}>分配</Button>
+                    )}
+                    {canManageSelectedSpace && (
+                      <Button size="sm" variant="outline" onClick={() => onOpenEditTrainingPlan(plan.id)}>编辑</Button>
+                    )}
+                    {canManageSelectedSpace && (
+                      <Button size="sm" variant="destructive" onClick={() => onDeleteTrainingPlan(plan.id)}>删除</Button>
+                    )}
+                  </CardFooter>
+                </Card>
               )
             })}
           </div>
@@ -126,49 +126,46 @@ export default function LearningPanel({
       {/* Homework Tab */}
       {spaceTab === 'homework' && (
         <div>
-          <div className="flex gap-3 mb-4 flex-wrap">
+          <div className="flex gap-3 mb-4 items-center">
             <Input placeholder="搜索作业标题" value={learningHomeworkSearch}
-              onChange={(e) => onLearningHomeworkSearchChange(e.target.value)} className="min-w-[220px]" />
-            {canManageSelectedSpace && <Button onClick={onOpenCreateHomework}>创建作业</Button>}
+              onChange={(e) => onLearningHomeworkSearchChange(e.target.value)} className="flex-1" />
+            {canManageSelectedSpace && <Button onClick={onOpenCreateHomework} className="shrink-0">创建作业</Button>}
           </div>
 
-          <div className="flex flex-col gap-2 max-w-3xl mx-auto">
-            {filteredLearningHomeworks.length === 0 && (
-              <p className="text-muted-foreground text-center py-4 w-full">暂无匹配的作业。</p>
-            )}
+          {filteredLearningHomeworks.length === 0 && (
+            <p className="text-muted-foreground text-center py-8 w-full">暂无匹配的作业。</p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredLearningHomeworks.map((homework) => (
-              <div key={homework.id} className="border rounded-lg p-4 w-full bg-background">
-                <div className="flex justify-between items-start gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold break-words">{homework.title}</h3>
-                    <span className="text-xs text-muted-foreground block">
-                      {homework.published ? '已发布' : '草稿'}
-                      {homework.displayMode === 'list' ? ' | 题单模式' : ' | 试卷模式'}
-                      {homework.dueAt ? ` | 截止：${homework.dueAt}` : ' | 未设置截止时间'}
-                      {typeof homework.itemCount === 'number' ? ` | ${homework.itemCount} 道题` : ''}
-                      {typeof homework.targetCount === 'number' ? ` | ${homework.targetCount} 名目标用户` : ''}
-                      {!canManageSelectedSpace && homework.assigned ? ' | 已分配给我' : ''}
-                    </span>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}`}>进入作业</Link></Button>
-                    {canManageSelectedSpace && (
-                      <Button size="sm" variant="outline" asChild>
-                        <Link to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}/submission-records?returnTo=${encodeURIComponent(`/?spaceId=${selectedSpace.id}&tab=homework`)}&returnLabel=${encodeURIComponent('返回作业列表')}`}>提交记录</Link>
-                      </Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="sm" variant="outline" onClick={() => onOpenAssignHomeworkTarget(homework.id)}>分配用户</Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="sm" variant="outline" onClick={() => onOpenEditHomework(homework.id)}>编辑</Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="sm" variant="destructive" onClick={() => onDeleteHomework(homework.id)}>删除</Button>
+              <Card key={homework.id} className="flex flex-col">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base line-clamp-2">{homework.title}</CardTitle>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <Badge variant={homework.published ? 'success' : 'secondary'} className="text-[11px]">{homework.published ? '已发布' : '草稿'}</Badge>
+                    <Badge variant="outline" className="text-[11px]">{homework.dueAt ? `截止：${homework.dueAt}` : '未设置截止时间'}</Badge>
+                    {!canManageSelectedSpace && homework.assigned && (
+                      <Badge variant="info" className="text-[11px]">已分配给我</Badge>
                     )}
                   </div>
-                </div>
-              </div>
+                </CardHeader>
+                <CardFooter className="mt-auto pt-2 flex flex-wrap gap-2">
+                  <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}`}>进入作业</Link></Button>
+                  {canManageSelectedSpace && (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}/submission-records?returnTo=${encodeURIComponent(`/?spaceId=${selectedSpace.id}&tab=homework`)}&returnLabel=${encodeURIComponent('返回作业列表')}`}>提交记录</Link>
+                    </Button>
+                  )}
+                  {canManageSelectedSpace && (
+                    <Button size="sm" variant="outline" onClick={() => onOpenAssignHomeworkTarget(homework.id)}>分配</Button>
+                  )}
+                  {canManageSelectedSpace && (
+                    <Button size="sm" variant="outline" onClick={() => onOpenEditHomework(homework.id)}>编辑</Button>
+                  )}
+                  {canManageSelectedSpace && (
+                    <Button size="sm" variant="destructive" onClick={() => onDeleteHomework(homework.id)}>删除</Button>
+                  )}
+                </CardFooter>
+              </Card>
             ))}
           </div>
         </div>

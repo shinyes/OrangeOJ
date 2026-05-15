@@ -2,17 +2,6 @@
 
 OrangeOJ 是一个基于 Go + Fiber + SQLite + React + Monaco 的在线 OJ 平台。
 
-## 最新更新 v0.5.16
-
-本次版本重点完成：
-
-- 缩小作业提交记录卡片高度，修复侧边栏滚动问题
-- 作业提交后自动清理草稿，可立即重新做题
-
-查看详情：[RELEASE_v0.5.16.md](./RELEASE_v0.5.16.md)
-
----
-
 ## 服务组成
 
 - `orangeoj`：主服务（Web + API + 队列）

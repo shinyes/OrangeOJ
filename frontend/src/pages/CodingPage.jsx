@@ -229,7 +229,12 @@ export default function CodingPage() {
       const result = spaceId
         ? await api.objectiveSubmit(spaceId, problemId, answer)
         : await api.objectiveSubmitRoot(problemId, answer)
-      setConsoleText(`判定结果：${result.verdict} | 得分：${result.score}`)
+      const isCorrect = result.verdict === 'AC' || result.verdict === 'OK'
+      if (isCorrect) {
+        toast.success('回答正确！', { duration: 1000 })
+      } else {
+        toast.error('回答错误，再想想看', { duration: 1000 })
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -320,12 +325,6 @@ export default function CodingPage() {
                   {running ? '提交中...' : '提交答案'}
                 </Button>
               </div>
-
-              {consoleText && (
-                <div className="mt-3 p-3 bg-muted/50 rounded-lg font-mono text-sm whitespace-pre-wrap">
-                  {consoleText}
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
 import { cn } from '../lib/utils'
 import { Flag, Save } from 'lucide-react'
+import { toast } from 'sonner'
 import { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -196,6 +197,24 @@ function isAcceptedRecordItem(item) {
   const status = String(item?.status || '').trim()
   const verdict = String(item?.verdict || '').trim()
   return status === 'done' && (verdict === 'AC' || verdict === 'OK')
+}
+
+function countObjectiveVerdicts(orderedItems, submissionsByProblemId) {
+  let correct = 0
+  let wrong = 0
+  orderedItems.forEach((item) => {
+    const problemId = Number(item.problemId)
+    const problem = item.problem
+    const problemType = problem?.type || item.type
+    if (problemType === 'programming') return
+    const submissions = submissionsByProblemId[problemId] || []
+    const latest = submissions[0]
+    if (!latest || latest.questionType === 'programming') return
+    const verdict = latest.verdict
+    if (verdict === 'AC' || verdict === 'OK') { correct += 1; return }
+    if (verdict) { wrong += 1 }
+  })
+  return { correct, wrong }
 }
 
 function questionNavigatorClass({ active, answered, reviewState }) {
@@ -480,6 +499,14 @@ export default function HomeworkPage() {
       const nextSubmissionsByProblemId = {}
       refreshedSubmissionPairs.forEach(([problemId, submissions]) => { nextSubmissionsByProblemId[problemId] = submissions })
       setSubmissionsByProblemId(nextSubmissionsByProblemId)
+      const objectiveCounts = countObjectiveVerdicts(orderedItems, nextSubmissionsByProblemId)
+      if (objectiveCount > 0 && (objectiveCounts.correct > 0 || objectiveCounts.wrong > 0)) {
+        if (objectiveCounts.wrong > 0) {
+          toast(`客观题：${objectiveCounts.correct} 道正确，${objectiveCounts.wrong} 道错误`, { description: '可重新作答后再提交', duration: 1000 })
+        } else {
+          toast.success(`客观题全部正确！(共 ${objectiveCounts.correct} 道)`, { duration: 1000 })
+        }
+      }
       const recordItems = orderedItems.map((item) => {
         const problemId = Number(item.problemId)
         const latestSubmission = nextSubmissionsByProblemId[problemId]?.[0]
@@ -499,9 +526,8 @@ export default function HomeworkPage() {
       }
       localStorage.removeItem(draftStorageKey)
       const emptyStored = { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
-      const freshDraft = buildInitialDraft(homework?.items || [], problemsById, {}, emptyStored, normalizeDefaultLanguage(space?.defaultProgrammingLanguage))
+      const freshDraft = buildInitialDraft(homework?.items || [], problemsById, nextSubmissionsByProblemId, emptyStored, normalizeDefaultLanguage(space?.defaultProgrammingLanguage))
       setDraft(freshDraft)
-      setSubmissionsByProblemId({})
     } catch (err) { setError(err.message || '提交作业失败') }
     finally { setSubmittingAll(false) }
   }
