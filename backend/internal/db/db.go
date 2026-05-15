@@ -258,6 +258,17 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(tag_id) REFERENCES image_tags(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_image_tag_links_tag_id ON image_tag_links(tag_id);`,
+		`CREATE TABLE IF NOT EXISTS homework_drafts (
+			user_id INTEGER NOT NULL,
+			space_id INTEGER NOT NULL,
+			homework_id INTEGER NOT NULL,
+			draft_json TEXT NOT NULL,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY(user_id, space_id, homework_id),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE
+		);`,
 	}
 	for _, stmt := range stmts {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {

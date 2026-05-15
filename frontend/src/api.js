@@ -141,6 +141,9 @@ export const api = {
   deleteHomework: (spaceId, homeworkId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
   searchHomeworkTargetCandidates: (spaceId, homeworkId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/target-candidates`, { q: keyword })),
   addHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets`, { method: 'POST', body: { userId } }),
+  getHomeworkDraft: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`),
+  saveHomeworkDraft: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`, { method: 'PUT', body }),
+  deleteHomeworkDraft: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`, { method: 'DELETE' }),
 
   objectiveSubmit: (spaceId, problemId, answer) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/objective-submit`, { method: 'POST', body: { answer } }),
   run: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/run`, { method: 'POST', body }),

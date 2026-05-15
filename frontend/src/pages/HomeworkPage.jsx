@@ -166,6 +166,24 @@ function buildRecordReviewDraft(homeworkItems, problemsById, submissionDetailsBy
   return nextDraft
 }
 
+function buildEmptyDraft(homeworkItems, problemsById, defaultLanguage) {
+  const draft = { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
+  homeworkItems.forEach((item) => {
+    const problemId = Number(item.problemId)
+    const problem = problemsById[problemId]
+    if ((problem?.type || item.type) === 'programming') {
+      draft.programming[problemId] = {
+        language: normalizeDefaultLanguage(defaultLanguage),
+        code: pickStarter(problem?.bodyJson || {}, normalizeDefaultLanguage(defaultLanguage)),
+        customInput: '',
+        touched: false,
+        lastSavedAt: ''
+      }
+    }
+  })
+  return draft
+}
+
 function getProblemPromptText(problem, fallback = '暂无题面') {
   const statement = String(problem?.statementMd || '').trim()
   if (statement) return statement
@@ -424,7 +442,18 @@ export default function HomeworkPage() {
         catch { return [problemId, []] }
       }))
       submissionPairs.forEach(([problemId, submissions]) => { nextSubmissionsByProblemId[problemId] = submissions })
-      const storedDraft = loadStoredDraft(draftStorageKey)
+      let storedDraft = loadStoredDraft(draftStorageKey)
+      try {
+        const cloudDraft = await api.getHomeworkDraft(spaceId, homeworkId)
+        if (cloudDraft?.draft) {
+          const cloudParsed = JSON.parse(cloudDraft.draft)
+          const cloudTime = cloudParsed?.lastSavedAt || cloudDraft?.updatedAt || ''
+          const localTime = storedDraft?.lastSavedAt || ''
+          if (cloudTime && (!localTime || cloudTime >= localTime)) {
+            storedDraft = cloudParsed
+          }
+        }
+      } catch { /* cloud draft unavailable, use localStorage */ }
       initialDraft = buildInitialDraft(homeworkData?.items || [], nextProblemsById, nextSubmissionsByProblemId, storedDraft, normalizeDefaultLanguage(spaceData?.defaultProgrammingLanguage))
     }
 
@@ -457,10 +486,14 @@ export default function HomeworkPage() {
     persistDraft((current) => ({ ...current, flags: { ...current.flags, [problemId]: !current.flags[problemId] } }))
   }
 
-  const markDraftSaved = (message = '作业草稿已保存到本地') => {
+  const markDraftSaved = (message = '作业进度已保存到云端') => {
     if (isReviewMode) return
     const savedAt = new Date().toISOString()
-    persistDraft((current) => ({ ...current, lastSavedAt: savedAt }), message)
+    persistDraft((current) => {
+      const nextDraft = { ...current, lastSavedAt: savedAt }
+      api.saveHomeworkDraft(spaceId, homeworkId, { draft: JSON.stringify(nextDraft) }).catch(() => {})
+      return nextDraft
+    }, message)
   }
 
   const scrollToProblem = (problemId) => {
@@ -520,16 +553,16 @@ export default function HomeworkPage() {
       try {
         const createdRecord = await api.createHomeworkSubmissionRecord(spaceId, homeworkId, { items: recordItems })
         await refreshHomeworkSubmissionRecords(createdRecord?.id)
-        markDraftSaved(`已提交 ${objectiveCount} 道客观题，${programmingCount} 道编程题已进入判题队列，并生成 1 条作业提交记录`)
+        setActionMessage(`已提交 ${objectiveCount} 道客观题，${programmingCount} 道编程题已进入判题队列，并生成 1 条作业提交记录`)
       } catch (recordErr) {
         if (!isSubmissionRecordRouteUnavailable(recordErr)) throw recordErr
         console.warn('作业提交记录接口暂不可用，已跳过记录创建:', recordErr)
         setSubmissionRecordUnavailable(true)
-        markDraftSaved(`已提交 ${objectiveCount} 道客观题，${programmingCount} 道编程题已进入判题队列；当前后端未启用作业提交记录接口，所以这次不会出现在左侧记录列表中`)
+        setActionMessage(`已提交 ${objectiveCount} 道客观题，${programmingCount} 道编程题已进入判题队列；当前后端未启用作业提交记录接口，所以这次不会出现在左侧记录列表中`)
       }
       localStorage.removeItem(draftStorageKey)
-      const emptyStored = { objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' }
-      const freshDraft = buildInitialDraft(homework?.items || [], problemsById, nextSubmissionsByProblemId, emptyStored, normalizeDefaultLanguage(space?.defaultProgrammingLanguage))
+      api.deleteHomeworkDraft(spaceId, homeworkId).catch(() => {})
+      const freshDraft = buildEmptyDraft(homework?.items || [], problemsById, normalizeDefaultLanguage(space?.defaultProgrammingLanguage))
       setDraft(freshDraft)
     } catch (err) { setError(err.message || '提交作业失败') }
     finally { setSubmittingAll(false) }
