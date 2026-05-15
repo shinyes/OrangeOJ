@@ -16,11 +16,12 @@ export default function LearningPanel({
 }) {
   if (!selectedSpace) {
     return (
-      <div className="border rounded-xl p-6 text-center bg-background">
+      <Card><CardContent className="p-6 text-center">
         <p className="text-muted-foreground">
           {spaces.length === 0 ? '暂无可访问空间，请先创建或加入空间。' : '请选择一个空间。'}
         </p>
-      </div>
+      </CardContent>
+    </Card>
     )
   }
 

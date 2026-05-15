@@ -5,6 +5,8 @@ import { Textarea } from '../ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Badge } from '../ui/badge'
+import { Card, CardContent } from '../ui/card'
+import { Label } from '../ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { Plus, Trash2, X } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
@@ -165,7 +167,7 @@ function renderCaseRows(title, rows, onAdd, onRemove, onChange) {
       </div>
       <div className="flex flex-col gap-2">
         {rows.map((item, index) => (
-          <div key={index} className="border rounded-lg p-4">
+          <Card key={index}><CardContent className="p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs text-muted-foreground">{title} {index + 1}</span>
               <Button size="sm" variant="ghost" onClick={() => onRemove(index)} disabled={rows.length === 1}>
@@ -174,15 +176,15 @@ function renderCaseRows(title, rows, onAdd, onRemove, onChange) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium">输入</label>
+                <Label className="text-xs">输入</Label>
                 <Textarea className="mt-1 min-h-[80px]" value={item.input} onChange={(e) => onChange(index, 'input', e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-medium">输出</label>
+                <Label className="text-xs">输出</Label>
                 <Textarea className="mt-1 min-h-[80px]" value={item.output} onChange={(e) => onChange(index, 'output', e.target.value)} />
               </div>
             </div>
-          </div>
+          </CardContent></Card>
         ))}
       </div>
     </div>
@@ -329,7 +331,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
             <>
               {jsonSyncError && <ToastMessage message={`JSON 未同步到 UI：${jsonSyncError}`} severity="warning" />}
               <div>
-                <label className="text-sm font-medium mb-1 block">题目存储 JSON</label>
+                <Label className="mb-1 block">题目存储 JSON</Label>
                 <Textarea className="font-mono min-h-[400px]" value={jsonDraft}
                   onChange={(e) => setJSONDraft(e.target.value)} />
                 {jsonSyncError && <p className="text-xs text-destructive mt-1">{jsonSyncError}</p>}
@@ -365,7 +367,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-1 block">题目标签</label>
+                <Label className="mb-1 block">题目标签</Label>
                 <div className="flex flex-wrap gap-1 mb-2">
                   {form.tags.map((tag, index) => (
                     <Badge key={index} variant="secondary" className="gap-1">
@@ -395,7 +397,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-1 block">题面 Markdown</label>
+                <Label className="mb-1 block">题面 Markdown</Label>
                 <Textarea className="min-h-[160px]" value={form.statementMd} onChange={(e) => updateField('statementMd', e.target.value)} />
               </div>
             </>
@@ -405,11 +407,11 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">输入格式</label>
+                  <Label className="mb-1 block">输入格式</Label>
                   <Textarea className="min-h-[80px]" value={form.programming.inputFormat} onChange={(e) => updateProgrammingField('inputFormat', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">输出格式</label>
+                  <Label className="mb-1 block">输出格式</Label>
                   <Textarea className="min-h-[80px]" value={form.programming.outputFormat} onChange={(e) => updateProgrammingField('outputFormat', e.target.value)} />
                 </div>
               </div>
@@ -420,7 +422,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
                 <div className="flex flex-col gap-2">
                   {['cpp', 'python', 'go'].map((lang) => (
                     <div key={lang}>
-                      <label className="text-xs font-medium mb-1 block">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : 'Go'}</label>
+                      <Label className="text-xs mb-1 block">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : 'Go'}</Label>
                       <Textarea className="font-mono min-h-[100px]" value={form.programming.starterCode[lang]} onChange={(e) => updateStarterCode(lang, e.target.value)} />
                     </div>
                   ))}
@@ -451,7 +453,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">正确答案</label>
+                <Label className="mb-1 block">正确答案</Label>
                 <Select value={String(form.singleChoice.answerIndex)} onValueChange={(v) => updateNestedField('singleChoice', 'answerIndex', Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -466,7 +468,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
 
           {editorMode === 'ui' && form.type === 'true_false' && (
             <div>
-              <label className="text-sm font-medium mb-1 block">正确答案</label>
+              <Label className="mb-1 block">正确答案</Label>
               <Select value={form.trueFalse.answer} onValueChange={(v) => updateNestedField('trueFalse', 'answer', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

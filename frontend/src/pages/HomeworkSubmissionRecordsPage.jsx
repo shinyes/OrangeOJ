@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
 import { Alert, AlertDescription } from '../components/ui/alert'
 import { AlertCircle } from 'lucide-react'
+import { Card, CardContent } from '../components/ui/card'
 
 function safeInternalPath(path, fallback) {
   if (typeof path === 'string' && path.startsWith('/')) return path
@@ -122,13 +123,15 @@ export default function HomeworkSubmissionRecordsPage() {
     return (
       <div className="min-h-screen bg-muted/30 p-4">
         <Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>
-        <div className="max-w-lg mx-auto mt-8 border rounded-xl p-6 bg-background">
+        <Card className="max-w-lg mx-auto mt-8">
+          <CardContent className="p-6">
           <div className="flex flex-col gap-3 items-start">
             <h2 className="text-lg font-bold">无法查看作业提交记录</h2>
             <p className="text-sm text-muted-foreground">当前页面仅空间管理员和系统管理员可访问。</p>
             <Button asChild><Link to={backTo}>{backLabel}</Link></Button>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -161,7 +164,8 @@ export default function HomeworkSubmissionRecordsPage() {
       </header>
 
       <div className="p-4">
-        <div className="border rounded-xl p-4 md:p-6 bg-background">
+        <Card>
+          <CardContent className="p-4 md:p-6">
           <div className="flex flex-col md:flex-row gap-3 mb-4">
             <Input
               placeholder="筛选用户名或用户ID"
@@ -183,7 +187,8 @@ export default function HomeworkSubmissionRecordsPage() {
               {filteredRecords.map((record) => {
                 const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(record)
                 return (
-                  <div key={record.id} className="border rounded-lg p-4">
+                  <Card key={record.id}>
+                    <CardContent className="p-4">
                     <div className="flex flex-col md:flex-row justify-between gap-3 items-stretch md:items-start">
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap gap-1.5 mb-2">
@@ -208,12 +213,14 @@ export default function HomeworkSubmissionRecordsPage() {
                         </Link>
                       </Button>
                     </div>
-                  </div>
+                  </CardContent>
+                </Card>
                 )
               })}
             </div>
           )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

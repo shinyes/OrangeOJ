@@ -5,6 +5,7 @@ import { Textarea } from '../ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Badge } from '../ui/badge'
+import { Label } from '../ui/label'
 import { X } from 'lucide-react'
 import HomeworkEditor from './HomeworkEditor'
 import ProblemEditor from './ProblemEditor'
@@ -177,7 +178,7 @@ export default function DashboardDialogs({
               onChange={(e) => modalState.setSpaceSettingsName(e.target.value)} />
             <Textarea placeholder="空间描述" value={modalState.spaceSettingsDescription}
               onChange={(e) => modalState.setSpaceSettingsDescription(e.target.value)} />
-            <label className="flex flex-col gap-2 text-sm font-medium">
+            <Label className="flex flex-col gap-2">
               默认编程语言
               <Select value={modalState.spaceDefaultLanguage} onValueChange={modalState.setSpaceDefaultLanguage}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -187,7 +188,7 @@ export default function DashboardDialogs({
                   <SelectItem value="go">Go</SelectItem>
                 </SelectContent>
               </Select>
-            </label>
+            </Label>
             <div className="flex gap-3">
               <Button disabled={modalState.spaceSettingsSubmitting} onClick={onUpdateSpaceSettings}>
                 {modalState.spaceSettingsSubmitting ? '保存中...' : '保存设置'}
@@ -280,7 +281,7 @@ export default function DashboardDialogs({
               value={modalState.batchInput}
               onChange={(e) => modalState.setBatchInput(e.target.value)}
               placeholder={'student01,123456\nstudent02,123456'} />
-            <label className="flex flex-col gap-2 text-sm font-medium">
+            <Label className="flex flex-col gap-2">
               加入空间（可选）
               <Select value={modalState.batchSpaceId || '__none__'} onValueChange={(v) => modalState.setBatchSpaceId(v === '__none__' ? '' : v)}>
                 <SelectTrigger><SelectValue placeholder="不加入空间" /></SelectTrigger>
@@ -291,7 +292,7 @@ export default function DashboardDialogs({
                   ))}
                 </SelectContent>
               </Select>
-            </label>
+            </Label>
             <div className="flex gap-3">
               <Button disabled={modalState.batchSubmitting} onClick={onBatchRegister}>
                 {modalState.batchSubmitting ? '处理中...' : '开始批量注册'}

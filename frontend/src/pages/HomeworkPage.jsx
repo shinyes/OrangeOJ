@@ -3,10 +3,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
+import { Card, CardContent } from '../components/ui/card'
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
 import { cn } from '../lib/utils'
 import { Flag, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { Alert } from '../components/ui/alert'
+import { Label } from '../components/ui/label'
 import { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -361,7 +364,7 @@ export default function HomeworkPage() {
 
   const refreshHomeworkSubmissionRecords = async (preferredRecordId = null) => {
     try {
-      const result = await api.listHomeworkSubmissionRecords(spaceId, homeworkId)
+      const result = await api.listHomeworkSubmissionRecords(spaceId, homeworkId, space?.canManage ? { all: true } : undefined)
       const records = result?.records || []
       setSubmissionRecordUnavailable(false)
       setSubmissionRecords(records)
@@ -381,10 +384,10 @@ export default function HomeworkPage() {
   }
 
   const loadData = async () => {
-    const [spaceData, homeworkData, homeworkRecordData] = await Promise.all([
-      api.getSpace(spaceId),
+    const spaceData = await api.getSpace(spaceId)
+    const [homeworkData, homeworkRecordData] = await Promise.all([
       api.getHomework(spaceId, homeworkId),
-      api.listHomeworkSubmissionRecords(spaceId, homeworkId).catch((err) => {
+      api.listHomeworkSubmissionRecords(spaceId, homeworkId, spaceData?.canManage ? { all: true } : undefined).catch((err) => {
         if (isSubmissionRecordRouteUnavailable(err)) return { records: [], unavailable: true }
         return { records: [] }
       })
@@ -537,7 +540,7 @@ export default function HomeworkPage() {
   if (error && !homework) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
-        <div className="border border-destructive/30 bg-destructive/10 text-destructive rounded-lg px-5 py-3 text-sm max-w-lg">{error}</div>
+        <Alert variant="destructive" className="max-w-lg">{error}</Alert>
         <Button variant="outline" asChild><Link to={backTo}>{backLabel}</Link></Button>
       </div>
     )
@@ -558,7 +561,8 @@ export default function HomeworkPage() {
     if (!reviewRecord) return null
     const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(reviewRecord)
     return (
-      <div className="border rounded-xl p-3 mb-3 bg-background">
+      <Card className="mb-3">
+        <CardContent className="p-3">
         <div className="flex flex-col gap-1.5">
           <h3 className="text-sm font-bold">当前作答记录</h3>
           <div className="flex flex-wrap gap-1.5">
@@ -575,12 +579,14 @@ export default function HomeworkPage() {
             <Link to={`/spaces/${spaceId}/homeworks/${homeworkId}`}>返回当前作业</Link>
           </Button>
         </div>
-      </div>
+      </CardContent>
+    </Card>
     )
   }
 
   const renderSubmissionRecordsPanel = () => (
-    <div className="border rounded-xl p-3 mb-3 bg-background">
+    <Card className="mb-3">
+      <CardContent className="p-3">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-sm font-bold">我的提交记录</h3>
         <div className="flex gap-1.5 flex-wrap justify-end">
@@ -606,19 +612,20 @@ export default function HomeworkPage() {
           {submissionRecords.map((record) => {
             const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(record)
             return (
-              <div key={record.id} className="border rounded-lg p-2 cursor-pointer transition-colors hover:border-primary hover:shadow-md hover:-translate-y-px"
+              <Card key={record.id} className="p-2 cursor-pointer transition-colors hover:border-primary hover:shadow-md hover:-translate-y-px"
                 onClick={() => openRecordReview(record)}>
                 <p className="text-sm font-bold mb-1">{formatDateTime(record.createdAt)}</p>
                 <div className="flex flex-wrap gap-1.5">
                   <Badge variant="outline">客观错 {objectiveWrongCount} 道</Badge>
                   <Badge variant="outline">编程错 {programmingWrongCount} 道</Badge>
                 </div>
-              </div>
+              </Card>
             )
           })}
         </div>
       )}
-    </div>
+      </CardContent>
+    </Card>
   )
 
   const renderQuestionNavigatorGrid = () => (
@@ -647,11 +654,12 @@ export default function HomeworkPage() {
   )
 
   const renderQuestionNavigatorPanel = () => (
-    <div className="border rounded-xl p-3 bg-background">{renderQuestionNavigatorGrid()}</div>
+    <Card><CardContent className="p-3">{renderQuestionNavigatorGrid()}</CardContent></Card>
   )
 
   const renderQuestionStatusPanel = () => (
-    <div className="border rounded-xl p-2 bg-background">
+    <Card>
+      <CardContent className="p-2">
       <div className="flex flex-col gap-1.5">
         <h3 className="text-sm font-bold">完成情况</h3>
         <div className="grid grid-cols-5 gap-1">
@@ -670,7 +678,8 @@ export default function HomeworkPage() {
           })}
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 
   const renderProblemCard = (item, standalone = false) => {
@@ -758,7 +767,7 @@ export default function HomeworkPage() {
                     className="gap-0.5"
                   >
                     {(body.options || []).map((option, index) => (
-                      <label
+                      <Label
                         key={`${problemId}-${index}`}
                         htmlFor={`hw-opt-${problemId}-${index}`}
                         className={cn(
@@ -776,7 +785,7 @@ export default function HomeworkPage() {
                             contentClassName="text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.6rem] [&_pre]:text-[0.82rem]"
                           />
                         </div>
-                      </label>
+                      </Label>
                     ))}
                   </RadioGroup>
                 </fieldset>
@@ -788,7 +797,7 @@ export default function HomeworkPage() {
                     onValueChange={(value) => updateObjectiveAnswer(problemId, problemType, value)}
                     className="gap-0.5"
                   >
-                    <label
+                    <Label
                       htmlFor={`hw-opt-${problemId}-true`}
                       className={cn(
                         'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
@@ -797,8 +806,8 @@ export default function HomeworkPage() {
                     >
                       <RadioGroupItem value="true" id={`hw-opt-${problemId}-true`} className="mt-0.5" />
                       <span className="text-[0.98rem]">正确</span>
-                    </label>
-                    <label
+                    </Label>
+                    <Label
                       htmlFor={`hw-opt-${problemId}-false`}
                       className={cn(
                         'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
@@ -807,7 +816,7 @@ export default function HomeworkPage() {
                     >
                       <RadioGroupItem value="false" id={`hw-opt-${problemId}-false`} className="mt-0.5" />
                       <span className="text-[0.98rem]">错误</span>
-                    </label>
+                    </Label>
                   </RadioGroup>
                 </fieldset>
               )}
@@ -868,14 +877,14 @@ export default function HomeworkPage() {
 
             <div className="flex flex-col gap-2">
               {groupedItems.map((group) => (
-                <div key={group.type} className="border rounded-lg overflow-hidden bg-white">
+                <Card key={group.type} className="overflow-hidden">
                   <div className="px-4 md:px-5 pt-[0.55rem] pb-[0.2rem]">
                     <h3 className="text-xs font-bold text-muted-foreground">{group.title}</h3>
                   </div>
                   <div className="flex flex-col">
                     {group.items.map((item) => renderProblemCard(item))}
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           </div>
@@ -891,14 +900,16 @@ export default function HomeworkPage() {
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
-            <div className="border rounded-xl p-2 mb-2 bg-background">
+            <Card className="mb-2">
+              <CardContent className="p-2">
               <h2 className="text-base font-bold mb-1">题目列表</h2>
               <p className="text-sm text-muted-foreground">
                 当前按题单形式展示，题目按作业顺序依次排列；保存和提交逻辑与试卷模式一致。
               </p>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div className="border rounded-lg overflow-hidden bg-white">
+            <Card className="overflow-hidden">
               <div className="flex flex-col">
                 {orderedItems.map((item, index) => (
                   <div key={item.problemId} className={index === orderedItems.length - 1 ? '' : 'border-b'}>
@@ -906,7 +917,7 @@ export default function HomeworkPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       )}

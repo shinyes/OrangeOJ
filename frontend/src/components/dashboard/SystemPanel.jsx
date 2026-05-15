@@ -1,4 +1,5 @@
 import { Button } from '../ui/button'
+import { Card, CardContent } from '../ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { Copy } from 'lucide-react'
@@ -9,7 +10,8 @@ export default function SystemPanel({
   onCopyBatchResult, toFriendlyError
 }) {
   return (
-    <div className="border rounded-xl p-6 bg-background">
+    <Card>
+      <CardContent className="pt-6">
       <Tabs value={systemTab} onValueChange={onSystemTabChange}>
         <TabsList className="mb-6">
           <TabsTrigger value="settings">系统设置</TabsTrigger>
@@ -82,6 +84,7 @@ export default function SystemPanel({
           )}
         </TabsContent>
       </Tabs>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

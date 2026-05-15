@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toFriendlyError } from '../api'
 import { Button } from '../components/ui/button'
+import { Card, CardContent } from '../components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu'
 import { ChevronDown } from 'lucide-react'
@@ -331,19 +332,21 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     if (isSystemManageView) {
       if (!isSystemAdmin) {
         return (
-          <div className="border rounded-xl p-6 bg-background">
+          <Card><CardContent className="p-6">
             <h2 className="text-base font-bold">系统管理</h2>
             <p className="text-muted-foreground">当前账号无系统管理员权限。</p>
-          </div>
+          </CardContent>
+        </Card>
         )
       }
       return renderSystemSection()
     }
 
     return (
-      <div className="border rounded-xl p-6 bg-background">
+      <Card><CardContent className="p-6">
         <p className="text-muted-foreground">未知页面。</p>
-      </div>
+      </CardContent>
+    </Card>
     )
   }
 

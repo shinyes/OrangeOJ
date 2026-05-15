@@ -4,26 +4,33 @@ import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Badge } from '../ui/badge'
+import { Card, CardContent } from '../ui/card'
+import { Label } from '../ui/label'
+import { ScrollArea } from '../ui/scroll-area'
 import { X, Loader2 } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 
 function SummaryItem({ label, value }) {
   return (
-    <div className="border rounded-lg p-4">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <p className="text-base font-bold mt-1">{value}</p>
-    </div>
+    <Card>
+      <CardContent className="p-4">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <p className="text-base font-bold mt-1">{value}</p>
+      </CardContent>
+    </Card>
   )
 }
 
 function ProblemRow({ text, actions }) {
   return (
-    <div className="border rounded-lg px-4 py-3">
-      <div className="flex flex-col md:flex-row gap-2 justify-between items-start md:items-center">
-        <span className="text-sm font-medium truncate flex-1 min-w-0" title={text}>{text}</span>
-        <div className="flex gap-2 flex-wrap">{actions}</div>
-      </div>
-    </div>
+    <Card>
+      <CardContent className="px-4 py-3">
+        <div className="flex flex-col md:flex-row gap-2 justify-between items-start md:items-center">
+          <span className="text-sm font-medium truncate flex-1 min-w-0" title={text}>{text}</span>
+          <div className="flex gap-2 flex-wrap">{actions}</div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -97,32 +104,38 @@ export default function SpaceManagePanel({
 
   if (!hasAnySpaceAdminRole) {
     return (
-      <div className="border rounded-xl p-6 bg-background">
-        <h2 className="text-lg font-bold mb-2">空间管理</h2>
-        <p className="text-muted-foreground">当前账号只能浏览空间，不能修改空间设置、题库或成员。</p>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="text-lg font-bold mb-2">空间管理</h2>
+          <p className="text-muted-foreground">当前账号只能浏览空间，不能修改空间设置、题库或成员。</p>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
     <div>
       {!selectedSpace && (
-        <div className="border rounded-xl p-6 bg-background">
-          <h3 className="text-base font-bold mb-2">还没有选中空间</h3>
-          <p className="text-muted-foreground">从上方选择空间后，这里才会显示对应的管理内容。</p>
-        </div>
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-base font-bold mb-2">还没有选中空间</h3>
+            <p className="text-muted-foreground">从上方选择空间后，这里才会显示对应的管理内容。</p>
+          </CardContent>
+        </Card>
       )}
 
       {!canManageSelectedSpace && selectedSpace && (
-        <div className="border rounded-xl p-6 mb-6 bg-background">
-          <h3 className="text-base font-bold mt-4">已选空间：#{selectedSpace.id} {selectedSpace.name}</h3>
-          <p className="text-muted-foreground mt-1">你当前只能查看这个空间，不能修改其设置、题库或成员。</p>
-        </div>
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <h3 className="text-base font-bold mt-4">已选空间：#{selectedSpace.id} {selectedSpace.name}</h3>
+            <p className="text-muted-foreground mt-1">你当前只能查看这个空间，不能修改其设置、题库或成员。</p>
+          </CardContent>
+        </Card>
       )}
 
       {selectedSpace && canManageSelectedSpace && (
         <div>
-          <div className="border rounded-xl mb-6 bg-background">
+          <Card className="mb-6">
             <Tabs value={spaceManageTab} onValueChange={onSpaceManageTabChange}>
               <TabsList className="w-full">
                 <TabsTrigger value="settings" className="flex-1">空间设置</TabsTrigger>
@@ -130,135 +143,149 @@ export default function SpaceManagePanel({
                 <TabsTrigger value="members" className="flex-1">成员管理</TabsTrigger>
               </TabsList>
             </Tabs>
-          </div>
+          </Card>
 
           {/* Settings Tab */}
           {spaceManageTab === 'settings' && (
-            <div className="border rounded-xl p-6 bg-background">
-              <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
-                <div>
-                  <h2 className="text-lg font-bold">空间设置</h2>
-                  <p className="text-sm text-muted-foreground mt-1">#{selectedSpace.id} {selectedSpace.name} 的基础信息和默认语言。</p>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+                  <div>
+                    <h2 className="text-lg font-bold">空间设置</h2>
+                    <p className="text-sm text-muted-foreground mt-1">#{selectedSpace.id} {selectedSpace.name} 的基础信息和默认语言。</p>
+                  </div>
+                  <Button onClick={openSpaceSettingsModal}>编辑空间设置</Button>
                 </div>
-                <Button onClick={openSpaceSettingsModal}>编辑空间设置</Button>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <SummaryItem label="空间名称" value={selectedSpace.name || '-'} />
-                <SummaryItem label="默认语言" value={normalizeLanguage(selectedSpace.defaultProgrammingLanguage || 'cpp')} />
-                <SummaryItem label="空间题目数" value={spaceProblems.length} />
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  <SummaryItem label="空间名称" value={selectedSpace.name || '-'} />
+                  <SummaryItem label="默认语言" value={normalizeLanguage(selectedSpace.defaultProgrammingLanguage || 'cpp')} />
+                  <SummaryItem label="空间题目数" value={spaceProblems.length} />
+                </div>
 
-              <div className="border rounded-lg p-4 mt-4">
-                <h3 className="text-sm font-semibold mb-1">空间描述</h3>
-                <p className="text-sm text-muted-foreground">{selectedSpace.description || '暂无描述'}</p>
-              </div>
+                <Card className="mt-4">
+                  <CardContent className="p-4">
+                    <h3 className="text-sm font-semibold mb-1">空间描述</h3>
+                    <p className="text-sm text-muted-foreground">{selectedSpace.description || '暂无描述'}</p>
+                  </CardContent>
+                </Card>
 
-              {spaceSettingsMessage && <div className="mt-4"><ToastMessage message={spaceSettingsMessage} severity="success" /></div>}
-            </div>
+                {spaceSettingsMessage && <div className="mt-4"><ToastMessage message={spaceSettingsMessage} severity="success" /></div>}
+              </CardContent>
+            </Card>
           )}
 
           {/* Problems Tab */}
           {spaceManageTab === 'problems' && (
-            <div className="border rounded-xl p-6 bg-background">
-              <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
-                <div>
-                  <h2 className="text-lg font-bold">当前空间题库</h2>
-                  <p className="text-sm text-muted-foreground mt-1">题目只属于当前空间，仅管理当前空间题目。</p>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+                  <div>
+                    <h2 className="text-lg font-bold">当前空间题库</h2>
+                    <p className="text-sm text-muted-foreground mt-1">题目只属于当前空间，仅管理当前空间题目。</p>
+                  </div>
+                  <Button onClick={openUploadProblemModal}>新建题目</Button>
                 </div>
-                <Button onClick={openUploadProblemModal}>新建题目</Button>
-              </div>
 
-              <Input className="mt-4" placeholder="按题目 ID、标题或标签搜索" value={spaceProblemSearch}
-                onChange={(e) => onSpaceProblemSearchChange(e.target.value)} />
+                <Input className="mt-4" placeholder="按题目 ID、标题或标签搜索" value={spaceProblemSearch}
+                  onChange={(e) => onSpaceProblemSearchChange(e.target.value)} />
 
-              <div className="flex flex-col gap-2 mt-4 max-h-[620px] overflow-y-auto pr-1">
-                {filteredSpaceProblems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {spaceProblems.length === 0 ? '当前空间暂无题目。' : '当前检索条件下没有匹配题目。'}
-                  </p>
-                ) : (
-                  filteredSpaceProblems.map((problem) => {
-                    const tagsText = (problem.tags || []).join(' / ')
-                    const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), `${problem.timeLimitMs}ms`, `${problem.memoryLimitMiB}MiB`, tagsText].filter(Boolean).join(' · ')
-                    return (
-                      <ProblemRow key={problem.id} text={lineText} actions={(
-                        <>
-                          <Button size="sm" variant="outline" asChild>
-                            <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}>去做题</Link>
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => onOpenEditProblem(problem.id)}>编辑</Button>
-                          <Button size="sm" variant="destructive" onClick={() => onRemoveSpaceProblem(problem.id)}>删除</Button>
-                        </>
-                      )} />
-                    )
-                  })
-                )}
-              </div>
-            </div>
+                <ScrollArea className="mt-4 max-h-[620px]">
+                  <div className="flex flex-col gap-2 pr-3">
+                    {filteredSpaceProblems.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        {spaceProblems.length === 0 ? '当前空间暂无题目。' : '当前检索条件下没有匹配题目。'}
+                      </p>
+                    ) : (
+                      filteredSpaceProblems.map((problem) => {
+                        const tagsText = (problem.tags || []).join(' / ')
+                        const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), `${problem.timeLimitMs}ms`, `${problem.memoryLimitMiB}MiB`, tagsText].filter(Boolean).join(' · ')
+                        return (
+                          <ProblemRow key={problem.id} text={lineText} actions={(
+                            <>
+                              <Button size="sm" variant="outline" asChild>
+                                <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}>去做题</Link>
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => onOpenEditProblem(problem.id)}>编辑</Button>
+                              <Button size="sm" variant="destructive" onClick={() => onRemoveSpaceProblem(problem.id)}>删除</Button>
+                            </>
+                          )} />
+                        )
+                      })
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           )}
 
           {/* Members Tab */}
           {spaceManageTab === 'members' && (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] gap-6">
-              <div className="border rounded-xl p-6 bg-background">
-                <h2 className="text-lg font-bold">添加成员</h2>
-                <p className="text-sm text-muted-foreground mt-1">按用户 ID 或用户名搜索，选中后加入当前空间。</p>
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-lg font-bold">添加成员</h2>
+                  <p className="text-sm text-muted-foreground mt-1">按用户 ID 或用户名搜索，选中后加入当前空间。</p>
 
-                <label className="flex flex-col gap-2 mt-4 text-sm font-medium">
-                  加入后角色
-                  <Select value={memberRole} onValueChange={onMemberRoleChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="member">成员</SelectItem>
-                      <SelectItem value="space_admin">空间管理员</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
+                  <Label className="flex flex-col gap-2 mt-4">
+                    加入后角色
+                    <Select value={memberRole} onValueChange={onMemberRoleChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="member">成员</SelectItem>
+                        <SelectItem value="space_admin">空间管理员</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Label>
 
-                <MemberComboBox
-                  candidates={memberCandidates}
-                  selectedUsers={selectedMemberCandidates}
-                  inputValue={memberCandidateInput}
-                  loading={memberSearchLoading}
-                  onInputChange={onMemberCandidateInputChange}
-                  onSelectionChange={onSelectedMemberCandidatesChange}
-                  getCandidateLabel={getCandidateLabel}
-                />
+                  <MemberComboBox
+                    candidates={memberCandidates}
+                    selectedUsers={selectedMemberCandidates}
+                    inputValue={memberCandidateInput}
+                    loading={memberSearchLoading}
+                    onInputChange={onMemberCandidateInputChange}
+                    onSelectionChange={onSelectedMemberCandidatesChange}
+                    getCandidateLabel={getCandidateLabel}
+                  />
 
-                <Button className="mt-4" onClick={onSubmitMembers}
-                  disabled={memberSubmitting || selectedMemberCandidates.length === 0}>
-                  {memberSubmitting ? '添加中...' : `添加所选用户${selectedMemberCandidates.length > 0 ? `（${selectedMemberCandidates.length}）` : ''}`}
-                </Button>
+                  <Button className="mt-4" onClick={onSubmitMembers}
+                    disabled={memberSubmitting || selectedMemberCandidates.length === 0}>
+                    {memberSubmitting ? '添加中...' : `添加所选用户${selectedMemberCandidates.length > 0 ? `（${selectedMemberCandidates.length}）` : ''}`}
+                  </Button>
 
-                {memberMessage && <div className="mt-4"><ToastMessage message={memberMessage} severity="success" /></div>}
-              </div>
+                  {memberMessage && <div className="mt-4"><ToastMessage message={memberMessage} severity="success" /></div>}
+                </CardContent>
+              </Card>
 
-              <div className="border rounded-xl p-6 bg-background">
-                <h2 className="text-lg font-bold">当前空间成员</h2>
-                <p className="text-sm text-muted-foreground mt-1">当前共有 {spaceMembers.length} 名成员。可直接重置密码或移出空间。</p>
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-lg font-bold">当前空间成员</h2>
+                  <p className="text-sm text-muted-foreground mt-1">当前共有 {spaceMembers.length} 名成员。可直接重置密码或移出空间。</p>
 
-                <div className="flex flex-col gap-2 mt-4 max-h-[620px] overflow-y-auto pr-1">
-                  {spaceMembers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">当前空间还没有成员。</p>
-                  ) : (
-                    spaceMembers.map((member) => (
-                      <ProblemRow key={member.userId} text={renderMemberLabel(member)} actions={(
-                        <>
-                          <Button size="sm" variant="outline" disabled={resettingMemberId === member.userId}
-                            onClick={() => onResetMemberPassword(member)}>
-                            {resettingMemberId === member.userId ? '重置中...' : '重置密码'}
-                          </Button>
-                          <Button size="sm" variant="destructive" disabled={removingMemberId === member.userId}
-                            onClick={() => onRemoveMember(member)}>
-                            {removingMemberId === member.userId ? '移除中...' : '移除'}
-                          </Button>
-                        </>
-                      )} />
-                    ))
-                  )}
-                </div>
-              </div>
+                  <ScrollArea className="mt-4 max-h-[620px]">
+                    <div className="flex flex-col gap-2 pr-3">
+                      {spaceMembers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">当前空间还没有成员。</p>
+                      ) : (
+                        spaceMembers.map((member) => (
+                          <ProblemRow key={member.userId} text={renderMemberLabel(member)} actions={(
+                            <>
+                              <Button size="sm" variant="outline" disabled={resettingMemberId === member.userId}
+                                onClick={() => onResetMemberPassword(member)}>
+                                {resettingMemberId === member.userId ? '重置中...' : '重置密码'}
+                              </Button>
+                              <Button size="sm" variant="destructive" disabled={removingMemberId === member.userId}
+                                onClick={() => onRemoveMember(member)}>
+                                {removingMemberId === member.userId ? '移除中...' : '移除'}
+                              </Button>
+                            </>
+                          )} />
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>

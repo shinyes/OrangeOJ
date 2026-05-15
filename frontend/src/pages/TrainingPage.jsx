@@ -159,9 +159,9 @@ export default function TrainingPage({ user }) {
         )}
 
         {(plan.chapters || []).length === 0 ? (
-          <div className="border rounded-xl p-8 text-center text-muted-foreground">
+          <Card><CardContent className="p-8 text-center text-muted-foreground">
             当前训练暂未配置章节。
-          </div>
+          </CardContent></Card>
         ) : (
           <div className="flex flex-col gap-3">
             {(plan.chapters || []).map((chapter) => (
@@ -185,16 +185,17 @@ export default function TrainingPage({ user }) {
                     ) : (
                       <div className="flex flex-col gap-1.5">
                         {(chapter.items || []).map((item, index) => (
-                          <Link
-                            key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`}
-                            to={`/spaces/${spaceId}/problems/${item.problemId}/solve?returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
-                            className="block px-4 py-2.5 border rounded-lg no-underline text-foreground transition-all hover:border-primary hover:bg-accent hover:-translate-y-px"
-                          >
-                            <div className="flex justify-between items-center gap-2">
-                              <span className="font-medium truncate">{problemTitleWithCompletion(item, index)}</span>
-                              <Badge variant="outline" className="shrink-0">{problemTypeText(item.type)}</Badge>
-                            </div>
-                          </Link>
+                          <Card asChild key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`} className="transition-all hover:border-primary hover:bg-accent hover:-translate-y-px">
+                            <Link
+                              to={`/spaces/${spaceId}/problems/${item.problemId}/solve?returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
+                              className="block px-4 py-2.5 no-underline text-foreground"
+                            >
+                              <div className="flex justify-between items-center gap-2">
+                                <span className="font-medium truncate">{problemTitleWithCompletion(item, index)}</span>
+                                <Badge variant="outline" className="shrink-0">{problemTypeText(item.type)}</Badge>
+                              </div>
+                            </Link>
+                          </Card>
                         ))}
                       </div>
                     )}

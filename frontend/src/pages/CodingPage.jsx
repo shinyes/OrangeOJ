@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
 import { Label } from '../components/ui/label'
+import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { toast } from 'sonner'
 import { X, History, Copy, Play, Save } from 'lucide-react'
@@ -247,7 +248,7 @@ export default function CodingPage() {
   if (error && !problem) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
-        <div className="border border-destructive/30 bg-destructive/10 text-destructive rounded-lg px-5 py-3 text-sm max-w-lg">{error}</div>
+        <Alert variant="destructive" className="max-w-lg">{error}</Alert>
         <Button variant="outline" asChild><Link to={backTo}>{backLabel}</Link></Button>
       </div>
     )
@@ -285,7 +286,7 @@ export default function CodingPage() {
                   <legend className="text-sm font-medium mb-2">选项</legend>
                   <RadioGroup value={objectiveAnswer} onValueChange={setObjectiveAnswer} className="gap-0.5">
                     {(body.options || []).map((opt, index) => (
-                      <label
+                      <Label
                         key={`${String(opt)}-${index}`}
                         htmlFor={`opt-${index}`}
                         className="flex items-start gap-2 py-0.5 px-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors"
@@ -300,7 +301,7 @@ export default function CodingPage() {
                             contentClassName="text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.6rem] [&_pre]:text-[0.82rem]"
                           />
                         </div>
-                      </label>
+                      </Label>
                     ))}
                   </RadioGroup>
                 </fieldset>
@@ -308,14 +309,14 @@ export default function CodingPage() {
                 <fieldset className="mb-3 w-full">
                   <legend className="text-sm font-medium mb-2">答案</legend>
                   <RadioGroup value={objectiveAnswer} onValueChange={setObjectiveAnswer} className="flex gap-4">
-                    <label htmlFor="opt-true" className="flex items-center gap-2 cursor-pointer">
+                    <Label htmlFor="opt-true" className="flex items-center gap-2 cursor-pointer">
                       <RadioGroupItem value="true" id="opt-true" />
                       <span className="text-sm">正确</span>
-                    </label>
-                    <label htmlFor="opt-false" className="flex items-center gap-2 cursor-pointer">
+                    </Label>
+                    <Label htmlFor="opt-false" className="flex items-center gap-2 cursor-pointer">
                       <RadioGroupItem value="false" id="opt-false" />
                       <span className="text-sm">错误</span>
-                    </label>
+                    </Label>
                   </RadioGroup>
                 </fieldset>
               )}
@@ -471,9 +472,11 @@ export default function CodingPage() {
             {/* Console */}
             <div>
               <h3 className="text-xs font-semibold mb-1">控制台输出</h3>
-              <div className="p-3 bg-muted/50 rounded-lg font-mono text-sm whitespace-pre-wrap overflow-auto min-h-[120px] max-h-[200px] border">
+              <Card className="bg-muted/50 font-mono text-sm">
+                <CardContent className="p-3 whitespace-pre-wrap overflow-auto min-h-[120px] max-h-[200px]">
                 {consoleText || '暂无输出'}
-              </div>
+                </CardContent>
+              </Card>
             </div>
           </CardContent>
         </Card>
@@ -512,10 +515,10 @@ export default function CodingPage() {
                 {selectedSubmissionCaseDetails.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 px-1 pt-1">
                     <Badge variant="outline">测试点 {selectedSubmissionCaseDetails.length} 个</Badge>
-                    <Badge variant="outline" className="border-green-500 text-green-600">
+                    <Badge variant="outline" variant="success">
                       通过 {selectedSubmissionCaseDetails.filter((item) => item.verdict === 'AC' || item.verdict === 'OK').length} 个
                     </Badge>
-                    <Badge variant="outline" className="border-red-500 text-red-600">
+                    <Badge variant="outline" variant="destructive">
                       未通过 {selectedSubmissionCaseDetails.filter((item) => item.verdict && item.verdict !== 'AC' && item.verdict !== 'OK').length} 个
                     </Badge>
                   </div>
