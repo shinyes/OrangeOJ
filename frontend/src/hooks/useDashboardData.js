@@ -96,6 +96,16 @@ export default function useDashboardData({
     return ['problems', 'training', 'homework'].includes(raw) ? raw : ''
   }, [locationSearch])
 
+  const requestedSpaceManageTab = useMemo(() => {
+    const raw = new URLSearchParams(locationSearch).get('mtab')
+    return ['settings', 'problems', 'members'].includes(raw) ? raw : ''
+  }, [locationSearch])
+
+  const requestedSystemTab = useMemo(() => {
+    const raw = new URLSearchParams(locationSearch).get('stab')
+    return ['settings', 'account', 'batch'].includes(raw) ? raw : ''
+  }, [locationSearch])
+
   const refreshSpaces = useCallback(async () => {
     const list = await api.listSpaces()
     setSpaces(list)
@@ -189,6 +199,14 @@ export default function useDashboardData({
     if (!isLearnView || !requestedSpaceTab) return
     setSpaceTab(requestedSpaceTab)
   }, [isLearnView, requestedSpaceTab])
+
+  useEffect(() => {
+    if (requestedSpaceManageTab) setSpaceManageTab(requestedSpaceManageTab)
+  }, [requestedSpaceManageTab])
+
+  useEffect(() => {
+    if (requestedSystemTab) setSystemTab(requestedSystemTab)
+  }, [requestedSystemTab])
 
   useEffect(() => {
     ;(async () => {

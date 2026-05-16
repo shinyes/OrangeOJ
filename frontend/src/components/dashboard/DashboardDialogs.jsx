@@ -80,6 +80,10 @@ export default function DashboardDialogs({
   const [selectedHomeworkTargetUsers, setSelectedHomeworkTargetUsers] = useState([])
   const [homeworkTargetSearchLoading, setHomeworkTargetSearchLoading] = useState(false)
   const [homeworkCurrentTargets, setHomeworkCurrentTargets] = useState([])
+  const [trainingTargetInput, setTrainingTargetInput] = useState('')
+  const [trainingTargetCandidates, setTrainingTargetCandidates] = useState([])
+  const [selectedTrainingTargetUsers, setSelectedTrainingTargetUsers] = useState([])
+  const [trainingTargetSearchLoading, setTrainingTargetSearchLoading] = useState(false)
   const [trainingCurrentParticipants, setTrainingCurrentParticipants] = useState([])
   const [targetsRefreshKey, setTargetsRefreshKey] = useState(0)
   const assigningHomeworkId = modalState.assigningHomework?.id || null
@@ -91,8 +95,12 @@ export default function DashboardDialogs({
     setSelectedHomeworkTargetUsers([])
     setHomeworkTargetSearchLoading(false)
     setHomeworkCurrentTargets([])
+    setTrainingTargetInput('')
+    setTrainingTargetCandidates([])
+    setSelectedTrainingTargetUsers([])
+    setTrainingTargetSearchLoading(false)
     setTargetsRefreshKey(0)
-  }, [activeModal, assigningHomeworkId])
+  }, [activeModal, assigningHomeworkId, assigningTrainingPlanId])
 
   useEffect(() => {
     if (activeModal === 'assign-homework-target' && assigningHomeworkId && selectedSpaceId) {
@@ -146,6 +154,27 @@ export default function DashboardDialogs({
     }, 250)
     return () => { active = false; window.clearTimeout(timer) }
   }, [activeModal, selectedSpaceId, assigningHomeworkId, homeworkTargetInput])
+
+  useEffect(() => {
+    if (activeModal !== 'assign-training-participant' || !selectedSpaceId || !assigningTrainingPlanId) {
+      setTrainingTargetCandidates([])
+      setTrainingTargetSearchLoading(false)
+      return undefined
+    }
+    const keyword = trainingTargetInput.trim()
+    if (!keyword) { setTrainingTargetCandidates([]); setTrainingTargetSearchLoading(false); return undefined }
+    let active = true
+    const timer = window.setTimeout(async () => {
+      try {
+        setTrainingTargetSearchLoading(true)
+        const list = await api.searchTrainingCandidates(selectedSpaceId, assigningTrainingPlanId, keyword)
+        if (!active) return
+        setTrainingTargetCandidates(list || [])
+      } catch { if (!active) return; setTrainingTargetCandidates([]) }
+      finally { if (active) setTrainingTargetSearchLoading(false) }
+    }, 250)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [activeModal, selectedSpaceId, assigningTrainingPlanId, trainingTargetInput])
 
   if (!activeModal) return null
 
@@ -246,11 +275,18 @@ export default function DashboardDialogs({
         <DialogContent>
           <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
           <div className="flex flex-col gap-4">
-            <Input type="number" min="1" placeholder="用户 ID" value={modalState.trainingParticipantUserId}
-              onChange={(e) => modalState.setTrainingParticipantUserId(e.target.value)} />
+            <MemberComboBox
+              candidates={trainingTargetCandidates}
+              selectedUsers={selectedTrainingTargetUsers}
+              inputValue={trainingTargetInput}
+              loading={trainingTargetSearchLoading}
+              onInputChange={setTrainingTargetInput}
+              onSelectionChange={setSelectedTrainingTargetUsers}
+            />
             <div className="flex gap-3">
-              <Button disabled={modalState.trainingParticipantSubmitting} onClick={async () => { await onAddTrainingParticipant(); setTargetsRefreshKey(k => k + 1) }}>
-                {modalState.trainingParticipantSubmitting ? '分配中...' : '确认分配'}
+              <Button disabled={modalState.trainingParticipantSubmitting || selectedTrainingTargetUsers.length === 0}
+                onClick={async () => { await onAddTrainingParticipant(selectedTrainingTargetUsers); setTargetsRefreshKey(k => k + 1) }}>
+                {modalState.trainingParticipantSubmitting ? '分配中...' : `确认分配${selectedTrainingTargetUsers.length > 0 ? `（${selectedTrainingTargetUsers.length}）` : ''}`}
               </Button>
               <Button variant="outline" onClick={onClose}>取消</Button>
             </div>

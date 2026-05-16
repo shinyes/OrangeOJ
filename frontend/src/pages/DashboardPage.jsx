@@ -112,11 +112,13 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     setTrainingActionMessage('')
     setHomeworkActionMessage('')
     searchState.resetSearchState()
-    setSpaceManageTab('settings')
+    if (!new URLSearchParams(location.search).get('mtab')) {
+      setSpaceManageTab('settings')
+    }
   }, [selectedSpaceId, canManageSelectedSpace, selectedSpace, memberState.resetMemberState, searchState.resetSearchState, setMemberCandidates, setSpaceManageTab])
 
   useEffect(() => {
-    if (isSystemManageView) {
+    if (isSystemManageView && !new URLSearchParams(location.search).get('stab')) {
       setSystemTab('settings')
     }
   }, [isSystemManageView])
@@ -277,7 +279,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       selectedSpace={selectedSpace}
       canManageSelectedSpace={canManageSelectedSpace}
       spaceManageTab={spaceManageTab}
-      onSpaceManageTabChange={setSpaceManageTab}
+      onSpaceManageTabChange={(v) => { setSpaceManageTab(v); navigate({ search: `?mtab=${v}` }, { replace: true }) }}
       normalizeLanguage={normalizeLanguage}
       openSpaceSettingsModal={() => openConfigModal('space-settings')}
       spaceSettingsMessage={modalState.spaceSettingsMessage}
@@ -313,7 +315,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const renderSystemSection = () => (
     <SystemPanel
       systemTab={systemTab}
-      onSystemTabChange={setSystemTab}
+      onSystemTabChange={(v) => { setSystemTab(v); navigate({ search: `?stab=${v}` }, { replace: true }) }}
       registrationEnabled={registrationEnabled}
       onToggleRegistration={toggleRegistration}
       onOpenAdminResetDialog={() => openConfigModal('admin-reset-password')}
@@ -382,7 +384,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                     onManage={() => navigate('/manage/space')}
                     onCreateSpace={() => openConfigModal('create-space')}
                   />
-                  <Tabs value={spaceTab} onValueChange={setSpaceTab}>
+                  <Tabs value={spaceTab} onValueChange={(v) => { setSpaceTab(v); navigate({ search: `?tab=${v}` }, { replace: true }) }}>
                     <TabsList className="h-9">
                       <TabsTrigger value="problems" className="text-xs px-3">题库</TabsTrigger>
                       <TabsTrigger value="homework" className="text-xs px-3">作业</TabsTrigger>

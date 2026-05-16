@@ -129,6 +129,7 @@ export const api = {
   getTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`),
   updateTrainingPlan: (spaceId, planId, body) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`, { method: 'PUT', body }),
   deleteTrainingPlan: (spaceId, planId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/training-plans/${planId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
+  searchTrainingCandidates: (spaceId, planId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/training-plans/${planId}/participant-candidates`, { q: keyword })),
   addTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants`, { method: 'POST', body: { userId } }),
   removeTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants/${userId}`, { method: 'DELETE' }),
   joinTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/join`, { method: 'POST' }),

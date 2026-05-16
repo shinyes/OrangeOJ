@@ -153,13 +153,16 @@ export default function useTrainingActions({
     }
   }
 
-  const handleAddTrainingParticipant = async () => {
+  const handleAddTrainingParticipant = async (targetUsers = []) => {
     if (!selectedSpaceId || !trainingState.assigningTrainingPlan?.id) return
     if (!ensureCanManageSpace()) return
+    const userIds = Array.isArray(targetUsers)
+      ? targetUsers.map((user) => Number(user?.id || user?.userId)).filter((userId) => Number.isInteger(userId) && userId > 0)
+      : []
+    const uniqueUserIds = Array.from(new Set(userIds))
 
-    const userId = Number(trainingState.trainingParticipantUserId.trim())
-    if (!Number.isInteger(userId) || userId <= 0) {
-      setError('请输入有效的用户 ID')
+    if (uniqueUserIds.length === 0) {
+      setError('请先选择要分配的用户')
       return
     }
 
@@ -167,10 +170,10 @@ export default function useTrainingActions({
       setError('')
       trainingState.setTrainingActionMessage('')
       trainingState.setTrainingParticipantSubmitting(true)
-      await api.addTrainingPlanParticipant(selectedSpaceId, trainingState.assigningTrainingPlan.id, userId)
+      await Promise.all(uniqueUserIds.map((userId) => api.addTrainingPlanParticipant(selectedSpaceId, trainingState.assigningTrainingPlan.id, userId)))
       trainingState.setTrainingParticipantUserId('')
       await refreshSpaceData(selectedSpaceId)
-      trainingState.setTrainingActionMessage(`已将用户 #${userId} 添加到训练 #${trainingState.assigningTrainingPlan.id}`)
+      trainingState.setTrainingActionMessage(`已将 ${uniqueUserIds.length} 名用户添加到训练 #${trainingState.assigningTrainingPlan.id}`)
       modalState.closeConfigModal()
     } catch (err) {
       setError(err.message || '分配训练成员失败')
