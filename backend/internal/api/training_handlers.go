@@ -301,6 +301,37 @@ DO UPDATE SET joined_by='admin', joined_at=CURRENT_TIMESTAMP`, req.UserID, planI
 	return respondData(c, fiber.Map{"ok": true})
 }
 
+func (a *API) handleDeletePlanParticipant(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	planID, err := parseIDParam(c, "planId")
+	if err != nil {
+		return err
+	}
+	participantUserID, err := parseIDParam(c, "userId")
+	if err != nil {
+		return err
+	}
+	res, err := a.DB.Exec(`
+DELETE FROM training_participants
+WHERE plan_id=? AND user_id=?
+  AND EXISTS(SELECT 1 FROM training_plans WHERE id=? AND space_id=?)`,
+		planID, participantUserID, planID, spaceID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return respondError(c, fiber.StatusNotFound, "participant not found")
+	}
+	return respondData(c, fiber.Map{"ok": true})
+}
+
 func (a *API) handleDeleteTrainingPlan(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {

@@ -79,14 +79,52 @@ export default function DashboardDialogs({
   const [homeworkTargetCandidates, setHomeworkTargetCandidates] = useState([])
   const [selectedHomeworkTargetUsers, setSelectedHomeworkTargetUsers] = useState([])
   const [homeworkTargetSearchLoading, setHomeworkTargetSearchLoading] = useState(false)
+  const [homeworkCurrentTargets, setHomeworkCurrentTargets] = useState([])
+  const [trainingCurrentParticipants, setTrainingCurrentParticipants] = useState([])
+  const [targetsRefreshKey, setTargetsRefreshKey] = useState(0)
   const assigningHomeworkId = modalState.assigningHomework?.id || null
+  const assigningTrainingPlanId = modalState.assigningTrainingPlan?.id || null
 
   useEffect(() => {
     setHomeworkTargetInput('')
     setHomeworkTargetCandidates([])
     setSelectedHomeworkTargetUsers([])
     setHomeworkTargetSearchLoading(false)
+    setHomeworkCurrentTargets([])
+    setTargetsRefreshKey(0)
   }, [activeModal, assigningHomeworkId])
+
+  useEffect(() => {
+    if (activeModal === 'assign-homework-target' && assigningHomeworkId && selectedSpaceId) {
+      api.getHomework(selectedSpaceId, assigningHomeworkId).then(hw => {
+        setHomeworkCurrentTargets(hw?.targets || [])
+      }).catch(() => {})
+    }
+  }, [activeModal, assigningHomeworkId, selectedSpaceId, targetsRefreshKey])
+
+  useEffect(() => {
+    if (activeModal === 'assign-training-participant' && assigningTrainingPlanId && selectedSpaceId) {
+      api.getTrainingPlan(selectedSpaceId, assigningTrainingPlanId).then(plan => {
+        setTrainingCurrentParticipants(plan?.participants || [])
+      }).catch(() => {})
+    } else {
+      setTrainingCurrentParticipants([])
+    }
+  }, [activeModal, assigningTrainingPlanId, selectedSpaceId, targetsRefreshKey])
+
+  const handleRemoveHomeworkTarget = async (userId) => {
+    try {
+      await api.removeHomeworkTarget(selectedSpaceId, assigningHomeworkId, userId)
+      setHomeworkCurrentTargets(prev => prev.filter(t => t.userId !== userId))
+    } catch { /* ignore */ }
+  }
+
+  const handleRemoveTrainingParticipant = async (userId) => {
+    try {
+      await api.removeTrainingPlanParticipant(selectedSpaceId, assigningTrainingPlanId, userId)
+      setTrainingCurrentParticipants(prev => prev.filter(p => p.userId !== userId))
+    } catch { /* ignore */ }
+  }
 
   useEffect(() => {
     if (activeModal !== 'assign-homework-target' || !selectedSpaceId || !assigningHomeworkId) {
@@ -211,11 +249,24 @@ export default function DashboardDialogs({
             <Input type="number" min="1" placeholder="用户 ID" value={modalState.trainingParticipantUserId}
               onChange={(e) => modalState.setTrainingParticipantUserId(e.target.value)} />
             <div className="flex gap-3">
-              <Button disabled={modalState.trainingParticipantSubmitting} onClick={onAddTrainingParticipant}>
+              <Button disabled={modalState.trainingParticipantSubmitting} onClick={async () => { await onAddTrainingParticipant(); setTargetsRefreshKey(k => k + 1) }}>
                 {modalState.trainingParticipantSubmitting ? '分配中...' : '确认分配'}
               </Button>
               <Button variant="outline" onClick={onClose}>取消</Button>
             </div>
+            {trainingCurrentParticipants.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">已分配 {trainingCurrentParticipants.length} 名成员</Label>
+                <div className="flex flex-wrap gap-1">
+                  {trainingCurrentParticipants.map((p) => (
+                    <Badge key={p.userId} variant="secondary" className="gap-1">
+                      #{p.userId} {p.username}
+                      <X className="h-3 w-3 cursor-pointer hover:text-destructive-foreground" onClick={() => handleRemoveTrainingParticipant(p.userId)} />
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -239,11 +290,24 @@ export default function DashboardDialogs({
             />
             <div className="flex gap-3">
               <Button disabled={modalState.homeworkTargetSubmitting || selectedHomeworkTargetUsers.length === 0}
-                onClick={() => onAddHomeworkTarget(selectedHomeworkTargetUsers)}>
+                onClick={async () => { await onAddHomeworkTarget(selectedHomeworkTargetUsers); setTargetsRefreshKey(k => k + 1) }}>
                 {modalState.homeworkTargetSubmitting ? '分配中...' : `确认分配${selectedHomeworkTargetUsers.length > 0 ? `（${selectedHomeworkTargetUsers.length}）` : ''}`}
               </Button>
               <Button variant="outline" onClick={onClose}>取消</Button>
             </div>
+            {homeworkCurrentTargets.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">已分配 {homeworkCurrentTargets.length} 名成员</Label>
+                <div className="flex flex-wrap gap-1">
+                  {homeworkCurrentTargets.map((t) => (
+                    <Badge key={t.userId} variant="secondary" className="gap-1">
+                      #{t.userId} {t.username}
+                      <X className="h-3 w-3 cursor-pointer hover:text-destructive-foreground" onClick={() => handleRemoveHomeworkTarget(t.userId)} />
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

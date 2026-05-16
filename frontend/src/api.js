@@ -130,6 +130,7 @@ export const api = {
   updateTrainingPlan: (spaceId, planId, body) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}`, { method: 'PUT', body }),
   deleteTrainingPlan: (spaceId, planId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/training-plans/${planId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
   addTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants`, { method: 'POST', body: { userId } }),
+  removeTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants/${userId}`, { method: 'DELETE' }),
   joinTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/join`, { method: 'POST' }),
 
   listHomeworks: (spaceId) => apiFetch(`/api/spaces/${spaceId}/homeworks`),
@@ -141,6 +142,7 @@ export const api = {
   deleteHomework: (spaceId, homeworkId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
   searchHomeworkTargetCandidates: (spaceId, homeworkId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/target-candidates`, { q: keyword })),
   addHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets`, { method: 'POST', body: { userId } }),
+  removeHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets/${userId}`, { method: 'DELETE' }),
   getHomeworkDraft: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`),
   saveHomeworkDraft: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`, { method: 'PUT', body }),
   deleteHomeworkDraft: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`, { method: 'DELETE' }),

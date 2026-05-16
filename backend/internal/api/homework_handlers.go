@@ -412,6 +412,37 @@ ON CONFLICT(homework_id, user_id) DO NOTHING`, req.UserID, homeworkID, spaceID)
 	return respondData(c, fiber.Map{"ok": true})
 }
 
+func (a *API) handleDeleteHomeworkTarget(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	homeworkID, err := parseIDParam(c, "homeworkId")
+	if err != nil {
+		return err
+	}
+	targetUserID, err := parseIDParam(c, "userId")
+	if err != nil {
+		return err
+	}
+	res, err := a.DB.Exec(`
+DELETE FROM homework_targets
+WHERE homework_id=? AND user_id=?
+  AND EXISTS(SELECT 1 FROM homeworks WHERE id=? AND space_id=?)`,
+		homeworkID, targetUserID, homeworkID, spaceID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return respondError(c, fiber.StatusNotFound, "target not found")
+	}
+	return respondData(c, fiber.Map{"ok": true})
+}
+
 func (a *API) handleSearchHomeworkTargetCandidates(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {

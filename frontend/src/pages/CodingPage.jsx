@@ -193,14 +193,14 @@ export default function CodingPage() {
     throw new Error('判题等待超时，请稍后再试')
   }
 
-  const handleCodeSubmit = async (mode) => {
+  const handleCodeSubmit = async (mode, inputDataOverride) => {
     if (!problem || problem.type !== 'programming') return
     setRunning(true)
     setError('')
     const actionText = mode === 'run' ? '运行' : '测试'
     setConsoleText(`[${nowTimeText()}] 开始${actionText}...`)
     try {
-      const payload = { language, sourceCode: code, inputData: customInput }
+      const payload = { language, sourceCode: code, inputData: inputDataOverride ?? customInput }
       const created = spaceId
         ? mode === 'run'
           ? await api.run(spaceId, problemId, payload)
@@ -470,13 +470,11 @@ export default function CodingPage() {
             </div>
 
             {/* Console */}
-            <div>
-              <h3 className="text-xs font-semibold mb-1">控制台输出</h3>
-              <Card className="bg-muted/50 font-mono text-sm">
-                <CardContent className="p-3 whitespace-pre-wrap overflow-auto min-h-[120px] max-h-[200px]">
+            <div className="flex flex-col min-h-0">
+              <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
+              <div className="overflow-auto max-h-[200px] min-h-[120px] bg-muted rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap">
                 {consoleText || '暂无输出'}
-                </CardContent>
-              </Card>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -498,7 +496,7 @@ export default function CodingPage() {
             <Button onClick={() => {
               setCustomInput(tempCustomInput)
               setShowCustomInputDialog(false)
-              handleCodeSubmit('run')
+              handleCodeSubmit('run', tempCustomInput)
             }}>运行</Button>
           </DialogFooter>
         </DialogContent>

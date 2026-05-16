@@ -456,13 +456,11 @@ export default function HomeworkProgrammingPage() {
             </div>
 
             {/* Console */}
-            <div>
-              <h3 className="text-xs font-semibold mb-1">控制台输出</h3>
-              <Card className="bg-muted/50 font-mono text-sm">
-                <CardContent className="p-3 whitespace-pre-wrap overflow-auto min-h-[120px] max-h-[200px]">
+            <div className="flex flex-col min-h-0">
+              <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
+              <div className="overflow-auto max-h-[200px] min-h-[120px] bg-muted rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap">
                 {consoleText || '暂无输出'}
-                </CardContent>
-              </Card>
+              </div>
             </div>
           </CardContent>
         </Card>

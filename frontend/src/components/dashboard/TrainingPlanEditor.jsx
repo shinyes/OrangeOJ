@@ -5,7 +5,7 @@ import { Textarea } from '../ui/textarea'
 import { Checkbox } from '../ui/checkbox'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
-import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
+import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, ChevronRight, ChevronDown } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
@@ -40,7 +40,10 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
 
   useEffect(() => {
     if (!open) return
-    setForm(buildInitialForm(plan)); setSubmitting(false); setSubmitError(''); setDrag({ type: null, chapterIndex: null, index: null }); setDragOver({ chapterIndex: null, index: null })
+    const initialForm = buildInitialForm(plan)
+    setForm(initialForm); setSubmitting(false); setSubmitError(''); setDrag({ type: null, chapterIndex: null, index: null }); setDragOver({ chapterIndex: null, index: null })
+    setCollapsedChapters(new Set(initialForm.chapters.map((_, i) => i)))
+    setNewChapterIndices(new Set())
   }, [open, plan, mode])
 
   const problemMap = useMemo(() => {
@@ -56,7 +59,12 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
 
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }))
   const updateChapter = (index, patch) => setForm((current) => ({ ...current, chapters: current.chapters.map((chapter, i) => i !== index ? chapter : { ...chapter, ...patch }) }))
-  const addChapter = () => setForm((current) => ({ ...current, chapters: [...current.chapters, blankChapter(current.chapters.length)] }))
+  const addChapter = () => setForm((current) => {
+    const newIdx = current.chapters.length
+    setNewChapterIndices((prev) => { const next = new Set(prev); next.add(newIdx); return next })
+    setCollapsedChapters((prev) => { const next = new Set(prev); next.add(newIdx); return next })
+    return { ...current, chapters: [...current.chapters, blankChapter(newIdx)] }
+  })
   const removeChapter = (index) => setForm((current) => ({ ...current, chapters: current.chapters.filter((_, i) => i !== index) }))
   const moveProblem = (chapterIndex, index, dir) => reorderProblems(chapterIndex, index, index + dir)
   const removeProblem = (chapterIndex, index) => setForm((c) => ({ ...c, chapters: c.chapters.map((ch, i) => i !== chapterIndex ? ch : { ...ch, problemIds: ch.problemIds.filter((_, j) => j !== index) }) }))
@@ -83,6 +91,8 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
   }
 
   // Helper for searchable problem select
+  const [collapsedChapters, setCollapsedChapters] = useState(() => new Set())
+  const [newChapterIndices, setNewChapterIndices] = useState(() => new Set())
   const [searchInputs, setSearchInputs] = useState({})
   const itemRefs = useRef({})
   const chapterRefs = useRef({})
@@ -205,12 +215,19 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
                   className="shrink-0 cursor-grab">
                   <GripVertical className="h-4 w-4" />
                 </Button>
+                <Button size="icon" variant="ghost" className="shrink-0 h-6 w-6"
+                  onClick={() => setCollapsedChapters((prev) => { const next = new Set(prev); if (next.has(chapterIndex)) next.delete(chapterIndex); else next.add(chapterIndex); return next })}>
+                  {collapsedChapters.has(chapterIndex) ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </Button>
                 <span className="text-xs text-muted-foreground shrink-0 w-14 text-center">章节 {chapterIndex + 1}</span>
                 <Input className="h-7 text-xs flex-1" placeholder="章节标题" value={chapter.title} onChange={(e) => updateChapter(chapterIndex, { title: e.target.value })} />
+                <Badge variant="outline" className="text-[10px] h-5">{chapter.problemIds.length} 题</Badge>
                 <Button size="icon" variant="ghost" onClick={() => removeChapter(chapterIndex)} className="shrink-0 h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
               </div>
 
-              {!isEditMode && (
+              {collapsedChapters.has(chapterIndex) ? null : (
+              <>
+              {(!isEditMode || newChapterIndices.has(chapterIndex)) && (
                 <div className="px-2 pb-1.5">
                   <Tabs value={chapter.problemSourceMode || 'manual'} onValueChange={(v) => { if (v) updateChapter(chapterIndex, { problemSourceMode: v }); setSubmitError('') }}>
                     <TabsList className="w-full">
@@ -221,7 +238,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
                 </div>
               )}
 
-              {!isEditMode && chapter.problemSourceMode === 'import' ? (
+              {(!isEditMode || newChapterIndices.has(chapterIndex)) && chapter.problemSourceMode === 'import' ? (
                 <div className="px-2 pb-2">
                   <p className="text-xs text-muted-foreground mb-2">这里接收本章节题目的 JSON 数组。每一项对应一题，字段与题目编辑器 JSON 模式一致。</p>
                   <Textarea className="font-mono min-h-[200px]" value={chapter.problemDraftsJSON || ''}
@@ -280,6 +297,8 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
                     )}
                   </div>
                 </div>
+              )}
+              </>
               )}
             </div>
           ))}
