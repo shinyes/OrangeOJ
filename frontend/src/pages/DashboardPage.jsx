@@ -123,6 +123,20 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     }
   }, [isSystemManageView])
 
+  useEffect(() => {
+    const key = `scroll-${location.pathname}${location.search}`
+    const saved = sessionStorage.getItem(key)
+    if (saved) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, parseInt(saved, 10))
+        sessionStorage.removeItem(key)
+      })
+    }
+    return () => {
+      sessionStorage.setItem(key, String(window.scrollY))
+    }
+  }, [location.pathname, location.search])
+
   const {
     createSpace,
     updateSpaceSettings,
