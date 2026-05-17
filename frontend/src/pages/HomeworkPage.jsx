@@ -413,7 +413,8 @@ export default function HomeworkPage() {
     const uniqueProblemIds = Array.from(
       new Set((homeworkData?.items || []).map((item) => Number(item.problemId)).filter((problemId) => Number.isInteger(problemId) && problemId > 0))
     )
-    const problemList = await Promise.all(uniqueProblemIds.map((problemId) => api.getProblem(spaceId, problemId)))
+    const includeAnswer = spaceData?.canManage === true
+    const problemList = await Promise.all(uniqueProblemIds.map((problemId) => api.getProblem(spaceId, problemId, { includeAnswer })))
     const nextProblemsById = {}
     problemList.forEach((problem) => { nextProblemsById[problem.id] = problem })
     const nextSubmissionsByProblemId = {}
@@ -789,8 +790,37 @@ export default function HomeworkPage() {
                 </Link>
               </Button>
             </div>
-          ) : (
+          ) : (() => {
+              const correctAnswer = problem?.answerJson?.answer
+              const userAnswer = objectiveValue
+              let isCorrect = false
+              if (problemType === 'single_choice') {
+                isCorrect = correctAnswer !== undefined && correctAnswer !== null && userAnswer === String(correctAnswer)
+              } else if (problemType === 'true_false') {
+                isCorrect = (userAnswer === 'true') === Boolean(correctAnswer)
+              }
+              const correctLabel = problemType === 'true_false'
+                ? (correctAnswer === true || correctAnswer === 'true' ? '正确' : '错误')
+                : null
+              const correctIndex = problemType === 'single_choice'
+                ? (body.options || []).findIndex((opt) => String(opt) === String(correctAnswer))
+                : -1
+              const showCorrectHint = isReviewMode && !isCorrect && correctAnswer !== undefined && correctAnswer !== null
+
+              return (
             <div className="flex flex-col gap-0.5">
+              {showCorrectHint && (
+                <div className="mb-1 text-xs">
+                  {problemType === 'single_choice' && (
+                    <span className="text-green-700 font-medium">
+                      正确答案：{correctIndex >= 0 ? alphaOptionLabel(correctIndex) : String(correctAnswer)}
+                    </span>
+                  )}
+                  {problemType === 'true_false' && (
+                    <span className="text-green-700 font-medium">正确答案：{correctLabel}</span>
+                  )}
+                </div>
+              )}
               {problemType === 'single_choice' ? (
                 <fieldset className="w-full">
                   <RadioGroup
@@ -799,16 +829,27 @@ export default function HomeworkPage() {
                     onValueChange={(value) => updateObjectiveAnswer(problemId, problemType, value)}
                     className="gap-0.5"
                   >
-                    {(body.options || []).map((option, index) => (
+                    {(body.options || []).map((option, index) => {
+                      const isUserSelection = isReviewMode && String(option) === userAnswer
+                      return (
                       <Label
                         key={`${problemId}-${index}`}
                         htmlFor={`hw-opt-${problemId}-${index}`}
                         className={cn(
-                          'flex items-start gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
-                          objectiveValue === String(option) && 'bg-slate-50'
+                          'flex items-start gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors',
+                          !isReviewMode && 'hover:bg-slate-50',
+                          !isReviewMode && objectiveValue === String(option) && 'bg-slate-50'
                         )}
                       >
-                        <RadioGroupItem value={String(option)} id={`hw-opt-${problemId}-${index}`} className="mt-0.5" />
+                        <RadioGroupItem
+                          value={String(option)}
+                          id={`hw-opt-${problemId}-${index}`}
+                          className={cn(
+                            'mt-0.5',
+                            isUserSelection && isCorrect && 'border-green-600 text-green-600 opacity-100',
+                            isUserSelection && !isCorrect && 'border-red-600 text-red-600 opacity-100'
+                          )}
+                        />
                         <div className="flex-1 min-w-0">
                           <MarkdownWithMarker
                             marker={`${alphaOptionLabel(index)}.`}
@@ -819,7 +860,8 @@ export default function HomeworkPage() {
                           />
                         </div>
                       </Label>
-                    ))}
+                      )
+                    })}
                   </RadioGroup>
                 </fieldset>
               ) : (
@@ -833,28 +875,46 @@ export default function HomeworkPage() {
                     <Label
                       htmlFor={`hw-opt-${problemId}-true`}
                       className={cn(
-                        'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
-                        objectiveValue === 'true' && 'bg-slate-50'
+                        'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors',
+                        !isReviewMode && 'hover:bg-slate-50',
+                        !isReviewMode && objectiveValue === 'true' && 'bg-slate-50'
                       )}
                     >
-                      <RadioGroupItem value="true" id={`hw-opt-${problemId}-true`} className="mt-0.5" />
+                      <RadioGroupItem
+                        value="true"
+                        id={`hw-opt-${problemId}-true`}
+                        className={cn(
+                          'mt-0.5',
+                          isReviewMode && isCorrect && objectiveValue === 'true' && 'border-green-600 text-green-600 opacity-100',
+                          isReviewMode && !isCorrect && objectiveValue === 'true' && 'border-red-600 text-red-600 opacity-100'
+                        )}
+                      />
                       <span className="text-[0.98rem]">正确</span>
                     </Label>
                     <Label
                       htmlFor={`hw-opt-${problemId}-false`}
                       className={cn(
-                        'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors hover:bg-slate-50',
-                        objectiveValue === 'false' && 'bg-slate-50'
+                        'flex items-center gap-2 py-0.5 px-2 rounded cursor-pointer transition-colors',
+                        !isReviewMode && 'hover:bg-slate-50',
+                        !isReviewMode && objectiveValue === 'false' && 'bg-slate-50'
                       )}
                     >
-                      <RadioGroupItem value="false" id={`hw-opt-${problemId}-false`} className="mt-0.5" />
+                      <RadioGroupItem
+                        value="false"
+                        id={`hw-opt-${problemId}-false`}
+                        className={cn(
+                          'mt-0.5',
+                          isReviewMode && isCorrect && objectiveValue === 'false' && 'border-green-600 text-green-600 opacity-100',
+                          isReviewMode && !isCorrect && objectiveValue === 'false' && 'border-red-600 text-red-600 opacity-100'
+                        )}
+                      />
                       <span className="text-[0.98rem]">错误</span>
                     </Label>
                   </RadioGroup>
                 </fieldset>
               )}
             </div>
-          )}
+              )})()}
         </div>
       </div>
     )

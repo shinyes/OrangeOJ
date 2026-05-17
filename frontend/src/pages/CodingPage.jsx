@@ -14,11 +14,12 @@ import { Label } from '../components/ui/label'
 import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil } from 'lucide-react'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
 import { codeDraftStorageKey } from '../utils/userScopedStorage'
+import ProblemEditor from '../components/dashboard/ProblemEditor'
 
 const editorLang = {
   cpp: 'cpp',
@@ -108,10 +109,32 @@ export default function CodingPage() {
   const [submissionDetailTab, setSubmissionDetailTab] = useState('code')
 
   const [objectiveAnswer, setObjectiveAnswer] = useState('')
+  const [spaceMyRole, setSpaceMyRole] = useState('')
+  const [showProblemEditor, setShowProblemEditor] = useState(false)
+  const [savingProblem, setSavingProblem] = useState(false)
 
   const body = useMemo(() => problem?.bodyJson || {}, [problem])
   const backTo = safeInternalPath(searchParams.get('returnTo'))
   const backLabel = searchParams.get('returnLabel') || '返回首页'
+  const canEditProblem = user?.globalRole === 'system_admin' || spaceMyRole === 'space_admin'
+  const tagSuggestions = useMemo(() => (Array.isArray(problem?.tags) ? problem.tags : []), [problem])
+
+  const handleProblemEdit = async (problemData) => {
+    setSavingProblem(true)
+    try {
+      setError('')
+      await api.updateSpaceProblem(spaceId, problemId, problemData)
+      const updated = await api.getProblem(spaceId, problemId)
+      setProblem(updated)
+      setShowProblemEditor(false)
+      toast.success('题目已保存')
+    } catch (err) {
+      setError(err.message || '保存题目失败')
+      throw err
+    } finally {
+      setSavingProblem(false)
+    }
+  }
   const selectedSubmissionCaseDetails = selectedSubmission?.caseDetails || []
   const selectedSubmissionCase = selectedSubmissionCaseDetails[selectedSubmissionCaseIndex] || null
   const selectedSubmissionInput = selectedSubmissionCase?.input ?? selectedSubmission?.input ?? ''
@@ -142,6 +165,7 @@ export default function CodingPage() {
         const defaultLanguage = normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
         setLanguage(defaultLanguage)
         setProblem(data)
+        setSpaceMyRole(space?.myRole || '')
         if (data.type === 'programming') {
           const key = codeDraftStorageKey(user, spaceId, problemId, defaultLanguage)
           const cached = localStorage.getItem(key)
@@ -256,6 +280,80 @@ export default function CodingPage() {
 
   if (!problem) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">题目不存在</div>
 
+  return (
+    <>
+      {canEditProblem && (
+        <ProblemEditor
+          open={showProblemEditor}
+          mode="edit"
+          problem={problem}
+          editTitle="编辑题目"
+          editSubmitText="保存修改"
+          tagSuggestions={tagSuggestions}
+          onClose={() => setShowProblemEditor(false)}
+          onSubmit={handleProblemEdit}
+        />
+      )}
+
+      <CodingPageContent
+        problem={problem}
+        body={body}
+        backTo={backTo}
+        backLabel={backLabel}
+        canEditProblem={canEditProblem}
+        showProblemEditor={showProblemEditor}
+        setShowProblemEditor={setShowProblemEditor}
+        error={error}
+        setError={setError}
+        language={language}
+        setLanguage={setLanguage}
+        code={code}
+        setCode={setCode}
+        customInput={customInput}
+        setCustomInput={setCustomInput}
+        showCustomInputDialog={showCustomInputDialog}
+        setShowCustomInputDialog={setShowCustomInputDialog}
+        tempCustomInput={tempCustomInput}
+        setTempCustomInput={setTempCustomInput}
+        consoleText={consoleText}
+        setConsoleText={setConsoleText}
+        running={running}
+        setRunning={setRunning}
+        submissions={submissions}
+        setSubmissions={setSubmissions}
+        showSubmissionHistory={showSubmissionHistory}
+        setShowSubmissionHistory={setShowSubmissionHistory}
+        selectedSubmission={selectedSubmission}
+        setSelectedSubmission={setSelectedSubmission}
+        selectedSubmissionCaseIndex={selectedSubmissionCaseIndex}
+        setSelectedSubmissionCaseIndex={setSelectedSubmissionCaseIndex}
+        submissionDetailTab={submissionDetailTab}
+        setSubmissionDetailTab={setSubmissionDetailTab}
+        objectiveAnswer={objectiveAnswer}
+        setObjectiveAnswer={setObjectiveAnswer}
+        handleRunClick={handleRunClick}
+        handleTestClick={handleTestClick}
+        saveDraft={saveDraft}
+        handleCodeSubmit={handleCodeSubmit}
+        handleObjectiveSubmit={handleObjectiveSubmit}
+        copyToClipboard={copyToClipboard}
+        user={user}
+      />
+    </>
+  )
+}
+
+function CodingPageContent({
+  problem, body, backTo, backLabel, canEditProblem, showProblemEditor, setShowProblemEditor,
+  error, setError, language, setLanguage, code, setCode,
+  customInput, setCustomInput, showCustomInputDialog, setShowCustomInputDialog,
+  tempCustomInput, setTempCustomInput, consoleText, setConsoleText,
+  running, submissions, showSubmissionHistory, setShowSubmissionHistory,
+  selectedSubmission, setSelectedSubmission, selectedSubmissionCaseIndex, setSelectedSubmissionCaseIndex,
+  submissionDetailTab, setSubmissionDetailTab,
+  objectiveAnswer, setObjectiveAnswer,
+  handleRunClick, handleTestClick, saveDraft, handleCodeSubmit, handleObjectiveSubmit, copyToClipboard, user,
+}) {
   const samples = body.samples || []
 
   // ---- Non-programming (objective) layout ----
@@ -268,7 +366,14 @@ export default function CodingPage() {
               <h1 className="text-base font-semibold">{problem.title}</h1>
               <p className="text-xs text-muted-foreground">{problemTypeText(problem.type)}</p>
             </div>
-            <Button variant="ghost" asChild><Link to={backTo}>{backLabel}</Link></Button>
+            <div className="flex items-center gap-2">
+              {canEditProblem && (
+                <Button variant="ghost" size="sm" onClick={() => setShowProblemEditor(true)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />编辑题目
+                </Button>
+              )}
+              <Button variant="ghost" asChild><Link to={backTo}>{backLabel}</Link></Button>
+            </div>
           </div>
         </header>
 
@@ -339,6 +444,11 @@ export default function CodingPage() {
       <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
         <div className="flex items-center justify-between h-10 px-4">
           <h1 className="text-sm font-semibold flex-1 truncate">{problem.title}</h1>
+          {canEditProblem && (
+            <Button variant="ghost" size="sm" onClick={() => setShowProblemEditor(true)} className="ml-1">
+              <Pencil className="h-3.5 w-3.5 mr-1" />编辑题目
+            </Button>
+          )}
           <Button variant="ghost" size="icon" asChild className="ml-2">
             <Link to={backTo}><X className="h-4 w-4" /></Link>
           </Button>
@@ -639,6 +749,7 @@ export default function CodingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }

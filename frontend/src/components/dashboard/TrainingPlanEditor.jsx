@@ -305,7 +305,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
         </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting ? '保存中...' : (isEditMode ? '保存修改' : '创建计划')}

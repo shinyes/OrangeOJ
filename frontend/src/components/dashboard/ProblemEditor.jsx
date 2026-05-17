@@ -311,10 +311,11 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader><DialogTitle>{dialogTitle}</DialogTitle></DialogHeader>
 
-        <div className="flex flex-col gap-4 pt-2">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex flex-col gap-4 pt-2">
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
           <div>
@@ -478,9 +479,10 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
               </Select>
             </div>
           )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting ? '保存中...' : (isEditMode ? editSubmitText : createSubmitText)}

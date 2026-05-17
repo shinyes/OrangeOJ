@@ -268,7 +268,7 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
         </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting ? '保存中...' : (isEditMode ? '保存修改' : '创建作业')}

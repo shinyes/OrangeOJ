@@ -185,7 +185,7 @@ export default function TrainingPage({ user }) {
                     ) : (
                       <div className="flex flex-col gap-1.5">
                         {(chapter.items || []).map((item, index) => (
-                          <Card asChild key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`} className="transition-all hover:border-primary hover:bg-accent hover:-translate-y-px">
+                          <Card key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`} className="transition-all hover:border-primary hover:bg-accent hover:-translate-y-px p-0">
                             <Link
                               to={`/spaces/${spaceId}/problems/${item.problemId}/solve?returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
                               className="block px-4 py-2.5 no-underline text-foreground"

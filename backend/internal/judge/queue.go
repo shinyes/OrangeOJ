@@ -193,7 +193,7 @@ func (q *QueueService) processJob(ctx context.Context, job jobItem) error {
 	}
 	finalVerdict = result.Verdict
 
-	if sub.SubmitType == model.SubmitTypeSubmit {
+	if sub.SubmitType == model.SubmitTypeSubmit || sub.SubmitType == model.SubmitTypeTest {
 		if finalVerdict == model.VerdictAC {
 			score = 100
 		} else {
@@ -246,7 +246,7 @@ WHERE id=?`, string(verdict), timeMS, memoryKiB, score, stdout, stderr, caseDeta
 		return err
 	}
 
-	if sub.SubmitType == model.SubmitTypeSubmit {
+	if sub.SubmitType == model.SubmitTypeSubmit || sub.SubmitType == model.SubmitTypeTest {
 		if _, err := q.db.ExecContext(ctx, `
 INSERT INTO user_problem_progress(space_id, user_id, problem_id, best_verdict, best_score, last_submission_id, updated_at)
 VALUES(?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
