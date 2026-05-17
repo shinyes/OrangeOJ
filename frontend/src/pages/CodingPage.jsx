@@ -417,7 +417,7 @@ export default function CodingPage() {
 
         {/* Right Panel - Code Editor */}
         <Card className="flex-1 flex flex-col overflow-hidden">
-          <CardContent className="flex-1 flex flex-col p-3">
+          <CardContent className="flex-1 flex flex-col p-3 overflow-auto">
             {/* Toolbar */}
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Select value={language} onValueChange={setLanguage}>
@@ -508,7 +508,7 @@ export default function CodingPage() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>测评记录</DialogTitle></DialogHeader>
 
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-hidden">
             {selectedSubmission ? (
               <div>
                 {selectedSubmissionCaseDetails.length > 0 && (
@@ -546,7 +546,7 @@ export default function CodingPage() {
                     <TabsTrigger value="expected" className="flex-1">预期输出</TabsTrigger>
                     <TabsTrigger value="error" className="flex-1">错误</TabsTrigger>
                   </TabsList>
-                  <div className="p-3 max-h-[50vh] overflow-auto">
+                  <div className="p-3">
                     {submissionDetailTab === 'code' && (
                       <div>
                         <div className="flex justify-between items-center mb-1">
@@ -555,28 +555,28 @@ export default function CodingPage() {
                             <Copy className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                        <pre className="p-3 bg-muted/50 rounded-lg font-mono text-sm whitespace-pre-wrap border">
+                        <pre className="p-3 bg-muted/50 rounded-lg font-mono text-sm whitespace-pre-wrap border overflow-auto max-h-[40vh]">
                           {selectedSubmission.code || '无代码'}
                         </pre>
                       </div>
                     )}
                     {submissionDetailTab === 'input' && (
-                      <pre className="p-3 bg-muted/50 rounded-lg font-mono text-sm whitespace-pre-wrap border">
+                      <pre className="p-3 bg-muted/50 rounded-lg font-mono text-sm whitespace-pre-wrap border overflow-auto max-h-[40vh]">
                         {selectedSubmissionInput || '(空)'}
                       </pre>
                     )}
                     {submissionDetailTab === 'output' && (
-                      <pre className={`p-3 rounded-lg font-mono text-sm whitespace-pre-wrap border ${selectedSubmissionError ? 'bg-red-50' : 'bg-muted/50'}`}>
+                      <pre className={`p-3 rounded-lg font-mono text-sm whitespace-pre-wrap border overflow-auto max-h-[40vh] ${selectedSubmissionError ? 'bg-red-50' : 'bg-muted/50'}`}>
                         {selectedSubmissionOutput || '(无输出)'}
                       </pre>
                     )}
                     {submissionDetailTab === 'expected' && (
-                      <pre className="p-3 bg-green-50 rounded-lg font-mono text-sm whitespace-pre-wrap border">
+                      <pre className="p-3 bg-green-50 rounded-lg font-mono text-sm whitespace-pre-wrap border overflow-auto max-h-[40vh]">
                         {selectedSubmissionExpectedOutput || '(无预期输出)'}
                       </pre>
                     )}
                     {submissionDetailTab === 'error' && (
-                      <pre className="p-3 bg-red-50 rounded-lg font-mono text-sm whitespace-pre-wrap border">
+                      <pre className="p-3 bg-red-50 rounded-lg font-mono text-sm whitespace-pre-wrap border overflow-auto max-h-[40vh]">
                         {selectedSubmissionError || '(无错误)'}
                       </pre>
                     )}

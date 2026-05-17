@@ -143,6 +143,7 @@ export default function useSystemActions({
       passwordState.setNewPassword('')
       passwordState.setConfirmPassword('')
       passwordState.setChangePasswordMessage('密码修改成功')
+      passwordState.closeChangePassword()
     } catch (err) {
       setError(err.message)
     } finally {

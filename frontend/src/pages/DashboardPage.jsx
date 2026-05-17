@@ -464,21 +464,20 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
 
       <div className="max-w-screen-xl mx-auto px-4 mt-4 mb-6">
         {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
-        {passwordState.changePasswordOpen && (
-          <ChangePasswordPanel
-            oldPassword={passwordState.oldPassword}
-            newPassword={passwordState.newPassword}
-            confirmPassword={passwordState.confirmPassword}
-            onOldPasswordChange={passwordState.setOldPassword}
-            onNewPasswordChange={passwordState.setNewPassword}
-            onConfirmPasswordChange={passwordState.setConfirmPassword}
-            submitting={passwordState.changePasswordSubmitting}
-            onSubmit={handleChangePassword}
-            onCancel={passwordState.closeChangePassword}
-            message={passwordState.changePasswordMessage}
-            onMessageShown={() => passwordState.setChangePasswordMessage('')}
-          />
-        )}
+        <ChangePasswordPanel
+          open={passwordState.changePasswordOpen}
+          oldPassword={passwordState.oldPassword}
+          newPassword={passwordState.newPassword}
+          confirmPassword={passwordState.confirmPassword}
+          onOldPasswordChange={passwordState.setOldPassword}
+          onNewPasswordChange={passwordState.setNewPassword}
+          onConfirmPasswordChange={passwordState.setConfirmPassword}
+          submitting={passwordState.changePasswordSubmitting}
+          onSubmit={handleChangePassword}
+          onCancel={passwordState.closeChangePassword}
+          message={passwordState.changePasswordMessage}
+          onMessageShown={() => passwordState.setChangePasswordMessage('')}
+        />
         {renderCurrentView()}
         <DashboardDialogs
           modalState={modalState}

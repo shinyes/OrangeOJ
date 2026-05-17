@@ -6,7 +6,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
 import { Label } from '../ui/label'
-import { ScrollArea } from '../ui/scroll-area'
 import { X, Loader2 } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 
@@ -190,7 +189,7 @@ export default function SpaceManagePanel({
                 <Input className="mt-4" placeholder="按题目 ID、标题或标签搜索" value={spaceProblemSearch}
                   onChange={(e) => onSpaceProblemSearchChange(e.target.value)} />
 
-                <ScrollArea className="mt-4 max-h-[620px]">
+                <div className="mt-4 max-h-[55vh] overflow-auto">
                   <div className="flex flex-col gap-2 pr-3">
                     {filteredSpaceProblems.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
@@ -214,7 +213,7 @@ export default function SpaceManagePanel({
                       })
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -262,7 +261,7 @@ export default function SpaceManagePanel({
                   <h2 className="text-lg font-bold">当前空间成员</h2>
                   <p className="text-sm text-muted-foreground mt-1">当前共有 {spaceMembers.length} 名成员。可直接重置密码或移出空间。</p>
 
-                  <ScrollArea className="mt-4 max-h-[620px]">
+                  <div className="mt-4 max-h-[55vh] overflow-auto">
                     <div className="flex flex-col gap-2 pr-3">
                       {spaceMembers.length === 0 ? (
                         <p className="text-sm text-muted-foreground">当前空间还没有成员。</p>
@@ -283,7 +282,7 @@ export default function SpaceManagePanel({
                         ))
                       )}
                     </div>
-                  </ScrollArea>
+                  </div>
                 </CardContent>
               </Card>
             </div>
