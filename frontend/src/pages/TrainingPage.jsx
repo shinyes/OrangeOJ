@@ -83,6 +83,14 @@ export default function TrainingPage({ user }) {
 
   useEffect(() => {
     const key = `scroll-${location.pathname}${location.search}`
+    return () => {
+      sessionStorage.setItem(key, String(window.scrollY))
+    }
+  }, [location.pathname, location.search])
+
+  useEffect(() => {
+    if (loading) return
+    const key = `scroll-${location.pathname}${location.search}`
     const saved = sessionStorage.getItem(key)
     if (saved) {
       requestAnimationFrame(() => {
@@ -90,10 +98,7 @@ export default function TrainingPage({ user }) {
         sessionStorage.removeItem(key)
       })
     }
-    return () => {
-      sessionStorage.setItem(key, String(window.scrollY))
-    }
-  }, [location.pathname, location.search])
+  }, [loading, location.pathname, location.search])
 
   const handleJoin = async () => {
     try {
