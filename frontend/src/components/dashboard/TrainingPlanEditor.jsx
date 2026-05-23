@@ -79,7 +79,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
     try {
       chapters = form.chapters.map((chapter, index) => {
         const normalizedChapter = { title: String(chapter.title || '').trim() || `第 ${index + 1} 章`, orderNo: index + 1, problemIds: [], problemDrafts: [] }
-        if (!isEditMode && chapter.problemSourceMode === 'import') { normalizedChapter.problemDrafts = parseProblemDraftArray(chapter.problemDraftsJSON); return normalizedChapter }
+        if ((!isEditMode || newChapterIndices.has(index)) && chapter.problemSourceMode === 'import') { normalizedChapter.problemDrafts = parseProblemDraftArray(chapter.problemDraftsJSON); return normalizedChapter }
         normalizedChapter.problemIds = normalizeProblemIds(chapter)
         return normalizedChapter
       })
