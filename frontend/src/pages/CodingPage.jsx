@@ -13,8 +13,9 @@ import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
 import { Label } from '../components/ui/label'
 import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
+import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, Pencil } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -113,11 +114,34 @@ export default function CodingPage() {
   const [showProblemEditor, setShowProblemEditor] = useState(false)
   const [savingProblem, setSavingProblem] = useState(false)
 
+  const planId = searchParams.get('planId') ? Number(searchParams.get('planId')) : null
+  const [trainingPlan, setTrainingPlan] = useState(null)
+
   const body = useMemo(() => problem?.bodyJson || {}, [problem])
   const backTo = safeInternalPath(searchParams.get('returnTo'))
   const backLabel = searchParams.get('returnLabel') || '返回首页'
+  const solveReturnTo = planId ? `/spaces/${spaceId}/training-plans/${planId}` : backTo || '/'
+  const solveReturnLabel = encodeURIComponent('返回训练')
   const canEditProblem = user?.globalRole === 'system_admin' || spaceMyRole === 'space_admin'
   const tagSuggestions = useMemo(() => (Array.isArray(problem?.tags) ? problem.tags : []), [problem])
+
+  const trainingProblems = useMemo(() => {
+    const result = []
+    ;(trainingPlan?.chapters || []).forEach((chapter) => {
+      ;(chapter.items || []).forEach((item) => {
+        result.push({ problemId: item.problemId, title: item.title, type: item.type, completed: item.completed, chapterTitle: chapter.title })
+      })
+    })
+    return result
+  }, [trainingPlan])
+
+  const currentTrainingIndex = useMemo(() => {
+    if (!problemId || trainingProblems.length === 0) return -1
+    return trainingProblems.findIndex((p) => Number(p.problemId) === Number(problemId))
+  }, [trainingProblems, problemId])
+
+  const prevTrainingProblem = currentTrainingIndex > 0 ? trainingProblems[currentTrainingIndex - 1] : null
+  const nextTrainingProblem = currentTrainingIndex >= 0 && currentTrainingIndex < trainingProblems.length - 1 ? trainingProblems[currentTrainingIndex + 1] : null
 
   const handleProblemEdit = async (problemData) => {
     setSavingProblem(true)
@@ -158,10 +182,10 @@ export default function CodingPage() {
         setLoading(true)
         setError('')
         if (!spaceId) throw new Error('缺少空间信息')
-        const [data, space] = await Promise.all([
-          api.getProblem(spaceId, problemId),
-          api.getSpace(spaceId)
-        ])
+        const promises = [api.getProblem(spaceId, problemId), api.getSpace(spaceId)]
+        if (planId) promises.push(api.getTrainingPlan(spaceId, planId))
+        const results = await Promise.all(promises)
+        const [data, space] = results
         const defaultLanguage = normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
         setLanguage(defaultLanguage)
         setProblem(data)
@@ -171,6 +195,7 @@ export default function CodingPage() {
           const cached = localStorage.getItem(key)
           setCode(cached || pickStarter(data.bodyJson, defaultLanguage))
         }
+        if (planId) setTrainingPlan(results[2] || null)
         if (spaceId) {
           try {
             const result = await api.listSubmissions(spaceId, problemId, { all: true })
@@ -183,7 +208,7 @@ export default function CodingPage() {
         setLoading(false)
       }
     })()
-  }, [spaceId, problemId, user?.id, user?.userId, user?.username])
+  }, [spaceId, problemId, planId, user?.id, user?.userId, user?.username])
 
   useEffect(() => {
     if (!problem || problem.type !== 'programming') return
@@ -338,6 +363,15 @@ export default function CodingPage() {
         handleObjectiveSubmit={handleObjectiveSubmit}
         copyToClipboard={copyToClipboard}
         user={user}
+        planId={planId}
+        spaceId={spaceId}
+        problemId={problemId}
+        trainingProblems={trainingProblems}
+        currentTrainingIndex={currentTrainingIndex}
+        prevTrainingProblem={prevTrainingProblem}
+        nextTrainingProblem={nextTrainingProblem}
+        solveReturnTo={solveReturnTo}
+        solveReturnLabel={solveReturnLabel}
       />
     </>
   )
@@ -353,13 +387,65 @@ function CodingPageContent({
   submissionDetailTab, setSubmissionDetailTab,
   objectiveAnswer, setObjectiveAnswer,
   handleRunClick, handleTestClick, saveDraft, handleCodeSubmit, handleObjectiveSubmit, copyToClipboard, user,
+  planId, spaceId, problemId, trainingProblems, currentTrainingIndex, prevTrainingProblem, nextTrainingProblem,
+  solveReturnTo, solveReturnLabel,
 }) {
   const samples = body.samples || []
+  const showTrainingNav = planId != null && trainingProblems.length > 0
+
+  const trainingNavTargetUrl = (targetProblemId) =>
+    `/spaces/${spaceId}/problems/${targetProblemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`
+
+  // ---- Training navigation helpers ----
+  const renderTrainingNavGrid = () => (
+    <div className="grid grid-cols-5 gap-1">
+      {trainingProblems.map((p, idx) => {
+        const isCurrent = Number(p.problemId) === Number(problemId)
+        const cls = cn(
+          'h-7 w-full min-w-0 px-0 py-0 rounded text-xs font-medium border transition-colors',
+          p.completed && 'border-green-400 bg-green-50 text-green-700 hover:bg-green-100',
+          !p.completed && 'border-border bg-white hover:border-primary hover:bg-slate-50',
+          isCurrent && 'ring-2 ring-primary ring-offset-1'
+        )
+        return (
+          <Link key={`${p.problemId}-${idx}`} to={trainingNavTargetUrl(p.problemId)} className="no-underline">
+            <Button variant="outline" className={cls} title={`${idx + 1}. ${p.title}`}>
+              {p.completed ? <CheckCircle2 className="h-3 w-3" /> : idx + 1}
+            </Button>
+          </Link>
+        )
+      })}
+    </div>
+  )
+
+  const renderTrainingBottomNav = () => (
+    <div className="flex items-center justify-center gap-4 px-4 py-2 border-t bg-background">
+      {prevTrainingProblem ? (
+        <Button variant="outline" size="sm" asChild>
+          <Link to={trainingNavTargetUrl(prevTrainingProblem.problemId)}>
+            <ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题
+          </Link>
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" disabled><ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题</Button>
+      )}
+      <span className="text-xs text-muted-foreground">{currentTrainingIndex + 1} / {trainingProblems.length}</span>
+      {nextTrainingProblem ? (
+        <Button variant="outline" size="sm" asChild>
+          <Link to={trainingNavTargetUrl(nextTrainingProblem.problemId)}>
+            下一题<ChevronRight className="h-3.5 w-3.5 ml-1" />
+          </Link>
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" disabled>下一题<ChevronRight className="h-3.5 w-3.5 ml-1" /></Button>
+      )}
+    </div>
+  )
 
   // ---- Non-programming (objective) layout ----
   if (problem.type !== 'programming') {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="h-screen bg-background flex flex-col">
         <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
           <div className="flex items-center justify-between h-12 px-4">
             <div>
@@ -377,63 +463,75 @@ function CodingPageContent({
           </div>
         </header>
 
-        <div className="p-4 max-w-3xl mx-auto">
-          {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
+        <div className="flex flex-1 overflow-hidden">
+          {showTrainingNav && (
+            <aside className="w-44 shrink-0 border-r bg-muted/20 overflow-y-auto p-2">
+              {renderTrainingNavGrid()}
+            </aside>
+          )}
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="p-3 bg-muted/50 rounded-lg mb-4">
-                <MarkdownContent content={problem.statementMd} />
-              </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="max-w-3xl mx-auto">
+              {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
 
-              {problem.type === 'single_choice' ? (
-                <fieldset className="mb-3 w-full">
-                  <legend className="text-sm font-medium mb-2">选项</legend>
-                  <RadioGroup value={objectiveAnswer} onValueChange={setObjectiveAnswer} className="gap-0.5">
-                    {(body.options || []).map((opt, index) => (
-                      <Label
-                        key={`${String(opt)}-${index}`}
-                        htmlFor={`opt-${index}`}
-                        className="flex items-start gap-2 py-0.5 px-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors"
-                      >
-                        <RadioGroupItem value={String(opt)} id={`opt-${index}`} className="mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <MarkdownWithMarker
-                            marker={`${alphaOptionLabel(index)}.`}
-                            content={String(opt || '')}
-                            className="gap-x-[0.35rem]"
-                            markerClassName="min-w-[1.8ch]"
-                            contentClassName="text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.6rem] [&_pre]:text-[0.82rem]"
-                          />
-                        </div>
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                </fieldset>
-              ) : (
-                <fieldset className="mb-3 w-full">
-                  <legend className="text-sm font-medium mb-2">答案</legend>
-                  <RadioGroup value={objectiveAnswer} onValueChange={setObjectiveAnswer} className="flex gap-4">
-                    <Label htmlFor="opt-true" className="flex items-center gap-2 cursor-pointer">
-                      <RadioGroupItem value="true" id="opt-true" />
-                      <span className="text-sm">正确</span>
-                    </Label>
-                    <Label htmlFor="opt-false" className="flex items-center gap-2 cursor-pointer">
-                      <RadioGroupItem value="false" id="opt-false" />
-                      <span className="text-sm">错误</span>
-                    </Label>
-                  </RadioGroup>
-                </fieldset>
-              )}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="p-3 bg-muted/50 rounded-lg mb-4">
+                    <MarkdownContent content={problem.statementMd} />
+                  </div>
 
-              <div className="flex justify-start">
-                <Button disabled={running || !objectiveAnswer} onClick={handleObjectiveSubmit}>
-                  {running ? '提交中...' : '提交答案'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  {problem.type === 'single_choice' ? (
+                    <fieldset className="mb-3 w-full">
+                      <legend className="text-sm font-medium mb-2">选项</legend>
+                      <RadioGroup value={objectiveAnswer} onValueChange={setObjectiveAnswer} className="gap-0.5">
+                        {(body.options || []).map((opt, index) => (
+                          <Label
+                            key={`${String(opt)}-${index}`}
+                            htmlFor={`opt-${index}`}
+                            className="flex items-start gap-2 py-0.5 px-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors"
+                          >
+                            <RadioGroupItem value={String(opt)} id={`opt-${index}`} className="mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <MarkdownWithMarker
+                                marker={`${alphaOptionLabel(index)}.`}
+                                content={String(opt || '')}
+                                className="gap-x-[0.35rem]"
+                                markerClassName="min-w-[1.8ch]"
+                                contentClassName="text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.6rem] [&_pre]:text-[0.82rem]"
+                              />
+                            </div>
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </fieldset>
+                  ) : (
+                    <fieldset className="mb-3 w-full">
+                      <legend className="text-sm font-medium mb-2">答案</legend>
+                      <RadioGroup value={objectiveAnswer} onValueChange={setObjectiveAnswer} className="flex gap-4">
+                        <Label htmlFor="opt-true" className="flex items-center gap-2 cursor-pointer">
+                          <RadioGroupItem value="true" id="opt-true" />
+                          <span className="text-sm">正确</span>
+                        </Label>
+                        <Label htmlFor="opt-false" className="flex items-center gap-2 cursor-pointer">
+                          <RadioGroupItem value="false" id="opt-false" />
+                          <span className="text-sm">错误</span>
+                        </Label>
+                      </RadioGroup>
+                    </fieldset>
+                  )}
+
+                  <div className="flex justify-start">
+                    <Button disabled={running || !objectiveAnswer} onClick={handleObjectiveSubmit}>
+                      {running ? '提交中...' : '提交答案'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
+
+        {showTrainingNav && renderTrainingBottomNav()}
       </div>
     )
   }
@@ -458,8 +556,15 @@ function CodingPageContent({
       {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
 
       <div className="flex flex-1 overflow-hidden p-3 gap-3">
+        {/* Training Nav Sidebar */}
+        {showTrainingNav && (
+          <aside className="w-44 shrink-0 border-r bg-muted/20 rounded-lg overflow-y-auto p-2">
+            {renderTrainingNavGrid()}
+          </aside>
+        )}
+
         {/* Left Panel - Problem Description */}
-        <Card className="w-[40%] min-w-[400px] flex flex-col overflow-hidden">
+        <Card className={`${showTrainingNav ? 'w-[38%] min-w-[350px]' : 'w-[40%] min-w-[400px]'} flex flex-col overflow-hidden`}>
           <CardContent className="flex-1 overflow-auto p-4 scrollbar-thin">
             <h2 className="text-lg font-bold mb-3">题目描述</h2>
 
@@ -590,6 +695,8 @@ function CodingPageContent({
           </CardContent>
         </Card>
       </div>
+
+      {showTrainingNav && renderTrainingBottomNav()}
 
       {/* Custom Input Dialog */}
       <Dialog open={showCustomInputDialog} onOpenChange={setShowCustomInputDialog}>

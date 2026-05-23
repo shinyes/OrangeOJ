@@ -47,6 +47,16 @@ export default function TrainingPage({ user }) {
   const solveReturnTo = safeInternalPath(`/spaces/${spaceId}/training-plans/${planId}`, '/')
   const solveReturnLabel = encodeURIComponent('返回训练')
 
+  const flatProblems = useMemo(() => {
+    const result = []
+    ;(plan?.chapters || []).forEach((chapter) => {
+      ;(chapter.items || []).forEach((item) => {
+        result.push({ problemId: item.problemId, title: item.title, type: item.type, completed: item.completed, chapterTitle: chapter.title })
+      })
+    })
+    return result
+  }, [plan])
+
   const totalProblemCount = useMemo(
     () => (plan?.chapters || []).reduce((sum, chapter) => sum + (chapter.items?.length || 0), 0),
     [plan]
@@ -205,7 +215,7 @@ export default function TrainingPage({ user }) {
                         {(chapter.items || []).map((item, index) => (
                           <Card key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`} className="transition-all hover:border-primary hover:bg-accent hover:-translate-y-px p-0">
                             <Link
-                              to={`/spaces/${spaceId}/problems/${item.problemId}/solve?returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
+                              to={`/spaces/${spaceId}/problems/${item.problemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
                               className="block px-4 py-2.5 no-underline text-foreground"
                               onClick={saveScrollPosition}
                             >
