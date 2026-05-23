@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
@@ -34,6 +34,7 @@ function problemTitleWithCompletion(item, index) {
 export default function TrainingPage({ user }) {
   const { spaceId, planId } = useParams()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const [space, setSpace] = useState(null)
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -79,6 +80,20 @@ export default function TrainingPage({ user }) {
       }
     })()
   }, [spaceId, planId])
+
+  useEffect(() => {
+    const key = `scroll-${location.pathname}${location.search}`
+    const saved = sessionStorage.getItem(key)
+    if (saved) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, parseInt(saved, 10))
+        sessionStorage.removeItem(key)
+      })
+    }
+    return () => {
+      sessionStorage.setItem(key, String(window.scrollY))
+    }
+  }, [location.pathname, location.search])
 
   const handleJoin = async () => {
     try {
