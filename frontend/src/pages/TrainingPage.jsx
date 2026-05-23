@@ -94,8 +94,9 @@ export default function TrainingPage({ user }) {
     const saved = sessionStorage.getItem(key)
     if (saved) {
       requestAnimationFrame(() => {
-        window.scrollTo(0, parseInt(saved, 10))
-        sessionStorage.removeItem(key)
+        requestAnimationFrame(() => {
+          window.scrollTo(0, parseInt(saved, 10))
+        })
       })
     }
   }, [loading, location.pathname, location.search])
