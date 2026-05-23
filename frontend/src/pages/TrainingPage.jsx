@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
@@ -34,7 +34,6 @@ function problemTitleWithCompletion(item, index) {
 export default function TrainingPage({ user }) {
   const { spaceId, planId } = useParams()
   const [searchParams] = useSearchParams()
-  const location = useLocation()
   const [space, setSpace] = useState(null)
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -81,17 +80,15 @@ export default function TrainingPage({ user }) {
     })()
   }, [spaceId, planId])
 
-  useEffect(() => {
-    const key = `scroll-${location.pathname}${location.search}`
-    return () => {
-      sessionStorage.setItem(key, String(window.scrollY))
-    }
-  }, [location.pathname, location.search])
+  const scrollKey = `scroll-/spaces/${spaceId}/training-plans/${planId}`
+
+  const saveScrollPosition = () => {
+    sessionStorage.setItem(scrollKey, String(window.scrollY))
+  }
 
   useEffect(() => {
     if (loading) return
-    const key = `scroll-${location.pathname}${location.search}`
-    const saved = sessionStorage.getItem(key)
+    const saved = sessionStorage.getItem(scrollKey)
     if (saved) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -99,7 +96,7 @@ export default function TrainingPage({ user }) {
         })
       })
     }
-  }, [loading, location.pathname, location.search])
+  }, [loading, scrollKey])
 
   const handleJoin = async () => {
     try {
@@ -210,6 +207,7 @@ export default function TrainingPage({ user }) {
                             <Link
                               to={`/spaces/${spaceId}/problems/${item.problemId}/solve?returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
                               className="block px-4 py-2.5 no-underline text-foreground"
+                              onClick={saveScrollPosition}
                             >
                               <div className="flex justify-between items-center gap-2">
                                 <span className="font-medium truncate">{problemTitleWithCompletion(item, index)}</span>
