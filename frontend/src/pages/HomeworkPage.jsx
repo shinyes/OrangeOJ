@@ -738,7 +738,7 @@ export default function HomeworkPage() {
         key={problemId}
         ref={(node) => { questionRefs.current[problemId] = node }}
         className={cn(
-          standalone ? 'px-4 md:px-6 py-1.5' : 'px-4 md:px-5 py-[0.65rem]',
+          standalone ? 'px-2 md:px-6 py-1 md:py-1.5' : 'px-2 md:px-5 py-[0.65rem]',
           !standalone && 'border-b',
           Number(activeProblemId) === problemId ? 'bg-sky-50/40' : 'bg-white'
         )}
@@ -747,7 +747,7 @@ export default function HomeworkPage() {
         <div className="flex justify-between items-start gap-1 mb-1">
           <div className="min-w-0 flex-1">
             {problemType === 'programming' ? (
-              <h3 className={cn('font-semibold leading-relaxed whitespace-pre-wrap break-words', standalone ? 'text-[0.98rem]' : 'text-base')}>
+              <h3 className={cn('font-semibold leading-relaxed whitespace-pre-wrap break-words', standalone ? 'text-sm md:text-[0.98rem]' : 'text-sm md:text-base')}>
                 {programmingTitle}
               </h3>
             ) : (
@@ -755,10 +755,10 @@ export default function HomeworkPage() {
                 marker={`${item.displayOrder}.`}
                 content={promptMarkdown}
                 className="gap-x-[0.4rem] mb-[0.35rem]"
-                markerClassName={cn('font-semibold leading-relaxed', standalone ? 'text-[0.98rem] min-w-[2.4ch]' : 'text-base min-w-[2.4ch]')}
+                markerClassName={cn('font-semibold leading-relaxed', standalone ? 'text-sm md:text-[0.98rem] min-w-[2.4ch]' : 'text-sm md:text-base min-w-[2.4ch]')}
                 contentClassName={cn(
                   'font-semibold leading-relaxed',
-                  standalone ? 'text-[0.98rem]' : 'text-base',
+                  standalone ? 'text-sm md:text-[0.98rem]' : 'text-sm md:text-base',
                   '[&_h1]:mt-[0.15rem] [&_h1]:mb-[0.25rem] [&_h1]:text-inherit [&_h1]:font-inherit [&_h1]:leading-inherit',
                   '[&_h2]:mt-[0.15rem] [&_h2]:mb-[0.25rem] [&_h2]:text-inherit [&_h2]:font-inherit [&_h2]:leading-inherit',
                   '[&_h3]:mt-[0.15rem] [&_h3]:mb-[0.25rem] [&_h3]:text-inherit [&_h3]:font-inherit [&_h3]:leading-inherit',
@@ -856,7 +856,7 @@ export default function HomeworkPage() {
                             content={String(option || '')}
                             className="gap-x-[0.35rem]"
                             markerClassName="min-w-[1.8ch]"
-                            contentClassName="text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.6rem] [&_pre]:text-[0.82rem]"
+                            contentClassName="text-[0.92rem] md:text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.5rem] [&_pre]:text-[0.78rem] md:[&_pre]:text-[0.82rem]"
                           />
                         </div>
                       </Label>
@@ -889,7 +889,7 @@ export default function HomeworkPage() {
                           isReviewMode && !isCorrect && objectiveValue === 'true' && 'border-red-600 text-red-600 opacity-100'
                         )}
                       />
-                      <span className="text-[0.98rem]">正确</span>
+                      <span className="text-sm md:text-[0.98rem]">正确</span>
                     </Label>
                     <Label
                       htmlFor={`hw-opt-${problemId}-false`}
@@ -908,7 +908,7 @@ export default function HomeworkPage() {
                           isReviewMode && !isCorrect && objectiveValue === 'false' && 'border-red-600 text-red-600 opacity-100'
                         )}
                       />
-                      <span className="text-[0.98rem]">错误</span>
+                      <span className="text-sm md:text-[0.98rem]">错误</span>
                     </Label>
                   </RadioGroup>
                 </fieldset>
@@ -925,19 +925,19 @@ export default function HomeworkPage() {
   return (
     <div className="min-h-screen bg-[#eef2f7]">
       <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
-        <div className="flex items-center h-14 px-4 md:px-6 gap-2 overflow-x-auto">
+        <div className="flex items-center min-h-10 md:min-h-14 px-2 md:px-6 py-1 gap-1 md:gap-2 flex-wrap">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 min-w-max">
-              <h1 className="text-sm font-extrabold leading-tight truncate">{homework.title}</h1>
-              <Badge variant="outline">{homeworkDisplayModeText(homeworkDisplayMode)}</Badge>
-              {isReviewMode ? <Badge variant="outline" className="border-primary text-primary">作答记录回看</Badge> : null}
+            <div className="flex items-center gap-1 md:gap-2 min-w-max">
+              <h1 className="text-xs md:text-sm font-extrabold leading-tight truncate">{homework.title}</h1>
+              <Badge variant="outline" className="text-[10px] md:text-xs">{homeworkDisplayModeText(homeworkDisplayMode)}</Badge>
+              {isReviewMode ? <Badge variant="outline" className="border-primary text-primary text-[10px] md:text-xs">作答记录回看</Badge> : null}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto shrink-0">
-            <Button variant="outline" size="sm" asChild><Link to={backTo}>{backLabel}</Link></Button>
+          <div className="flex items-center gap-1 md:gap-2 ml-auto shrink-0">
+            <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild><Link to={backTo}>{backLabel}</Link></Button>
             {space?.canManage ? (
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild>
                 <Link to={`/spaces/${spaceId}/homeworks/${homeworkId}/submission-records?returnTo=${allRecordsReturnTo}&returnLabel=${allRecordsReturnLabel}`}>
                   全部提交记录
                 </Link>
@@ -945,10 +945,10 @@ export default function HomeworkPage() {
             ) : null}
             {!isReviewMode ? (
               <>
-                <Button variant="secondary" size="sm" onClick={() => markDraftSaved()}>
-                  <Save className="h-3.5 w-3.5 mr-1" />保存
+                <Button variant="secondary" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => markDraftSaved()}>
+                  <Save className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />保存
                 </Button>
-                <Button size="sm" disabled={submittingAll || isExpired} onClick={handleSubmitAll}>
+                <Button size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" disabled={submittingAll || isExpired} onClick={handleSubmitAll}>
                   {submittingAll ? '提交中...' : '提交'}
                 </Button>
               </>

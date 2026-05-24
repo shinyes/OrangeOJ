@@ -143,36 +143,36 @@ export default function TrainingPage({ user }) {
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background border-b shadow-sm">
-        <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
+        <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 flex-wrap">
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <h1 className="text-lg font-bold">{plan.title}</h1>
-              <span className="text-sm text-muted-foreground">
+            <div className="flex items-baseline gap-1.5 md:gap-2 flex-wrap">
+              <h1 className="text-base md:text-lg font-bold">{plan.title}</h1>
+              <span className="text-xs md:text-sm text-muted-foreground">
                 {space?.name ? `空间：${space.name}` : `空间 #${spaceId}`} | 共 {plan.chapters?.length || 0} 个章节，{totalProblemCount} 道题目
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-1.5 shrink-0">
-            <Badge variant={isPublic ? 'secondary' : 'outline'}>{isPublic ? '公开训练' : '隐藏训练'}</Badge>
-            <Badge variant={plan.allowSelfJoin ? 'default' : 'outline'}>{plan.allowSelfJoin ? '允许自主加入' : '仅管理员分配'}</Badge>
-            <Badge variant={plan.published || plan.publishedAt ? 'default' : 'outline'}>{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
+          <div className="flex flex-wrap gap-1 md:gap-1.5 shrink-0">
+            <Badge className="text-[10px] md:text-xs" variant={isPublic ? 'secondary' : 'outline'}>{isPublic ? '公开训练' : '隐藏训练'}</Badge>
+            <Badge className="text-[10px] md:text-xs" variant={plan.allowSelfJoin ? 'default' : 'outline'}>{plan.allowSelfJoin ? '允许自主加入' : '仅管理员分配'}</Badge>
+            <Badge className="text-[10px] md:text-xs" variant={plan.published || plan.publishedAt ? 'default' : 'outline'}>{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
             {myParticipant && (
-              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px] md:text-xs">
                 我的状态：已加入（{joinedByText(myParticipant.joinedBy)}）
               </Badge>
             )}
           </div>
           {!myParticipant && (
-            <Button size="sm" disabled={!plan.allowSelfJoin || joining} onClick={handleJoin}>
+            <Button size="sm" className="h-7 md:h-8 text-xs" disabled={!plan.allowSelfJoin || joining} onClick={handleJoin}>
               {!plan.allowSelfJoin ? '需管理员分配' : joining ? '加入中...' : '加入训练'}
             </Button>
           )}
-          <Button size="sm" variant="outline" asChild><Link to={backTo}>{backLabel}</Link></Button>
+          <Button size="sm" variant="outline" className="h-7 md:h-8 text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
         </div>
       </header>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto py-6 px-4">
+      <div className="max-w-5xl mx-auto py-4 md:py-6 px-2 md:px-4">
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
@@ -195,33 +195,33 @@ export default function TrainingPage({ user }) {
             {(plan.chapters || []).map((chapter) => (
               <Card key={chapter.id || `${plan.id}-${chapter.orderNo}`} className="border">
                 <CardContent className="p-0">
-                  <div className="px-6 py-4">
-                    <div className="flex justify-between items-start gap-4 flex-wrap">
+                  <div className="px-3 md:px-6 py-2 md:py-4">
+                    <div className="flex justify-between items-start gap-2 md:gap-4 flex-wrap">
                       <div>
-                        <h2 className="text-lg font-semibold">{chapter.title || `第 ${chapter.orderNo} 章`}</h2>
-                        <p className="text-sm text-muted-foreground">共 {chapter.items?.length || 0} 道题目</p>
+                        <h2 className="text-base md:text-lg font-semibold">{chapter.title || `第 ${chapter.orderNo} 章`}</h2>
+                        <p className="text-xs md:text-sm text-muted-foreground">共 {chapter.items?.length || 0} 道题目</p>
                       </div>
-                      <Badge variant="outline">第 {chapter.orderNo} 章</Badge>
+                      <Badge variant="outline" className="text-[10px] md:text-xs">第 {chapter.orderNo} 章</Badge>
                     </div>
                   </div>
 
                   <Separator />
 
-                  <div className="p-4">
+                  <div className="p-2 md:p-4">
                     {(chapter.items || []).length === 0 ? (
-                      <p className="text-sm text-muted-foreground">当前章节暂无题目。</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">当前章节暂无题目。</p>
                     ) : (
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-col gap-1 md:gap-1.5">
                         {(chapter.items || []).map((item, index) => (
                           <Card key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`} className="transition-all hover:border-primary hover:bg-accent hover:-translate-y-px p-0">
                             <Link
                               to={`/spaces/${spaceId}/problems/${item.problemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
-                              className="block px-4 py-2.5 no-underline text-foreground"
+                              className="block px-2 md:px-4 py-2 md:py-2.5 no-underline text-foreground"
                               onClick={saveScrollPosition}
                             >
-                              <div className="flex justify-between items-center gap-2">
-                                <span className="font-medium truncate">{problemTitleWithCompletion(item, index)}</span>
-                                <Badge variant="outline" className="shrink-0">{problemTypeText(item.type)}</Badge>
+                              <div className="flex justify-between items-center gap-1.5 md:gap-2">
+                                <span className="font-medium text-sm md:text-base truncate">{problemTitleWithCompletion(item, index)}</span>
+                                <Badge variant="outline" className="shrink-0 text-[10px] md:text-xs">{problemTypeText(item.type)}</Badge>
                               </div>
                             </Link>
                           </Card>

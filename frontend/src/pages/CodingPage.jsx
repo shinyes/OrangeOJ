@@ -447,36 +447,36 @@ function CodingPageContent({
     return (
       <div className="h-screen bg-background flex flex-col">
         <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
-          <div className="flex items-center justify-between h-12 px-4">
-            <div>
-              <h1 className="text-base font-semibold">{problem.title}</h1>
-              <p className="text-xs text-muted-foreground">{problemTypeText(problem.type)}</p>
+          <div className="flex items-center justify-between min-h-10 md:min-h-12 px-2 md:px-4 py-1 gap-1 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm md:text-base font-semibold truncate">{problem.title}</h1>
+              <p className="text-[10px] md:text-xs text-muted-foreground">{problemTypeText(problem.type)}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2 shrink-0">
               {canEditProblem && (
-                <Button variant="ghost" size="sm" onClick={() => setShowProblemEditor(true)}>
-                  <Pencil className="h-3.5 w-3.5 mr-1" />编辑题目
+                <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-3 text-[10px] md:text-xs" onClick={() => setShowProblemEditor(true)}>
+                  <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
                 </Button>
               )}
-              <Button variant="ghost" asChild><Link to={backTo}>{backLabel}</Link></Button>
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-3 text-[10px] md:text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
             </div>
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
           {showTrainingNav && (
-            <aside className="w-44 shrink-0 border-r bg-muted/20 overflow-y-auto p-2">
+            <aside className="w-full md:w-44 shrink-0 border-b md:border-b-0 md:border-r bg-muted/20 overflow-y-auto p-1.5 md:p-2 max-h-[8rem] md:max-h-none">
               {renderTrainingNavGrid()}
             </aside>
           )}
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-2 md:p-4">
             <div className="max-w-3xl mx-auto">
               {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
 
               <Card>
-                <CardContent className="p-4">
-                  <div className="p-3 bg-muted/50 rounded-lg mb-4">
+                <CardContent className="p-3 md:p-4">
+                  <div className="p-2 md:p-3 bg-muted/50 rounded-lg mb-3 md:mb-4 text-sm md:text-base">
                     <MarkdownContent content={problem.statementMd} />
                   </div>
 
@@ -488,16 +488,16 @@ function CodingPageContent({
                           <Label
                             key={`${String(opt)}-${index}`}
                             htmlFor={`opt-${index}`}
-                            className="flex items-start gap-2 py-0.5 px-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors"
+                            className="flex items-start gap-1.5 md:gap-2 py-1.5 md:py-0.5 px-1.5 md:px-2 rounded-md cursor-pointer hover:bg-accent/50 transition-colors"
                           >
-                            <RadioGroupItem value={String(opt)} id={`opt-${index}`} className="mt-0.5" />
+                            <RadioGroupItem value={String(opt)} id={`opt-${index}`} className="mt-0.5 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <MarkdownWithMarker
                                 marker={`${alphaOptionLabel(index)}.`}
                                 content={String(opt || '')}
                                 className="gap-x-[0.35rem]"
                                 markerClassName="min-w-[1.8ch]"
-                                contentClassName="text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.6rem] [&_pre]:text-[0.82rem]"
+                                contentClassName="text-[0.92rem] md:text-[0.98rem] [&_p]:my-[0.2rem] [&_ul]:my-[0.3rem] [&_ol]:my-[0.3rem] [&_pre]:my-[0.5rem] [&_pre]:text-[0.78rem] md:[&_pre]:text-[0.82rem]"
                               />
                             </div>
                           </Label>
@@ -521,7 +521,7 @@ function CodingPageContent({
                   )}
 
                   <div className="flex justify-start">
-                    <Button disabled={running || !objectiveAnswer} onClick={handleObjectiveSubmit}>
+                    <Button className="w-full md:w-auto" disabled={running || !objectiveAnswer} onClick={handleObjectiveSubmit}>
                       {running ? '提交中...' : '提交答案'}
                     </Button>
                   </div>
@@ -540,31 +540,33 @@ function CodingPageContent({
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
-        <div className="flex items-center justify-between h-10 px-4">
-          <h1 className="text-sm font-semibold flex-1 truncate">{problem.title}</h1>
-          {canEditProblem && (
-            <Button variant="ghost" size="sm" onClick={() => setShowProblemEditor(true)} className="ml-1">
-              <Pencil className="h-3.5 w-3.5 mr-1" />编辑题目
+        <div className="flex items-center justify-between min-h-8 md:min-h-10 px-2 md:px-4 py-0.5 gap-1 flex-wrap">
+          <h1 className="text-xs md:text-sm font-semibold flex-1 truncate">{problem.title}</h1>
+          <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
+            {canEditProblem && (
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowProblemEditor(true)}>
+                <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>
+              <Link to={backTo}><X className="h-3.5 w-3.5 md:h-4 md:w-4" /></Link>
             </Button>
-          )}
-          <Button variant="ghost" size="icon" asChild className="ml-2">
-            <Link to={backTo}><X className="h-4 w-4" /></Link>
-          </Button>
+          </div>
         </div>
       </header>
 
       {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
 
-      <div className="flex flex-1 overflow-hidden p-3 gap-3">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden p-1.5 md:p-3 gap-1.5 md:gap-3">
         {/* Training Nav Sidebar */}
         {showTrainingNav && (
-          <aside className="w-44 shrink-0 border-r bg-muted/20 rounded-lg overflow-y-auto p-2">
+          <aside className="hidden md:block w-44 shrink-0 border-r bg-muted/20 rounded-lg overflow-y-auto p-2">
             {renderTrainingNavGrid()}
           </aside>
         )}
 
         {/* Left Panel - Problem Description */}
-        <Card className={`${showTrainingNav ? 'w-[38%] min-w-[350px]' : 'w-[40%] min-w-[400px]'} flex flex-col overflow-hidden`}>
+        <Card className={`${showTrainingNav ? 'md:w-[38%] md:min-w-[350px]' : 'md:w-[40%] md:min-w-[400px]'} w-full flex flex-col overflow-hidden`}>
           <CardContent className="flex-1 overflow-auto p-4 scrollbar-thin">
             <h2 className="text-lg font-bold mb-3">题目描述</h2>
 
@@ -634,9 +636,9 @@ function CodingPageContent({
         <Card className="flex-1 flex flex-col overflow-hidden">
           <CardContent className="flex-1 flex flex-col p-3 overflow-auto">
             {/* Toolbar */}
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <div className="flex items-center gap-1 md:gap-2 mb-2 md:mb-3 flex-wrap">
               <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger className="w-[130px] h-9">
+                <SelectTrigger className="w-[100px] md:w-[130px] h-7 md:h-9 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -645,17 +647,17 @@ function CodingPageContent({
                   <SelectItem value="go">Go 1.25</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="default" className="bg-green-600 hover:bg-green-700" size="sm" disabled={running} onClick={handleRunClick}>
-                <Play className="h-3.5 w-3.5 mr-1" />运行
+              <Button variant="default" className="bg-green-600 hover:bg-green-700 h-7 md:h-8 text-xs px-1.5 md:px-3" size="sm" disabled={running} onClick={handleRunClick}>
+                <Play className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />运行
               </Button>
-              <Button size="sm" disabled={running} onClick={handleTestClick}>测试</Button>
-              <Button variant="secondary" size="sm" onClick={saveDraft}>
-                <Save className="h-3.5 w-3.5 mr-1" />保存
+              <Button size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" disabled={running} onClick={handleTestClick}>测试</Button>
+              <Button variant="secondary" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={saveDraft}>
+                <Save className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />保存
               </Button>
               <div className="flex-1" />
-              <Button variant="outline" size="sm" onClick={() => setShowSubmissionHistory(true)}>
-                <History className="h-3.5 w-3.5 mr-1" />
-                测评记录 {submissions.length > 0 && `(${submissions.length})`}
+              <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => setShowSubmissionHistory(true)}>
+                <History className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />
+                <span className="hidden sm:inline">测评记录</span> {submissions.length > 0 && `(${submissions.length})`}
               </Button>
             </div>
 

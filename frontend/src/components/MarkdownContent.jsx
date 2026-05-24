@@ -17,7 +17,7 @@ markdownRenderer.use(markedKatex({
 }))
 
 function renderMarkdown(content) {
-  const source = String(content || '').trim()
+  const source = String(content || '').replace(/\\n/g, '\n').trim()
   if (!source) return ''
   const html = markdownRenderer.parse(source)
   return DOMPurify.sanitize(typeof html === 'string' ? html : '', {
@@ -45,9 +45,9 @@ export default function MarkdownContent({ content = '', className, ...props }) {
         '[&_ol]:my-3 [&_ol]:pl-8 [&_ol]:list-decimal',
         '[&_li+li]:mt-1.5',
         '[&_blockquote]:my-4 [&_blockquote]:mx-0 [&_blockquote]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:text-muted-foreground',
-        '[&_pre]:my-4 [&_pre]:p-4 [&_pre]:inline-block [&_pre]:w-fit [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:border [&_pre]:border-border [&_pre]:text-sm [&_pre]:leading-relaxed [&_pre]:whitespace-pre',
-        '[&_code]:font-mono',
-        '[&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:text-sm',
+        '[&_pre]:my-4 [&_pre]:p-4 [&_pre]:block [&_pre]:w-full [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:border [&_pre]:border-border [&_pre]:text-sm [&_pre]:leading-relaxed [&_pre]:whitespace-pre-wrap',
+        '[&_code]:font-mono [&_code]:whitespace-pre-wrap',
+        '[&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:text-sm [&_:not(pre)>code]:whitespace-normal',
         '[&_pre_code]:bg-transparent [&_pre_code]:text-inherit',
         '[&_table]:w-full [&_table]:my-5 [&_table]:border-collapse',
         '[&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left',

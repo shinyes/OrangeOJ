@@ -375,8 +375,8 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
-        <div className="max-w-screen-xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
+        <div className="max-w-screen-xl mx-auto px-2 md:px-4">
+          <div className="flex items-center justify-between min-h-10 md:min-h-14 py-1 gap-2 flex-wrap">
             {/* Left section */}
             <div className="flex items-center gap-3">
               <div
