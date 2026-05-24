@@ -393,6 +393,13 @@ function CodingPageContent({
   const samples = body.samples || []
   const showTrainingNav = planId != null && trainingProblems.length > 0
 
+  const selectedSubmissionCaseDetails = selectedSubmission?.caseDetails || []
+  const selectedSubmissionCase = selectedSubmissionCaseDetails[selectedSubmissionCaseIndex] || null
+  const selectedSubmissionInput = selectedSubmissionCase?.input ?? selectedSubmission?.input ?? ''
+  const selectedSubmissionOutput = selectedSubmissionCase?.output ?? selectedSubmission?.output ?? ''
+  const selectedSubmissionExpectedOutput = selectedSubmissionCase?.expectedOutput ?? selectedSubmission?.expectedOutput ?? ''
+  const selectedSubmissionError = selectedSubmissionCase?.error ?? selectedSubmission?.error ?? ''
+
   const trainingNavTargetUrl = (targetProblemId) =>
     `/spaces/${spaceId}/problems/${targetProblemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`
 
