@@ -9,10 +9,10 @@ export default function LearningPanel({
   learningProblemSearch, onLearningProblemSearchChange, filteredLearningProblems, problemTypeText,
   learningTrainingSearch, onLearningTrainingSearchChange, canManageSelectedSpace,
   onOpenCreateTrainingPlan, filteredLearningTrainingPlans, onOpenEditTrainingPlan,
-  onOpenAssignTrainingParticipant, onDeleteTrainingPlan, onJoinTrainingPlan, trainingActionMessage,
+  onOpenAssignTrainingParticipant, onExportTrainingPlan, onDeleteTrainingPlan, onJoinTrainingPlan, trainingActionMessage,
   learningHomeworkSearch, onLearningHomeworkSearchChange, onOpenCreateHomework,
   filteredLearningHomeworks, onOpenEditHomework, onOpenAssignHomeworkTarget,
-  onDeleteHomework, homeworkActionMessage
+  onExportHomework, onDeleteHomework, homeworkActionMessage
 }) {
   if (!selectedSpace) {
     return (
@@ -114,6 +114,9 @@ export default function LearningPanel({
                       <Button size="sm" variant="outline" onClick={() => onOpenEditTrainingPlan(plan.id)}>编辑</Button>
                     )}
                     {canManageSelectedSpace && (
+                      <Button size="sm" variant="outline" onClick={() => onExportTrainingPlan(plan.id)}>导出</Button>
+                    )}
+                    {canManageSelectedSpace && (
                       <Button size="sm" variant="destructive" onClick={() => onDeleteTrainingPlan(plan.id)}>删除</Button>
                     )}
                   </CardFooter>
@@ -161,6 +164,9 @@ export default function LearningPanel({
                   )}
                   {canManageSelectedSpace && (
                     <Button size="sm" variant="outline" onClick={() => onOpenEditHomework(homework.id)}>编辑</Button>
+                  )}
+                  {canManageSelectedSpace && (
+                    <Button size="sm" variant="outline" onClick={() => onExportHomework(homework.id)}>导出</Button>
                   )}
                   {canManageSelectedSpace && (
                     <Button size="sm" variant="destructive" onClick={() => onDeleteHomework(homework.id)}>删除</Button>

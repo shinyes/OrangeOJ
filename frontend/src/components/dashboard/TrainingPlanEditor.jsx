@@ -10,10 +10,11 @@ import ToastMessage from '../ToastMessage'
 import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
 import { Label } from '../ui/label'
-import { parseProblemDraftArray } from '../../utils/problemDrafts'
+import { Upload } from 'lucide-react'
+import { api } from '../../api'
 
 function blankChapter(index) {
-  return { title: `第 ${index + 1} 章`, problemIds: [], problemSourceMode: 'manual', problemDraftsJSON: '' }
+  return { title: `第 ${index + 1} 章`, problemIds: [], problemSourceMode: 'manual' }
 }
 
 function normalizeProblemIds(chapter) {
@@ -26,13 +27,13 @@ function buildInitialForm(plan) {
   const chapters = Array.isArray(plan?.chapters)
     ? plan.chapters.map((chapter, index) => ({
         title: String(chapter?.title || `第 ${index + 1} 章`), problemIds: normalizeProblemIds(chapter),
-        problemSourceMode: 'manual', problemDraftsJSON: ''
+        problemSourceMode: 'manual'
       }))
     : [blankChapter(0)]
   return { title: String(plan?.title || ''), allowSelfJoin: plan?.allowSelfJoin !== false, isPublic: plan?.isPublic !== false, published: Boolean(plan?.published ?? plan?.publishedAt), chapters }
 }
 
-export default function TrainingPlanEditor({ open, mode = 'create', plan = null, problemOptions = [], onClose, onSubmit }) {
+export default function TrainingPlanEditor({ open, mode = 'create', plan = null, spaceId, problemOptions = [], onClose, onSubmit }) {
   const isEditMode = mode === 'edit'
   const [form, setForm] = useState(() => buildInitialForm(plan))
   const [submitting, setSubmitting] = useState(false)
@@ -69,6 +70,22 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
   const moveProblem = (chapterIndex, index, dir) => reorderProblems(chapterIndex, index, index + dir)
   const removeProblem = (chapterIndex, index) => setForm((c) => ({ ...c, chapters: c.chapters.map((ch, i) => i !== chapterIndex ? ch : { ...ch, problemIds: ch.problemIds.filter((_, j) => j !== index) }) }))
 
+  const handleChapterImportZip = async (chapterIndex, e) => {
+    const file = e.target.files?.[0]
+    if (!file || !spaceId) return
+    setChapterImporting((prev) => ({ ...prev, [chapterIndex]: true }))
+    try {
+      const result = await api.importProblems(spaceId, file)
+      setChapterImportedProblems((prev) => ({ ...prev, [chapterIndex]: result?.problems || [] }))
+    } catch (err) {
+      setSubmitError(err.message || 'ZIP 导入失败')
+      setChapterImportedProblems((prev) => ({ ...prev, [chapterIndex]: [] }))
+    } finally {
+      setChapterImporting((prev) => ({ ...prev, [chapterIndex]: false }))
+      e.target.value = ''
+    }
+  }
+
   const handleClose = () => { if (submitting) return; setSubmitError(''); onClose() }
 
   const handleSubmit = async () => {
@@ -78,12 +95,16 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
     let chapters
     try {
       chapters = form.chapters.map((chapter, index) => {
-        const normalizedChapter = { title: String(chapter.title || '').trim() || `第 ${index + 1} 章`, orderNo: index + 1, problemIds: [], problemDrafts: [] }
-        if ((!isEditMode || newChapterIndices.has(index)) && chapter.problemSourceMode === 'import') { normalizedChapter.problemDrafts = parseProblemDraftArray(chapter.problemDraftsJSON); return normalizedChapter }
+        const normalizedChapter = { title: String(chapter.title || '').trim() || `第 ${index + 1} 章`, orderNo: index + 1, problemIds: [] }
+        if ((!isEditMode || newChapterIndices.has(index)) && chapter.problemSourceMode === 'import') {
+          const imported = chapterImportedProblems[index] || []
+          normalizedChapter.problemIds = imported.map((p) => Number(p.id))
+          return normalizedChapter
+        }
         normalizedChapter.problemIds = normalizeProblemIds(chapter)
         return normalizedChapter
       })
-    } catch (err) { setSubmitError(err.message || '题目 JSON 数组不合法'); return }
+    } catch (err) { setSubmitError(err.message || '章节题目数据不合法'); return }
 
     try { setSubmitting(true); setSubmitError(''); await onSubmit({ title, allowSelfJoin: form.allowSelfJoin, isPublic: form.isPublic, published: form.published, chapters }); onClose() }
     catch (err) { setSubmitError(err.message || '保存失败') }
@@ -93,6 +114,8 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
   // Helper for searchable problem select
   const [collapsedChapters, setCollapsedChapters] = useState(() => new Set())
   const [newChapterIndices, setNewChapterIndices] = useState(() => new Set())
+  const [chapterImportedProblems, setChapterImportedProblems] = useState({})
+  const [chapterImporting, setChapterImporting] = useState({})
   const [searchInputs, setSearchInputs] = useState({})
   const itemRefs = useRef({})
   const chapterRefs = useRef({})
@@ -232,7 +255,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
                   <Tabs value={chapter.problemSourceMode || 'manual'} onValueChange={(v) => { if (v) updateChapter(chapterIndex, { problemSourceMode: v }); setSubmitError('') }}>
                     <TabsList className="w-full">
                       <TabsTrigger value="manual" className="flex-1">从题库选题</TabsTrigger>
-                      <TabsTrigger value="import" className="flex-1">导入题目 JSON 数组</TabsTrigger>
+                      <TabsTrigger value="import" className="flex-1">导入题目 ZIP</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>
@@ -240,10 +263,26 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
 
               {(!isEditMode || newChapterIndices.has(chapterIndex)) && chapter.problemSourceMode === 'import' ? (
                 <div className="px-2 pb-2">
-                  <p className="text-xs text-muted-foreground mb-2">这里接收本章节题目的 JSON 数组。每一项对应一题，字段与题目编辑器 JSON 模式一致。</p>
-                  <Textarea className="font-mono min-h-[200px]" value={chapter.problemDraftsJSON || ''}
-                    onChange={(e) => updateChapter(chapterIndex, { problemDraftsJSON: e.target.value })}
-                    placeholder={'[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'} />
+                  <p className="text-xs text-muted-foreground mb-2">上传题目 ZIP 文件（含 problems.json 和 images/ 目录），导入后自动创建题目。</p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled={chapterImporting[chapterIndex]}
+                      onClick={() => document.getElementById(`tp-zip-${chapterIndex}`)?.click()}>
+                      <Upload className="h-4 w-4 mr-1" />
+                      {chapterImporting[chapterIndex] ? '导入中...' : '选择 ZIP 文件'}
+                    </Button>
+                    <input type="file" id={`tp-zip-${chapterIndex}`} accept=".zip" className="hidden"
+                      onChange={(e) => handleChapterImportZip(chapterIndex, e)} />
+                  </div>
+                  {(chapterImportedProblems[chapterIndex] || []).length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium">已导入 {chapterImportedProblems[chapterIndex].length} 道题目</p>
+                      <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
+                        {chapterImportedProblems[chapterIndex].map((p) => (
+                          <li key={p.id}>#{p.id} {p.title}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="px-2 pb-2">

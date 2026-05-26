@@ -11,7 +11,8 @@ import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { Badge } from '../ui/badge'
 import { Label } from '../ui/label'
-import { parseProblemDraftArray } from '../../utils/problemDrafts'
+import { Upload } from 'lucide-react'
+import { api } from '../../api'
 
 function blankItem() { return { problemId: null } }
 
@@ -40,7 +41,7 @@ function buildInitialForm(homework) {
   }
 }
 
-export default function HomeworkEditor({ open, mode = 'create', homework = null, problemOptions = [], onClose, onSubmit }) {
+export default function HomeworkEditor({ open, mode = 'create', homework = null, spaceId, problemOptions = [], onClose, onSubmit }) {
   const isEditMode = mode === 'edit'
   const [form, setForm] = useState(() => buildInitialForm(homework))
   const [submitting, setSubmitting] = useState(false)
@@ -49,14 +50,31 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
   const [dragState, setDragState] = useState({ active: false, index: null })
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const [problemSourceMode, setProblemSourceMode] = useState('manual')
-  const [problemDraftsJSON, setProblemDraftsJSON] = useState('')
+  const [importedProblems, setImportedProblems] = useState([])
+  const [importing, setImporting] = useState(false)
   const [searchPerItem, setSearchPerItem] = useState({})
 
   useEffect(() => {
     if (!open) return
     setForm(buildInitialForm(homework)); setSubmitting(false); setSubmitError('')
-    setDragState({ active: false, index: null }); setDragOverIndex(null); setProblemSourceMode('manual'); setProblemDraftsJSON(''); setSearchPerItem({})
+    setDragState({ active: false, index: null }); setDragOverIndex(null); setProblemSourceMode('manual'); setImportedProblems([]); setSearchPerItem({})
   }, [open, homework, mode])
+
+  const handleImportZip = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true); setSubmitError('')
+    try {
+      const result = await api.importProblems(spaceId, file)
+      setImportedProblems(result?.problems || [])
+    } catch (err) {
+      setSubmitError(err.message || 'ZIP 导入失败')
+      setImportedProblems([])
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
+  }
 
   const problemMap = useMemo(() => {
     const map = new Map()
@@ -128,11 +146,12 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
     if (!title) { setSubmitError('作业标题不能为空'); return }
 
     let problemDrafts = []
-    const normalizedItems = problemSourceMode === 'import' ? [] : form.items.map((item, index) => ({ problemId: Number(item.problemId), orderNo: index + 1, score: 100 }))
+    const normalizedItems = problemSourceMode === 'import'
+      ? importedProblems.map((p, index) => ({ problemId: Number(p.id), orderNo: index + 1, score: 100 }))
+      : form.items.map((item, index) => ({ problemId: Number(item.problemId), orderNo: index + 1, score: 100 }))
 
     if (problemSourceMode === 'import') {
-      try { problemDrafts = parseProblemDraftArray(problemDraftsJSON) }
-      catch (err) { setSubmitError(err.message || '题目 JSON 数组不合法'); return }
+      if (importedProblems.length === 0) { setSubmitError('请先导入题目 ZIP'); return }
     } else {
       if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) { setSubmitError('请为每一道作业题选择有效题目'); return }
       if (new Set(normalizedItems.map((item) => item.problemId)).size !== normalizedItems.length) { setSubmitError('作业中不能重复添加同一道题'); return }
@@ -185,7 +204,7 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
               <Tabs value={problemSourceMode} onValueChange={(v) => { if (v) { setProblemSourceMode(v); setSubmitError('') } }}>
                 <TabsList className="w-full">
                   <TabsTrigger value="manual" className="flex-1">从题库选题</TabsTrigger>
-                  <TabsTrigger value="import" className="flex-1">导入题目 JSON 数组</TabsTrigger>
+                  <TabsTrigger value="import" className="flex-1">导入题目 ZIP</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -193,8 +212,24 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
 
           {problemSourceMode === 'import' && !isEditMode ? (
             <div>
-              <p className="text-xs text-muted-foreground mb-2">这里接收题目存储对象的 JSON 数组。每一项对应一题。</p>
-              <Textarea className="font-mono min-h-[300px]" value={problemDraftsJSON} onChange={(e) => setProblemDraftsJSON(e.target.value)} placeholder={'[ { "type": "single_choice", ... }, { "type": "programming", ... } ]'} />
+              <p className="text-xs text-muted-foreground mb-2">上传题目 ZIP 文件（含 problems.json 和 images/ 目录），导入后自动创建题目。</p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" disabled={importing} onClick={() => document.getElementById('hw-zip-input')?.click()}>
+                  <Upload className="h-4 w-4 mr-1" />
+                  {importing ? '导入中...' : '选择 ZIP 文件'}
+                </Button>
+                <input type="file" id="hw-zip-input" accept=".zip" className="hidden" onChange={handleImportZip} />
+              </div>
+              {importedProblems.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm font-medium">已导入 {importedProblems.length} 道题目：</p>
+                  <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
+                    {importedProblems.map((p) => (
+                      <li key={p.id}>#{p.id} {p.title}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ) : (
             <>

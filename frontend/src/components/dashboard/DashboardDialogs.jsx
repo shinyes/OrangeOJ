@@ -198,21 +198,21 @@ export default function DashboardDialogs({
   }
 
   if (activeModal === 'create-training-plan') {
-    return <TrainingPlanEditor open mode="create" problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreateTrainingPlan} />
+    return <TrainingPlanEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreateTrainingPlan} />
   }
 
   if (activeModal === 'edit-training-plan') {
     if (!modalState.editingTrainingPlan) return null
-    return <TrainingPlanEditor open mode="edit" plan={modalState.editingTrainingPlan} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedTrainingPlan} />
+    return <TrainingPlanEditor open mode="edit" spaceId={selectedSpaceId} plan={modalState.editingTrainingPlan} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedTrainingPlan} />
   }
 
   if (activeModal === 'create-homework') {
-    return <HomeworkEditor open mode="create" problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreateHomework} />
+    return <HomeworkEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreateHomework} />
   }
 
   if (activeModal === 'edit-homework') {
     if (!modalState.editingHomework) return null
-    return <HomeworkEditor open mode="edit" homework={modalState.editingHomework} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedHomework} />
+    return <HomeworkEditor open mode="edit" spaceId={selectedSpaceId} homework={modalState.editingHomework} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedHomework} />
   }
 
   if (activeModal === 'create-space') {

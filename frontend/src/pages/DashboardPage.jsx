@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { toFriendlyError } from '../api'
+import { api, toFriendlyError } from '../api'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
@@ -273,6 +273,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       filteredLearningTrainingPlans={filteredLearningTrainingPlans}
       onOpenEditTrainingPlan={openEditTrainingPlan}
       onOpenAssignTrainingParticipant={openAssignTrainingParticipantModal}
+      onExportTrainingPlan={(planId) => api.exportTrainingPlan(selectedSpaceId, planId)}
       onDeleteTrainingPlan={deleteTrainingPlan}
       onJoinTrainingPlan={joinTrainingPlan}
       trainingActionMessage={trainingActionMessage}
@@ -282,6 +283,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       filteredLearningHomeworks={filteredLearningHomeworks}
       onOpenEditHomework={openEditHomework}
       onOpenAssignHomeworkTarget={openAssignHomeworkTargetModal}
+      onExportHomework={(homeworkId) => api.exportHomework(selectedSpaceId, homeworkId)}
       onDeleteHomework={deleteHomework}
       homeworkActionMessage={homeworkActionMessage}
     />
@@ -304,6 +306,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       problemTypeText={problemTypeText}
       editingProblemId={modalState.editingProblemId}
       onOpenEditProblem={openEditProblem}
+      onExportSpaceProblem={(problemId) => api.exportProblems(selectedSpaceId, [problemId])}
       onRemoveSpaceProblem={removeSpaceProblem}
       spaceMembers={spaceMembers}
       memberRole={memberState.memberRole}

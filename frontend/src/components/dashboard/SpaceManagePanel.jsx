@@ -80,7 +80,7 @@ export default function SpaceManagePanel({
   hasAnySpaceAdminRole, selectedSpace, canManageSelectedSpace, spaceManageTab, onSpaceManageTabChange,
   normalizeLanguage, openSpaceSettingsModal, spaceSettingsMessage,
   spaceProblemSearch, onSpaceProblemSearchChange, filteredSpaceProblems, spaceProblems, problemTypeText,
-  editingProblemId, onOpenEditProblem, onRemoveSpaceProblem,
+  editingProblemId, onOpenEditProblem, onExportSpaceProblem, onRemoveSpaceProblem,
   spaceMembers, memberRole, onMemberRoleChange, memberCandidateInput, onMemberCandidateInputChange,
   memberCandidates, selectedMemberCandidates, onSelectedMemberCandidatesChange, memberSearchLoading,
   onSubmitMembers, memberSubmitting, onResetMemberPassword, resettingMemberId, onRemoveMember, removingMemberId,
@@ -206,6 +206,7 @@ export default function SpaceManagePanel({
                                 <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}>去做题</Link>
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => onOpenEditProblem(problem.id)}>编辑</Button>
+                              <Button size="sm" variant="outline" onClick={() => onExportSpaceProblem(problem.id)}>导出</Button>
                               <Button size="sm" variant="destructive" onClick={() => onRemoveSpaceProblem(problem.id)}>删除</Button>
                             </>
                           )} />

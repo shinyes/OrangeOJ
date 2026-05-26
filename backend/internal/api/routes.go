@@ -119,6 +119,15 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 	protected.Put("/spaces/:spaceId/problems/:problemId", auth.RequireSpaceAdmin(db), api.handleUpdateSpaceProblem)
 	protected.Delete("/spaces/:spaceId/problems/:problemId", auth.RequireSpaceAdmin(db), api.handleDeleteSpaceProblem)
 
+	// Image upload
+	protected.Post("/images/upload", api.handleUploadImage)
+
+	// ZIP export/import (space admin only)
+	protected.Get("/spaces/:spaceId/problems/export", api.handleExportProblems)
+	protected.Post("/spaces/:spaceId/problems/import", api.handleImportProblems)
+	protected.Get("/spaces/:spaceId/homeworks/:homeworkId/export", api.handleExportHomework)
+	protected.Get("/spaces/:spaceId/training-plans/:planId/export", api.handleExportTrainingPlan)
+
 	// Image tag management routes
 	protected.Get("/image-tags", api.ListImageTags)
 	protected.Post("/image-tags", api.CreateImageTag)
@@ -128,6 +137,7 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 	protected.Get("/image-tags/image/:imageUrl", api.GetImageTags)
 	protected.Get("/image-tags/tag/:id/images", api.GetImagesByTag)
 
+	app.Static("/api/uploads", "./uploads")
 	app.Static("/", "./web")
 	app.Get("*", func(c *fiber.Ctx) error {
 		return c.SendFile("./web/index.html")

@@ -8,9 +8,10 @@ import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
 import { Label } from '../ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Image, Plus, Trash2, X } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { normalizeObjectiveAnswerJson } from '../../utils/problemDrafts'
+import { api } from '../../api'
 
 const DEFAULT_TIME_LIMIT_MS = 1000
 const DEFAULT_MEMORY_LIMIT_MIB = 256
@@ -200,6 +201,41 @@ function renderCaseRows(title, rows, onAdd, onRemove, onChange) {
         ))}
       </div>
     </div>
+  )
+}
+
+function ImageUploadButton({ onUploaded }) {
+  const [uploading, setUploading] = useState(false)
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const result = await api.uploadImage(file)
+      if (result?.markdown) onUploaded(result.markdown)
+    } catch (err) {
+      // silently fail - the api layer handles error display
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <>
+      <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+        id={`img-upload-${Math.random().toString(36).slice(2, 8)}`}
+        className="hidden" onChange={handleFile} />
+      <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0"
+        disabled={uploading}
+        onClick={(e) => {
+          const input = e.currentTarget.previousElementSibling
+          if (input) input.click()
+        }}>
+        <Image className="h-3.5 w-3.5" />
+      </Button>
+    </>
   )
 }
 
@@ -422,7 +458,10 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
               </div>
 
               <div>
-                <Label className="mb-1 block">题面 Markdown</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>题面 Markdown</Label>
+                  <ImageUploadButton onUploaded={(md) => updateField('statementMd', form.statementMd + '\n' + md + '\n')} />
+                </div>
                 <Textarea className="min-h-[160px]" value={form.statementMd} onChange={(e) => updateField('statementMd', e.target.value)} />
               </div>
             </>
@@ -469,7 +508,10 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
                   {form.singleChoice.options.map((option, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <Badge variant="outline" className="min-w-[42px] justify-center">{OPTION_LABELS[index]}</Badge>
-                      <Input placeholder={`选项 ${OPTION_LABELS[index]}`} value={option} onChange={(e) => updateOption(index, e.target.value)} />
+                      <div className="flex-1 flex items-center gap-1">
+                        <Input placeholder={`选项 ${OPTION_LABELS[index]}`} value={option} onChange={(e) => updateOption(index, e.target.value)} className="flex-1" />
+                        <ImageUploadButton onUploaded={(md) => updateOption(index, option + ' ' + md)} />
+                      </div>
                       <Button size="sm" variant="ghost" onClick={() => removeOption(index)} disabled={form.singleChoice.options.length <= 2}>
                         <Trash2 className="h-4 w-4" />
                       </Button>

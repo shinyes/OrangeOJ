@@ -162,5 +162,56 @@ export const api = {
   linkImageTag: (imageUrl, tagId) => apiFetch('/api/image-tags/link', { method: 'POST', body: { imageUrl, tagId } }),
   unlinkImageTag: (imageUrl, tagId) => apiFetch('/api/image-tags/unlink', { method: 'DELETE', body: { imageUrl, tagId } }),
   getImageTags: (imageUrl) => apiFetch(`/api/image-tags/image/${encodeURIComponent(imageUrl)}`),
-  getImagesByTag: (tagId) => apiFetch(`/api/image-tags/tag/${tagId}/images`)
+  getImagesByTag: (tagId) => apiFetch(`/api/image-tags/tag/${tagId}/images`),
+
+  uploadImage: (file) => uploadFile('/api/images/upload', file),
+
+  exportProblems: (spaceId, problemIds) => downloadFile(`/api/spaces/${spaceId}/problems/export?ids=${problemIds.join(',')}`),
+  importProblems: (spaceId, zipFile) => uploadFile(`/api/spaces/${spaceId}/problems/import`, zipFile),
+
+  exportHomework: (spaceId, homeworkId) => downloadFile(`/api/spaces/${spaceId}/homeworks/${homeworkId}/export`),
+  exportTrainingPlan: (spaceId, planId) => downloadFile(`/api/spaces/${spaceId}/training-plans/${planId}/export`)
+}
+
+async function uploadFile(path, file) {
+  const fullPath = API_BASE_URL ? `${API_BASE_URL}${path}` : path
+  const formData = new FormData()
+  formData.append(file instanceof File && file.name.endsWith('.zip') ? 'zip' : 'image', file)
+  const response = await fetch(fullPath, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  })
+  let data = null
+  try { data = await response.json() } catch { data = null }
+  if (!response.ok) {
+    const message = data?.error || `Upload failed: ${response.status}`
+    throw new Error(toFriendlyError(message))
+  }
+  return data?.data
+}
+
+async function downloadFile(path) {
+  const fullPath = API_BASE_URL ? `${API_BASE_URL}${path}` : path
+  const response = await fetch(fullPath, { method: 'GET', credentials: 'include' })
+  if (!response.ok) {
+    let message = `Download failed: ${response.status}`
+    try {
+      const data = await response.json()
+      message = data?.error || message
+    } catch {}
+    throw new Error(toFriendlyError(message))
+  }
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename=(.+?)(;|$)/)
+  const filename = match ? match[1].replace(/"/g, '') : 'export.zip'
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
