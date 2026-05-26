@@ -791,7 +791,10 @@ export default function HomeworkPage() {
               </Button>
             </div>
           ) : (() => {
-              const correctAnswer = problem?.answerJson?.answer
+              const answerJson = problem?.answerJson || {}
+              const correctAnswer = problemType === 'single_choice' && typeof answerJson.answerIndex === 'number'
+                ? (body.options || [])[answerJson.answerIndex]
+                : answerJson.answer
               const userAnswer = objectiveValue
               let isCorrect = false
               if (problemType === 'single_choice') {
@@ -802,9 +805,7 @@ export default function HomeworkPage() {
               const correctLabel = problemType === 'true_false'
                 ? (correctAnswer === true || correctAnswer === 'true' ? '正确' : '错误')
                 : null
-              const correctIndex = problemType === 'single_choice'
-                ? (body.options || []).findIndex((opt) => String(opt) === String(correctAnswer))
-                : -1
+              const correctIndex = problemType === 'single_choice' ? answerJson.answerIndex : -1
               const showCorrectHint = isReviewMode && !isCorrect && correctAnswer !== undefined && correctAnswer !== null
 
               return (

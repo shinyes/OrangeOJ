@@ -82,7 +82,7 @@ export default function useProblemActions({
       setError('')
       problemState.setEditingProblemId(problemId)
       const problem = await api.getProblem(selectedSpaceId, problemId, { includeAnswer: true })
-      problemState.setEditingSpaceProblem(problem)
+			problemState.setEditingSpaceProblem(problem)
       modalState.openConfigModal('edit-space-problem')
     } catch (err) {
       problemState.setEditingProblemId(null)

@@ -122,7 +122,7 @@ func TestCreateSpaceProblemNormalizesSingleChoiceAnswerIndex(t *testing.T) {
 		"title":       "索引答案单选题",
 		"statementMd": "请选择正确答案",
 		"bodyJson":    map[string]interface{}{"options": []string{"A1", "B2", "C3", "D4"}},
-		"answerJson":  map[string]interface{}{"correctIndex": 2},
+		"answerJson":  map[string]interface{}{"answerIndex": 2},
 	})
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
@@ -138,8 +138,8 @@ func TestCreateSpaceProblemNormalizesSingleChoiceAnswerIndex(t *testing.T) {
 	if err := json.Unmarshal([]byte(storedAnswerJSON), &storedAnswer); err != nil {
 		t.Fatalf("decode stored answer json: %v", err)
 	}
-	if storedAnswer["answer"] != "C3" {
-		t.Fatalf("expected stored answer C3, got %+v", storedAnswer)
+	if storedAnswer["answerIndex"] != float64(2) {
+		t.Fatalf("expected stored answerIndex 2, got %+v", storedAnswer)
 	}
 
 	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"?includeAnswer=1", cookie, nil)
@@ -151,8 +151,8 @@ func TestCreateSpaceProblemNormalizesSingleChoiceAnswerIndex(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected answerJson in response, got %+v", getEnv.Data["answerJson"])
 	}
-	if answerJSON["answer"] != "C3" {
-		t.Fatalf("expected response answer C3, got %+v", answerJSON)
+	if answerJSON["answerIndex"] != float64(2) {
+		t.Fatalf("expected response answerIndex 2, got %+v", answerJSON)
 	}
 }
 
@@ -171,7 +171,7 @@ func TestGetSpaceProblemIncludeAnswerRequiresSpaceAdmin(t *testing.T) {
 		"title":       "带答案的单选题",
 		"statementMd": "请选择正确答案",
 		"bodyJson":    map[string]interface{}{"options": []string{"A1", "B2", "C3", "D4"}},
-		"answerJson":  map[string]interface{}{"answer": "C3"},
+		"answerJson":  map[string]interface{}{"answerIndex": 2},
 	})
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
@@ -191,8 +191,12 @@ func TestGetSpaceProblemIncludeAnswerRequiresSpaceAdmin(t *testing.T) {
 
 	memberGetWithAnswerResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"?includeAnswer=1", memberCookie, nil)
 	defer memberGetWithAnswerResp.Body.Close()
-	if memberGetWithAnswerResp.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected member includeAnswer get 403, got %d", memberGetWithAnswerResp.StatusCode)
+	if memberGetWithAnswerResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected member includeAnswer OK, got %d", memberGetWithAnswerResp.StatusCode)
+	}
+	memberWithAnswerEnv := decodeEnvelope[map[string]interface{}](t, memberGetWithAnswerResp)
+	if _, ok := memberWithAnswerEnv.Data["answerJson"]; ok {
+		t.Fatalf("member should not receive answerJson even with includeAnswer flag: %+v", memberWithAnswerEnv.Data)
 	}
 
 	adminGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"?includeAnswer=1", cookie, nil)
@@ -204,8 +208,8 @@ func TestGetSpaceProblemIncludeAnswerRequiresSpaceAdmin(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected answerJson in admin response, got %+v", adminEnv.Data["answerJson"])
 	}
-	if answerJSON["answer"] != "C3" {
-		t.Fatalf("expected answer C3, got %+v", answerJSON)
+	if answerJSON["answerIndex"] != float64(2) {
+		t.Fatalf("expected answerIndex 2, got %+v", answerJSON)
 	}
 }
 

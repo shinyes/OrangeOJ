@@ -44,11 +44,13 @@ func normalizeProblemPayload(req *problemPayload) error {
 	if !isValidProblemType(req.Type) {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid problem type")
 	}
-	if req.TimeLimitMS <= 0 {
-		req.TimeLimitMS = 1000
-	}
-	if req.MemoryLimitMiB <= 0 {
-		req.MemoryLimitMiB = 256
+	if req.Type == "programming" {
+		if req.TimeLimitMS <= 0 {
+			req.TimeLimitMS = 1000
+		}
+		if req.MemoryLimitMiB <= 0 {
+			req.MemoryLimitMiB = 256
+		}
 	}
 	if len(req.BodyJSON) == 0 {
 		req.BodyJSON = json.RawMessage(`{}`)
@@ -524,10 +526,7 @@ func (a *API) handleGetSpaceProblem(c *fiber.Ctx) error {
 		if err != nil {
 			return err
 		}
-		if !canManage {
-			return respondError(c, fiber.StatusForbidden, "space admin required")
-		}
-		includeAnswer = true
+		includeAnswer = canManage
 	}
 
 	var (
@@ -541,14 +540,16 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeSt
 		return err
 	}
 	resp := fiber.Map{
-		"id":             problemID,
-		"type":           typeStr,
-		"title":          title,
-		"tags":           decodeProblemTags(tagsJSON),
-		"statementMd":    statement,
-		"bodyJson":       json.RawMessage(bodyJSON),
-		"timeLimitMs":    timeLimit,
-		"memoryLimitMiB": memoryLimit,
+		"id":          problemID,
+		"type":        typeStr,
+		"title":       title,
+		"tags":        decodeProblemTags(tagsJSON),
+		"statementMd": statement,
+		"bodyJson":    json.RawMessage(bodyJSON),
+	}
+	if typeStr == "programming" {
+		resp["timeLimitMs"] = timeLimit
+		resp["memoryLimitMiB"] = memoryLimit
 	}
 	if includeAnswer {
 		resp["answerJson"] = json.RawMessage(answerJSON)

@@ -22,9 +22,8 @@ func normalizeObjectiveAnswerPayload(req *problemPayload) error {
 		if len(options) == 0 {
 			return nil
 		}
-		if normalized, ok := normalizeSingleChoiceExpected(answer, options); ok {
-			answer["answer"] = normalized
-			next, err := json.Marshal(answer)
+		if index, ok := intValueFromAny(answer["answerIndex"]); ok && index >= 0 && index < len(options) {
+			next, err := json.Marshal(map[string]interface{}{"answerIndex": index})
 			if err != nil {
 				return err
 			}
@@ -62,17 +61,10 @@ func expectedObjectiveAnswer(problemType string, answerJSON string, bodyJSON str
 			}
 		}
 		options := optionStringsFromAny(body["options"])
-		if expected, ok := target["answer"]; ok {
-			if len(options) > 0 {
-				if normalized, matched := canonicalSingleChoiceAnswer(expected, options); matched {
-					return normalized, nil
-				}
-			}
-			return expected, nil
+		if index, ok := intValueFromAny(target["answerIndex"]); ok && index >= 0 && index < len(options) {
+			return options[index], nil
 		}
-		if normalized, ok := normalizeSingleChoiceExpected(target, options); ok {
-			return normalized, nil
-		}
+		return nil, fmt.Errorf("answer_json.answerIndex required")
 	case "true_false":
 		if expected, ok := target["answer"]; ok {
 			if normalized, matched := normalizeTrueFalseExpected(map[string]interface{}{"answer": expected}); matched {
@@ -118,51 +110,6 @@ func optionStringsFromAny(raw interface{}) []string {
 	return result
 }
 
-func normalizeSingleChoiceExpected(answer map[string]interface{}, options []string) (string, bool) {
-	if len(options) == 0 {
-		return "", false
-	}
-
-	if value, ok := answer["answer"]; ok {
-		return canonicalSingleChoiceAnswer(value, options)
-	}
-
-	for _, key := range []string{"correctIndex", "answerIndex", "correctAnswerIndex"} {
-		if index, ok := intValueFromAny(answer[key]); ok && index >= 0 && index < len(options) {
-			return options[index], true
-		}
-	}
-
-	for _, key := range []string{"correctOption", "correctLabel", "correctAnswer"} {
-		if value, ok := answer[key]; ok {
-			if normalized, matched := canonicalSingleChoiceAnswer(value, options); matched {
-				return normalized, true
-			}
-		}
-	}
-
-	return "", false
-}
-
-func canonicalSingleChoiceAnswer(value interface{}, options []string) (string, bool) {
-	raw := strings.TrimSpace(fmt.Sprintf("%v", value))
-	if raw == "" {
-		return "", false
-	}
-
-	for _, option := range options {
-		if strings.EqualFold(strings.TrimSpace(option), raw) {
-			return option, true
-		}
-	}
-
-	if index, ok := optionIndexFromLabel(raw); ok && index >= 0 && index < len(options) {
-		return options[index], true
-	}
-
-	return raw, true
-}
-
 func normalizeTrueFalseExpected(answer map[string]interface{}) (bool, bool) {
 	for _, key := range []string{"answer", "correct", "correctAnswer", "value"} {
 		if value, ok := answer[key]; ok {
@@ -190,12 +137,4 @@ func intValueFromAny(value interface{}) (int, bool) {
 	default:
 		return 0, false
 	}
-}
-
-func optionIndexFromLabel(raw string) (int, bool) {
-	value := strings.TrimSpace(strings.ToUpper(raw))
-	if len(value) == 1 && value[0] >= 'A' && value[0] <= 'Z' {
-		return int(value[0] - 'A'), true
-	}
-	return 0, false
 }

@@ -16,14 +16,6 @@ function getOptionStrings(bodyJson) {
   return Array.isArray(bodyJson?.options) ? bodyJson.options.map((item) => String(item ?? '').trim()) : []
 }
 
-function optionIndexFromLabel(value) {
-  const raw = String(value || '').trim().toUpperCase()
-  if (raw.length === 1 && raw >= 'A' && raw <= 'Z') {
-    return raw.charCodeAt(0) - 65
-  }
-  return -1
-}
-
 function integerFromValue(value) {
   if (value === null || value === undefined || String(value).trim() === '') return null
   const parsed = Number(value)
@@ -36,43 +28,9 @@ export function normalizeSingleChoiceAnswerJson(bodyJson, answerJson) {
     return answerJson && typeof answerJson === 'object' && !Array.isArray(answerJson) ? answerJson : {}
   }
 
-  const normalizeAnswerValue = (value) => {
-    const raw = String(value ?? '').trim()
-    const exactMatch = options.find((option) => option.toLowerCase() === raw.toLowerCase())
-    if (exactMatch) return exactMatch
-
-    const labelIndex = optionIndexFromLabel(raw)
-    if (labelIndex >= 0 && labelIndex < options.length) {
-      return options[labelIndex]
-    }
-
-    return raw
-  }
-
-  if (Object.prototype.hasOwnProperty.call(answerJson, 'answer')) {
-    return {
-      ...answerJson,
-      answer: normalizeAnswerValue(answerJson.answer)
-    }
-  }
-
-  for (const key of ['correctIndex', 'answerIndex', 'correctAnswerIndex']) {
-    const index = integerFromValue(answerJson[key])
-    if (index !== null && index >= 0 && index < options.length) {
-      return {
-        ...answerJson,
-        answer: options[index]
-      }
-    }
-  }
-
-  for (const key of ['correctOption', 'correctLabel', 'correctAnswer']) {
-    if (Object.prototype.hasOwnProperty.call(answerJson, key)) {
-      return {
-        ...answerJson,
-        answer: normalizeAnswerValue(answerJson[key])
-      }
-    }
+  const index = integerFromValue(answerJson.answerIndex)
+  if (index !== null && index >= 0 && index < options.length) {
+    return { answerIndex: index }
   }
 
   return answerJson
@@ -134,15 +92,18 @@ export function parseProblemDraftArray(raw) {
     const rawAnswerJson = item.answerJson && typeof item.answerJson === 'object' && !Array.isArray(item.answerJson) ? item.answerJson : {}
     const answerJson = normalizeObjectiveAnswerJson(type, bodyJson, rawAnswerJson)
 
-    return {
+    const result = {
       type,
       title,
       tags: Array.isArray(item.tags) ? item.tags : [],
       statementMd: String(item.statementMd || ''),
       bodyJson,
-      answerJson,
-      timeLimitMs: Number(item.timeLimitMs) > 0 ? Number(item.timeLimitMs) : 1000,
-      memoryLimitMiB: Number(item.memoryLimitMiB) > 0 ? Number(item.memoryLimitMiB) : 256
+      answerJson
     }
+    if (type === 'programming') {
+      result.timeLimitMs = Number(item.timeLimitMs) > 0 ? Number(item.timeLimitMs) : 1000
+      result.memoryLimitMiB = Number(item.memoryLimitMiB) > 0 ? Number(item.memoryLimitMiB) : 256
+    }
+    return result
   })
 }

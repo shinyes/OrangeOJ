@@ -55,13 +55,17 @@ function parseTagInput(raw) { return String(raw || '').split(/[\n,，]+/).map((i
 function normalizePositiveInteger(value, fallback) { const parsed = Number(value); return parsed > 0 ? parsed : fallback }
 
 function resolveSingleChoiceAnswerIndex(options, answerJson) {
-  const normalizedAnswerJson = normalizeObjectiveAnswerJson('single_choice', { options }, answerJson)
-  const raw = String(normalizedAnswerJson?.answer ?? '').trim()
-  if (!raw) return 0
-  const exactIndex = options.findIndex((item) => String(item) === raw)
-  if (exactIndex >= 0) return exactIndex
-  const normalizedIndex = options.findIndex((item) => String(item).trim().toLowerCase() === raw.toLowerCase())
-  return normalizedIndex >= 0 ? normalizedIndex : 0
+	if (answerJson && typeof answerJson.answerIndex === 'number' && answerJson.answerIndex >= 0 && answerJson.answerIndex < options.length) {
+    return answerJson.answerIndex
+  }
+  const raw = String(answerJson?.answer ?? '').trim()
+  if (raw) {
+    const idx = options.findIndex((opt) => opt === raw)
+    if (idx >= 0) return idx
+    const ciIdx = options.findIndex((opt) => opt.toLowerCase() === raw.toLowerCase())
+    if (ciIdx >= 0) return ciIdx
+  }
+  return 0
 }
 
 function buildProblemDataFromForm(form, options = {}) {
@@ -85,7 +89,7 @@ function buildProblemDataFromForm(form, options = {}) {
       if (new Set(optionsList.map((item) => item.toLowerCase())).size !== optionsList.length) throw new Error('单选题选项不能重复')
     }
     bodyJson = { options: optionsList }
-    answerJson = { answer: optionsList[form.singleChoice.answerIndex] || optionsList[0] || '' }
+    answerJson = { answerIndex: form.singleChoice.answerIndex }
     return { bodyJson, answerJson }
   }
 
@@ -94,7 +98,7 @@ function buildProblemDataFromForm(form, options = {}) {
 }
 
 function buildInitialForm(problem) {
-  const type = problem?.type || 'programming'
+	const type = problem?.type || 'programming'
   const body = problem?.bodyJson || {}
   const answer = problem?.answerJson || {}
   const options = normalizeOptions(body.options)
@@ -117,11 +121,14 @@ function buildInitialForm(problem) {
 
 function buildStorageDraftFromForm(form, options = {}) {
   const { bodyJson, answerJson } = buildProblemDataFromForm(form, { strict: false })
+  const problemType = options.lockedProblemType || form.type
   const draft = {
-    type: options.lockedProblemType || form.type, title: form.title, tags: normalizeTagList(form.tags),
-    statementMd: form.statementMd, bodyJson, answerJson,
-    timeLimitMs: normalizePositiveInteger(form.timeLimitMs, DEFAULT_TIME_LIMIT_MS),
-    memoryLimitMiB: normalizePositiveInteger(form.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
+    type: problemType, title: form.title, tags: normalizeTagList(form.tags),
+    statementMd: form.statementMd, bodyJson, answerJson
+  }
+  if (problemType === 'programming') {
+    draft.timeLimitMs = normalizePositiveInteger(form.timeLimitMs, DEFAULT_TIME_LIMIT_MS)
+    draft.memoryLimitMiB = normalizePositiveInteger(form.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
   }
   return JSON.stringify(draft ?? {}, null, 2)
 }
@@ -149,11 +156,16 @@ function parseStorageDraft(raw, options = {}) {
   const bodyJson = draft.bodyJson && typeof draft.bodyJson === 'object' && !Array.isArray(draft.bodyJson) ? draft.bodyJson : {}
   const rawAnswerJson = draft.answerJson && typeof draft.answerJson === 'object' && !Array.isArray(draft.answerJson) ? draft.answerJson : {}
   const answerJson = normalizeObjectiveAnswerJson(type, bodyJson, rawAnswerJson)
-  return { type, title: String(draft.title || ''), tags: normalizeTagList(draft.tags), statementMd: String(draft.statementMd || ''), bodyJson, answerJson, timeLimitMs: normalizePositiveInteger(draft.timeLimitMs, DEFAULT_TIME_LIMIT_MS), memoryLimitMiB: normalizePositiveInteger(draft.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB) }
+  const result = { type, title: String(draft.title || ''), tags: normalizeTagList(draft.tags), statementMd: String(draft.statementMd || ''), bodyJson, answerJson }
+  if (type === 'programming') {
+    result.timeLimitMs = normalizePositiveInteger(draft.timeLimitMs, DEFAULT_TIME_LIMIT_MS)
+    result.memoryLimitMiB = normalizePositiveInteger(draft.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
+  }
+  return result
 }
 
 function buildFormFromStorageDraft(draft) {
-  return buildInitialForm({ type: draft.type, title: draft.title, tags: draft.tags, statementMd: draft.statementMd, bodyJson: draft.bodyJson, answerJson: draft.answerJson, timeLimitMs: draft.timeLimitMs, memoryLimitMiB: draft.memoryLimitMiB })
+  return buildInitialForm({ type: draft.type, title: draft.title, tags: draft.tags, statementMd: draft.statementMd, bodyJson: draft.bodyJson, answerJson: draft.answerJson, timeLimitMs: draft.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS, memoryLimitMiB: draft.memoryLimitMiB ?? DEFAULT_MEMORY_LIMIT_MIB })
 }
 
 function formsEqual(left, right) { return JSON.stringify(left) === JSON.stringify(right) }
@@ -204,7 +216,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
 
   useEffect(() => {
     if (!open) return
-    const nextForm = buildInitialForm(problem)
+		const nextForm = buildInitialForm(problem)
     setForm(nextForm)
     setJSONDraft(buildStorageDraftFromForm(nextForm, { lockedProblemType: isEditMode && problem?.type ? problem.type : undefined }))
     setEditorMode('ui'); setSubmitting(false); setSubmitError(''); setJSONSyncError(''); setTagInputValue('')
@@ -288,22 +300,30 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
     let problemType = lockedProblemType, title = form.title.trim()
     let mergedTags = normalizeTagList([...form.tags, ...parseTagInput(tagInputValue)])
     let statementMd = form.statementMd
-    let timeLimitMs = Number(form.timeLimitMs) > 0 ? Number(form.timeLimitMs) : DEFAULT_TIME_LIMIT_MS
-    let memoryLimitMiB = Number(form.memoryLimitMiB) > 0 ? Number(form.memoryLimitMiB) : DEFAULT_MEMORY_LIMIT_MIB
+    let timeLimitMs = DEFAULT_TIME_LIMIT_MS
+    let memoryLimitMiB = DEFAULT_MEMORY_LIMIT_MIB
     let bodyJson = {}, answerJson = {}
 
     try {
       if (editorMode === 'json') {
         const draft = parseStorageDraft(jsonDraft, { lockedProblemType })
         problemType = draft.type; title = draft.title.trim(); mergedTags = draft.tags; statementMd = draft.statementMd
-        timeLimitMs = draft.timeLimitMs; memoryLimitMiB = draft.memoryLimitMiB; bodyJson = draft.bodyJson; answerJson = draft.answerJson
+        timeLimitMs = draft.timeLimitMs ?? timeLimitMs; memoryLimitMiB = draft.memoryLimitMiB ?? memoryLimitMiB
+        bodyJson = draft.bodyJson; answerJson = draft.answerJson
       } else { const payload = buildProblemDataFromForm(form, { strict: true }); bodyJson = payload.bodyJson; answerJson = payload.answerJson }
     } catch (err) { setSubmitError(err.message || '题目内容格式不正确'); return }
     if (!title) { setSubmitError('题目标题不能为空'); return }
 
     try {
       setSubmitting(true); setSubmitError('')
-      await onSubmit({ type: problemType, title, tags: mergedTags, statementMd, bodyJson, answerJson, timeLimitMs, memoryLimitMiB })
+      const submitData = { type: problemType, title, tags: mergedTags, statementMd, bodyJson, answerJson }
+      if (problemType === 'programming') {
+        timeLimitMs = Number(form.timeLimitMs) > 0 ? Number(form.timeLimitMs) : DEFAULT_TIME_LIMIT_MS
+        memoryLimitMiB = Number(form.memoryLimitMiB) > 0 ? Number(form.memoryLimitMiB) : DEFAULT_MEMORY_LIMIT_MIB
+        submitData.timeLimitMs = timeLimitMs
+        submitData.memoryLimitMiB = memoryLimitMiB
+      }
+      await onSubmit(submitData)
       setTagInputValue(''); onClose()
     } catch (err) { setSubmitError(err.message || '保存失败') }
     finally { setSubmitting(false) }
@@ -359,12 +379,16 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
                 <div className="col-span-12 md:col-span-5">
                   <Input placeholder="题目标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
                 </div>
-                <div className="col-span-6 md:col-span-2">
-                  <Input type="number" placeholder="时间限制 (ms)" value={form.timeLimitMs} onChange={(e) => updateField('timeLimitMs', e.target.value)} min={1} />
-                </div>
-                <div className="col-span-6 md:col-span-2">
-                  <Input type="number" placeholder="内存限制 (MiB)" value={form.memoryLimitMiB} onChange={(e) => updateField('memoryLimitMiB', e.target.value)} min={1} />
-                </div>
+                {form.type === 'programming' && (
+                  <>
+                    <div className="col-span-6 md:col-span-2">
+                      <Input type="number" placeholder="时间限制 (ms)" value={form.timeLimitMs} onChange={(e) => updateField('timeLimitMs', e.target.value)} min={1} />
+                    </div>
+                    <div className="col-span-6 md:col-span-2">
+                      <Input type="number" placeholder="内存限制 (MiB)" value={form.memoryLimitMiB} onChange={(e) => updateField('memoryLimitMiB', e.target.value)} min={1} />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div>

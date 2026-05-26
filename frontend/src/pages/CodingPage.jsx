@@ -148,7 +148,7 @@ export default function CodingPage() {
     try {
       setError('')
       await api.updateSpaceProblem(spaceId, problemId, problemData)
-      const updated = await api.getProblem(spaceId, problemId)
+      const updated = await api.getProblem(spaceId, problemId, { includeAnswer: true })
       setProblem(updated)
       setShowProblemEditor(false)
       toast.success('题目已保存')
@@ -182,7 +182,7 @@ export default function CodingPage() {
         setLoading(true)
         setError('')
         if (!spaceId) throw new Error('缺少空间信息')
-        const promises = [api.getProblem(spaceId, problemId), api.getSpace(spaceId)]
+        const promises = [api.getProblem(spaceId, problemId, { includeAnswer: true }), api.getSpace(spaceId)]
         if (planId) promises.push(api.getTrainingPlan(spaceId, planId))
         const results = await Promise.all(promises)
         const [data, space] = results

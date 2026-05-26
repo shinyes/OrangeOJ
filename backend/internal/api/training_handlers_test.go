@@ -248,7 +248,7 @@ func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
 							"options": []string{"A", "B", "C", "D"},
 						},
 						"answerJson": map[string]interface{}{
-							"correctIndex": 2,
+							"answerIndex": 2,
 						},
 					},
 					{
@@ -307,8 +307,8 @@ func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
 	if err := json.Unmarshal([]byte(importedAnswerJSON), &importedAnswer); err != nil {
 		t.Fatalf("decode imported answer json: %v", err)
 	}
-	if importedAnswer["answer"] != "C" {
-		t.Fatalf("expected imported answer C, got %+v", importedAnswer)
+	if importedAnswer["answerIndex"] != float64(2) {
+		t.Fatalf("expected imported answerIndex 2, got %+v", importedAnswer)
 	}
 }
 

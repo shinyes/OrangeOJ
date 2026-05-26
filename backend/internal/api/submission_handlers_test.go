@@ -6,7 +6,7 @@ import (
 )
 
 func TestEvaluateObjectiveAnswer(t *testing.T) {
-	ok, err := evaluateObjectiveAnswer("single_choice", `{"answer":"B"}`, "b")
+	ok, err := evaluateObjectiveAnswer("single_choice", `{"answerIndex":1}`, "B", `{"options":["A","B","C"]}`)
 	if err != nil {
 		t.Fatalf("single choice error: %v", err)
 	}
@@ -14,20 +14,20 @@ func TestEvaluateObjectiveAnswer(t *testing.T) {
 		t.Fatalf("expected single choice answer to be correct")
 	}
 
-	ok, err = evaluateObjectiveAnswer("single_choice", `{"correctIndex":1}`, "B", `{"options":["A","B","C"]}`)
+	ok, err = evaluateObjectiveAnswer("single_choice", `{"answerIndex":1}`, "B", `{"options":["A","B","C"]}`)
 	if err != nil {
-		t.Fatalf("single choice correctIndex error: %v", err)
+		t.Fatalf("single choice answerIndex error: %v", err)
 	}
 	if !ok {
-		t.Fatalf("expected correctIndex single choice answer to be correct")
+		t.Fatalf("expected answerIndex single choice answer to be correct")
 	}
 
-	ok, err = evaluateObjectiveAnswer("single_choice", `{"answer":"B"}`, "Beta", `{"options":["Alpha","Beta","Gamma"]}`)
+	ok, err = evaluateObjectiveAnswer("single_choice", `{"answerIndex":1}`, "Beta", `{"options":["Alpha","Beta","Gamma"]}`)
 	if err != nil {
-		t.Fatalf("single choice label answer error: %v", err)
+		t.Fatalf("single choice answerIndex error: %v", err)
 	}
 	if !ok {
-		t.Fatalf("expected label-style single choice answer to match option text")
+		t.Fatalf("expected answerIndex single choice answer to be correct")
 	}
 
 	ok, err = evaluateObjectiveAnswer("true_false", `{"answer":true}`, false)

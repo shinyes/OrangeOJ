@@ -198,7 +198,7 @@ export default function SpaceManagePanel({
                     ) : (
                       filteredSpaceProblems.map((problem) => {
                         const tagsText = (problem.tags || []).join(' / ')
-                        const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), `${problem.timeLimitMs}ms`, `${problem.memoryLimitMiB}MiB`, tagsText].filter(Boolean).join(' · ')
+                        const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), problem.type === 'programming' && `${problem.timeLimitMs}ms`, problem.type === 'programming' && `${problem.memoryLimitMiB}MiB`, tagsText].filter(Boolean).join(' · ')
                         return (
                           <ProblemRow key={problem.id} text={lineText} actions={(
                             <>
