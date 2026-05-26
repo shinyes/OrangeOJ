@@ -3,6 +3,8 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -431,6 +433,11 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
+	// Read markdown fields before deletion so we can clean up orphaned images.
+	var statementMD, bodyJSON, answerJSON string
+	_ = a.DB.QueryRow(`SELECT statement_md, body_json, answer_json FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&statementMD, &bodyJSON, &answerJSON)
+
 	tx, err := a.DB.BeginTx(c.Context(), nil)
 	if err != nil {
 		return err
@@ -464,6 +471,16 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 		}
 		return err
 	}
+
+	// Clean up uploaded images that are no longer referenced by any problem.
+	for _, filename := range collectImageRefs(statementMD, bodyJSON, answerJSON) {
+		var count int
+		a.DB.QueryRow(`SELECT COUNT(*) FROM space_problems WHERE statement_md LIKE '%'||?||'%' OR body_json LIKE '%'||?||'%' OR answer_json LIKE '%'||?||'%'`, filename, filename, filename).Scan(&count)
+		if count == 0 {
+			os.Remove(filepath.Join(uploadDir, filename))
+		}
+	}
+
 	return respondData(c, fiber.Map{"ok": true})
 }
 
