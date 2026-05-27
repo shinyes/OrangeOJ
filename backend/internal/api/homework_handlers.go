@@ -112,17 +112,10 @@ SELECT
 FROM homeworks h
 WHERE h.space_id=?
   AND h.published=1
-  AND (
-    NOT EXISTS(
-      SELECT 1
-      FROM homework_targets ht
-      WHERE ht.homework_id=h.id
-    )
-    OR EXISTS(
-      SELECT 1
-      FROM homework_targets ht
-      WHERE ht.homework_id=h.id AND ht.user_id=?
-    )
+  AND EXISTS(
+    SELECT 1
+    FROM homework_targets ht
+    WHERE ht.homework_id=h.id AND ht.user_id=?
   )
 ORDER BY h.id DESC`
 		args = []interface{}{user.ID, spaceID, user.ID}

@@ -322,7 +322,7 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 		return env.Data["id"]
 	}
 
-	publicOpenID := createHomework("公开未定向作业", true)
+	_ = createHomework("公开未定向作业", true)
 	publicTargetedID := createHomework("公开定向作业", true)
 	draftTargetedID := createHomework("草稿定向作业", false)
 
@@ -357,8 +357,8 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 		t.Fatalf("expected assigned member list 200, got %d", memberAssignedListResp.StatusCode)
 	}
 	memberAssignedHomeworks := decodeEnvelope[[]map[string]interface{}](t, memberAssignedListResp).Data
-	if len(memberAssignedHomeworks) != 2 {
-		t.Fatalf("expected assigned member to see 2 homeworks, got %d", len(memberAssignedHomeworks))
+	if len(memberAssignedHomeworks) != 1 {
+		t.Fatalf("expected assigned member to see 1 homework, got %d", len(memberAssignedHomeworks))
 	}
 
 	assignedByID := map[int64]bool{}
@@ -370,9 +370,6 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 	if assignedByID[publicTargetedID] != true {
 		t.Fatalf("expected targeted homework assigned=true, got %+v", assignedByID)
 	}
-	if assignedByID[publicOpenID] != false {
-		t.Fatalf("expected open homework assigned=false, got %+v", assignedByID)
-	}
 
 	memberOtherCookie := mustLogin(t, app, "homework_member_other", "othermember123")
 	memberOtherListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks", memberOtherCookie, nil)
@@ -380,8 +377,8 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 		t.Fatalf("expected other member list 200, got %d", memberOtherListResp.StatusCode)
 	}
 	memberOtherHomeworks := decodeEnvelope[[]map[string]interface{}](t, memberOtherListResp).Data
-	if len(memberOtherHomeworks) != 1 {
-		t.Fatalf("expected other member to see 1 homework, got %d", len(memberOtherHomeworks))
+	if len(memberOtherHomeworks) != 0 {
+		t.Fatalf("expected other member to see 0 homeworks, got %d", len(memberOtherHomeworks))
 	}
 
 	targetedGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(publicTargetedID), memberAssignedCookie, nil)
