@@ -50,30 +50,21 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
   const [dragState, setDragState] = useState({ active: false, index: null })
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const [problemSourceMode, setProblemSourceMode] = useState('manual')
-  const [importedProblems, setImportedProblems] = useState([])
-  const [importing, setImporting] = useState(false)
+  const [zipFile, setZipFile] = useState(null)
   const [searchPerItem, setSearchPerItem] = useState({})
 
   useEffect(() => {
     if (!open) return
     setForm(buildInitialForm(homework)); setSubmitting(false); setSubmitError('')
-    setDragState({ active: false, index: null }); setDragOverIndex(null); setProblemSourceMode('manual'); setImportedProblems([]); setSearchPerItem({})
+    setDragState({ active: false, index: null }); setDragOverIndex(null); setProblemSourceMode('manual'); setZipFile(null); setSearchPerItem({})
   }, [open, homework, mode])
 
-  const handleImportZip = async (e) => {
+  const handleImportZip = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setImporting(true); setSubmitError('')
-    try {
-      const result = await api.importProblems(spaceId, file)
-      setImportedProblems(result?.problems || [])
-    } catch (err) {
-      setSubmitError(err.message || 'ZIP 导入失败')
-      setImportedProblems([])
-    } finally {
-      setImporting(false)
-      e.target.value = ''
-    }
+    setSubmitError('')
+    setZipFile(file)
+    e.target.value = ''
   }
 
   const problemMap = useMemo(() => {
@@ -146,21 +137,24 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
     if (!title) { setSubmitError('作业标题不能为空'); return }
 
     let problemDrafts = []
-    const normalizedItems = problemSourceMode === 'import'
-      ? importedProblems.map((p, index) => ({ problemId: Number(p.id), orderNo: index + 1, score: 100 }))
-      : form.items.map((item, index) => ({ problemId: Number(item.problemId), orderNo: index + 1, score: 100 }))
+    let normalizedItems
+
+    try { setSubmitting(true); setSubmitError('')
 
     if (problemSourceMode === 'import') {
-      if (importedProblems.length === 0) { setSubmitError('请先导入题目 ZIP'); return }
+      if (!zipFile) { setSubmitError('请先选择题目 ZIP 文件'); return }
+      const result = await api.importProblems(spaceId, zipFile)
+      const problems = result?.problems || []
+      if (problems.length === 0) { setSubmitError('ZIP 中未找到有效题目'); return }
+      normalizedItems = problems.map((p, index) => ({ problemId: Number(p.id), orderNo: index + 1, score: 100 }))
     } else {
+      normalizedItems = form.items.map((item, index) => ({ problemId: Number(item.problemId), orderNo: index + 1, score: 100 }))
       if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) { setSubmitError('请为每一道作业题选择有效题目'); return }
       if (new Set(normalizedItems.map((item) => item.problemId)).size !== normalizedItems.length) { setSubmitError('作业中不能重复添加同一道题'); return }
     }
 
-    try {
-      setSubmitting(true); setSubmitError('')
-      await onSubmit({ title, description: form.description.trim(), dueAt: toDueAtISO(form.dueAt), displayMode: form.displayMode || 'exam', published: form.published, items: normalizedItems, problemDrafts })
-      onClose()
+    await onSubmit({ title, description: form.description.trim(), dueAt: toDueAtISO(form.dueAt), displayMode: form.displayMode || 'exam', published: form.published, items: normalizedItems, problemDrafts })
+    onClose()
     } catch (err) { setSubmitError(err.message || '保存失败') }
     finally { setSubmitting(false) }
   }
@@ -214,20 +208,16 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
             <div>
               <p className="text-xs text-muted-foreground mb-2">上传题目 ZIP 文件（含 problems.json 和 images/ 目录），导入后自动创建题目。</p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" disabled={importing} onClick={() => document.getElementById('hw-zip-input')?.click()}>
+                <Button variant="outline" onClick={() => document.getElementById('hw-zip-input')?.click()}>
                   <Upload className="h-4 w-4 mr-1" />
-                  {importing ? '导入中...' : '选择 ZIP 文件'}
+                  选择 ZIP 文件
                 </Button>
                 <input type="file" id="hw-zip-input" accept=".zip" className="hidden" onChange={handleImportZip} />
               </div>
-              {importedProblems.length > 0 && (
+              {zipFile && (
                 <div className="mt-2">
-                  <p className="text-sm font-medium">已导入 {importedProblems.length} 道题目：</p>
-                  <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
-                    {importedProblems.map((p) => (
-                      <li key={p.id}>#{p.id} {p.title}</li>
-                    ))}
-                  </ul>
+                  <p className="text-sm font-medium">已选择文件：{zipFile.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">点击"创建作业"时将自动导入题目。</p>
                 </div>
               )}
             </div>
