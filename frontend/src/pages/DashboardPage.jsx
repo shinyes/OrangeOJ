@@ -325,6 +325,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       removingMemberId={memberState.removingMemberId}
       memberMessage={memberState.memberMessage}
       openUploadProblemModal={() => openConfigModal('upload-space-problem')}
+      onProblemsImported={refreshSpaceData}
       selectedSpaceId={selectedSpaceId}
     />
   )

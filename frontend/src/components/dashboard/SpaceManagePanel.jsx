@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -6,8 +7,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
 import { Label } from '../ui/label'
-import { X, Loader2 } from 'lucide-react'
+import { X, Loader2, Upload } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
+import { api } from '../../api'
 
 function SummaryItem({ label, value }) {
   return (
@@ -84,8 +86,29 @@ export default function SpaceManagePanel({
   spaceMembers, memberRole, onMemberRoleChange, memberCandidateInput, onMemberCandidateInputChange,
   memberCandidates, selectedMemberCandidates, onSelectedMemberCandidatesChange, memberSearchLoading,
   onSubmitMembers, memberSubmitting, onResetMemberPassword, resettingMemberId, onRemoveMember, removingMemberId,
-  memberMessage, openUploadProblemModal, selectedSpaceId
+  memberMessage, openUploadProblemModal, onProblemsImported, selectedSpaceId
 }) {
+  const [zipImporting, setZipImporting] = useState(false)
+  const [zipImportMessage, setZipImportMessage] = useState('')
+
+  const handleImportZip = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedSpaceId) return
+    setZipImporting(true)
+    setZipImportMessage('')
+    try {
+      const result = await api.importProblems(selectedSpaceId, file)
+      const count = result?.problems?.length || 0
+      setZipImportMessage(`已从 ZIP 导入 ${count} 道题目`)
+      if (onProblemsImported) onProblemsImported()
+    } catch (err) {
+      setZipImportMessage(err.message || 'ZIP 导入失败')
+    } finally {
+      setZipImporting(false)
+      e.target.value = ''
+    }
+  }
+
   const renderMemberLabel = (member) => {
     if (!member) return ''
     const parts = [`#${member.userId || member.id}`, member.username]
@@ -183,8 +206,21 @@ export default function SpaceManagePanel({
                     <h2 className="text-lg font-bold">当前空间题库</h2>
                     <p className="text-sm text-muted-foreground mt-1">题目只属于当前空间，仅管理当前空间题目。</p>
                   </div>
-                  <Button onClick={openUploadProblemModal}>新建题目</Button>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button onClick={openUploadProblemModal}>新建题目</Button>
+                    <Button variant="outline" disabled={zipImporting} onClick={() => document.getElementById('problem-zip-import-input')?.click()}>
+                      <Upload className="h-4 w-4 mr-1" />
+                      {zipImporting ? '导入中...' : '从ZIP导入'}
+                    </Button>
+                    <input type="file" id="problem-zip-import-input" accept=".zip" className="hidden" onChange={handleImportZip} />
+                  </div>
                 </div>
+
+                {zipImportMessage && (
+                  <div className="mt-3">
+                    <ToastMessage message={zipImportMessage} severity={zipImportMessage.startsWith('已') ? 'success' : 'error'} onShown={() => setZipImportMessage('')} />
+                  </div>
+                )}
 
                 <Input className="mt-4" placeholder="按题目 ID、标题或标签搜索" value={spaceProblemSearch}
                   onChange={(e) => onSpaceProblemSearchChange(e.target.value)} />
