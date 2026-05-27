@@ -28,6 +28,17 @@ func normalizeObjectiveAnswerPayload(req *problemPayload) error {
 				return err
 			}
 			req.AnswerJSON = json.RawMessage(next)
+		} else if answerText, ok := answer["answer"].(string); ok && answerText != "" {
+			for i, opt := range options {
+				if strings.EqualFold(strings.TrimSpace(answerText), strings.TrimSpace(opt)) {
+					next, err := json.Marshal(map[string]interface{}{"answerIndex": i})
+					if err != nil {
+						return err
+					}
+					req.AnswerJSON = json.RawMessage(next)
+					break
+				}
+			}
 		}
 	case "true_false":
 		answer, err := parseJSONMap(req.AnswerJSON, "answerJson")
@@ -63,6 +74,13 @@ func expectedObjectiveAnswer(problemType string, answerJSON string, bodyJSON str
 		options := optionStringsFromAny(body["options"])
 		if index, ok := intValueFromAny(target["answerIndex"]); ok && index >= 0 && index < len(options) {
 			return options[index], nil
+		}
+		if answerText, ok := target["answer"].(string); ok && answerText != "" {
+			for _, opt := range options {
+				if strings.EqualFold(strings.TrimSpace(answerText), strings.TrimSpace(opt)) {
+					return opt, nil
+				}
+			}
 		}
 		return nil, fmt.Errorf("answer_json.answerIndex required")
 	case "true_false":
