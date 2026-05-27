@@ -3,6 +3,8 @@ import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
+import { MoreHorizontal } from 'lucide-react'
 
 export default function LearningPanel({
   selectedSpace, spaces, spaceTab,
@@ -108,16 +110,18 @@ export default function LearningPanel({
                       </Button>
                     )}
                     {canManageSelectedSpace && (
-                      <Button size="sm" variant="outline" onClick={() => onOpenAssignTrainingParticipant(plan.id)}>分配</Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="sm" variant="outline" onClick={() => onOpenEditTrainingPlan(plan.id)}>编辑</Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="sm" variant="outline" onClick={() => onExportTrainingPlan(plan.id)}>导出</Button>
-                    )}
-                    {canManageSelectedSpace && (
-                      <Button size="sm" variant="destructive" onClick={() => onDeleteTrainingPlan(plan.id)}>删除</Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onOpenAssignTrainingParticipant(plan.id)}>分配成员</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onOpenEditTrainingPlan(plan.id)}>编辑</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onExportTrainingPlan(plan.id)}>导出</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={() => onDeleteTrainingPlan(plan.id)}>删除</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </CardFooter>
                 </Card>
@@ -160,16 +164,18 @@ export default function LearningPanel({
                     </Button>
                   )}
                   {canManageSelectedSpace && (
-                    <Button size="sm" variant="outline" onClick={() => onOpenAssignHomeworkTarget(homework.id)}>分配</Button>
-                  )}
-                  {canManageSelectedSpace && (
-                    <Button size="sm" variant="outline" onClick={() => onOpenEditHomework(homework.id)}>编辑</Button>
-                  )}
-                  {canManageSelectedSpace && (
-                    <Button size="sm" variant="outline" onClick={() => onExportHomework(homework.id)}>导出</Button>
-                  )}
-                  {canManageSelectedSpace && (
-                    <Button size="sm" variant="destructive" onClick={() => onDeleteHomework(homework.id)}>删除</Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onOpenAssignHomeworkTarget(homework.id)}>分配成员</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onOpenEditHomework(homework.id)}>编辑</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onExportHomework(homework.id)}>导出</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive" onClick={() => onDeleteHomework(homework.id)}>删除</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </CardFooter>
               </Card>
