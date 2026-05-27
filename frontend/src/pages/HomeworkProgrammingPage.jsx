@@ -320,9 +320,11 @@ export default function HomeworkProgrammingPage() {
         <div className="flex items-center min-h-8 md:min-h-10 px-2 md:px-4 py-1 gap-1 md:gap-2 flex-wrap">
           <div className="flex-1 min-w-0 flex items-center gap-1 md:gap-2">
             <h1 className="text-xs md:text-sm font-semibold truncate shrink-0">{problem.title}</h1>
-            <span className="text-[10px] md:text-xs text-muted-foreground truncate min-w-0">
-              {homework?.title ? `${homework.title} | ` : ''}剩余时间：{formatCountdown(homework?.dueAt, now)} | 截止：{formatDateTime(homework?.dueAt)}
-            </span>
+            {homework?.dueAt && (
+              <span className="text-[10px] md:text-xs text-muted-foreground truncate min-w-0">
+                {homework?.title ? `${homework.title} | ` : ''}剩余时间：{formatCountdown(homework.dueAt, now)} | 截止：{formatDateTime(homework.dueAt)}
+              </span>
+            )}
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>
             <Link to={backTo} aria-label={backLabel}><X className="h-3.5 w-3.5 md:h-4 md:w-4" /></Link>
