@@ -102,6 +102,38 @@ func randFilename(ext string) (string, error) {
 	return fmt.Sprintf("%x%s", b, ext), nil
 }
 
+func (a *API) handleCleanupOrphanedImages(c *fiber.Ctx) error {
+	entries, err := os.ReadDir(uploadDir)
+	if err != nil {
+		return err
+	}
+	deleted := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		filename := entry.Name()
+		if !validImageExt(filepath.Ext(filename)) {
+			continue
+		}
+
+		var count int
+		a.DB.QueryRow(`SELECT COUNT(*) FROM space_problems WHERE statement_md LIKE '%'||?||'%' OR body_json LIKE '%'||?||'%' OR answer_json LIKE '%'||?||'%'`, filename, filename, filename).Scan(&count)
+		if count > 0 {
+			continue
+		}
+
+		a.DB.QueryRow(`SELECT COUNT(*) FROM image_tag_links WHERE image_url LIKE '%'||?||'%'`, filename).Scan(&count)
+		if count > 0 {
+			continue
+		}
+
+		os.Remove(filepath.Join(uploadDir, filename))
+		deleted++
+	}
+	return respondData(c, fiber.Map{"deleted": deleted})
+}
+
 func validateSingleFile(upload *multipart.FileHeader, maxBytes int64, allowed map[string]bool) error {
 	if upload.Size > maxBytes {
 		return fmt.Errorf("文件超过大小限制")

@@ -340,6 +340,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       batchResult={modalState.batchResult}
       onCopyBatchResult={copyBatchResult}
       toFriendlyError={toFriendlyError}
+      onCleanupOrphanedImages={api.cleanupOrphanedImages}
     />
   )
 

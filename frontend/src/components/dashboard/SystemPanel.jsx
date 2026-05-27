@@ -1,14 +1,32 @@
+import { useState } from 'react'
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
-import { Copy } from 'lucide-react'
+import { Copy, Trash2 } from 'lucide-react'
+import ToastMessage from '../ToastMessage'
 
 export default function SystemPanel({
   systemTab, onSystemTabChange, registrationEnabled, onToggleRegistration,
   adminResetMessage, onOpenAdminResetDialog, batchResult, onOpenBatchRegisterDialog,
-  onCopyBatchResult, toFriendlyError
+  onCopyBatchResult, toFriendlyError, onCleanupOrphanedImages
 }) {
+  const [cleanupResult, setCleanupResult] = useState(null)
+  const [cleanupError, setCleanupError] = useState('')
+  const [cleaningUp, setCleaningUp] = useState(false)
+
+  const handleCleanup = async () => {
+    setCleaningUp(true); setCleanupError(''); setCleanupResult(null)
+    try {
+      const result = await onCleanupOrphanedImages()
+      setCleanupResult(result)
+    } catch (err) {
+      setCleanupError(err.message || '清理失败')
+    } finally {
+      setCleaningUp(false)
+    }
+  }
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -27,6 +45,24 @@ export default function SystemPanel({
               {registrationEnabled ? '已开启（点击关闭）' : '已关闭（点击开启）'}
             </Button>
           </div>
+          <div className="flex justify-between items-center py-3 border-t">
+            <div>
+              <span>清理孤立图片</span>
+              <p className="text-xs text-muted-foreground mt-0.5">扫描 uploads 目录，删除未被任何题目或标签引用的图片</p>
+            </div>
+            <Button variant="outline" onClick={handleCleanup} disabled={cleaningUp}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              {cleaningUp ? '清理中...' : '开始清理'}
+            </Button>
+          </div>
+          {cleanupError && <ToastMessage message={cleanupError} severity="error" onShown={() => setCleanupError('')} />}
+          {cleanupResult && (
+            <ToastMessage
+              message={`已清理 ${cleanupResult.deleted} 张孤立图片`}
+              severity={cleanupResult.deleted > 0 ? 'success' : 'info'}
+              onShown={() => setCleanupResult(null)}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="account">

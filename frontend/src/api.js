@@ -103,6 +103,7 @@ export const api = {
   setRegistration: (enabled) => apiFetch('/api/admin/settings/registration', { method: 'PUT', body: { enabled } }),
 
   batchRegisterUsers: (body) => apiFetch('/api/admin/users/batch-register', { method: 'POST', body }),
+  cleanupOrphanedImages: () => apiFetch('/api/admin/settings/cleanup-orphaned-images', { method: 'POST' }),
 
   listAdminSpaces: () => apiFetch('/api/admin/spaces'),
   createSpace: (body) => apiFetch('/api/admin/spaces', { method: 'POST', body }),
