@@ -394,7 +394,6 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 		"--use_cgroupv2",
 		"--cgroup_mem_max", strconv.FormatInt(memoryBytes, 10),
 		"--cgroup_pids_max", "128",
-		"--rlimit_as", strconv.FormatInt(memoryBytes, 10),
 		"--",
 		shell, "-lc", command,
 	}
