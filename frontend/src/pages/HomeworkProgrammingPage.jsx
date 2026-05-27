@@ -159,6 +159,7 @@ export default function HomeworkProgrammingPage() {
         programming: { ...stored.programming, [numericProblemId]: nextDraft }
       }
       localStorage.setItem(draftStorageKey, JSON.stringify(merged))
+      api.saveHomeworkDraft(spaceId, homeworkId, { draft: JSON.stringify(merged) }).catch(() => {})
       return nextDraft
     })
     if (message) setActionMessage(message)
@@ -215,7 +216,18 @@ export default function HomeworkProgrammingPage() {
           nextConsoleText = `正在回看提交 #${submissionDetail?.id || '-'}\n结果：${submissionDetail?.verdict || submissionDetail?.status || '未知'}`
         } else {
           const submissionResult = await api.listSubmissions(spaceId, problemId, { all: true }).catch(() => ({ submissions: [] }))
-          const storedDraft = loadStoredDraft(draftStorageKey)
+          let storedDraft = loadStoredDraft(draftStorageKey)
+          try {
+            const cloudDraft = await api.getHomeworkDraft(spaceId, homeworkId)
+            if (cloudDraft?.draft) {
+              const cloudParsed = JSON.parse(cloudDraft.draft)
+              const cloudTime = cloudParsed?.lastSavedAt || cloudDraft?.updatedAt || ''
+              const localTime = storedDraft?.lastSavedAt || ''
+              if (cloudTime && (!localTime || cloudTime >= localTime)) {
+                storedDraft = cloudParsed
+              }
+            }
+          } catch { /* skip cloud merge */ }
           const savedProgramming = storedDraft.programming?.[numericProblemId] || {}
           const latestSubmission = (submissionResult?.submissions || []).find((item) => item.questionType === 'programming' && Number(item.userId) === Number(user?.id)) || null
           const language = normalizeDefaultLanguage(savedProgramming.language || latestSubmission?.language || spaceData?.defaultProgrammingLanguage)
@@ -252,7 +264,7 @@ export default function HomeworkProgrammingPage() {
   const saveDraft = () => {
     if (isReviewMode) return
     const savedAt = new Date().toISOString()
-    persistProgrammingDraft((current) => ({ ...current, lastSavedAt: savedAt }), '代码草稿已保存到本地')
+    persistProgrammingDraft((current) => ({ ...current, lastSavedAt: savedAt }), '代码草稿已保存到云端')
   }
 
   const pollSubmission = async (submissionId) => {
