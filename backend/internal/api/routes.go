@@ -72,6 +72,8 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 
 	spaceRead := protected.Group("/spaces/:spaceId")
 	spaceRead.Get("/problems", api.handleListSpaceProblemLinks)
+	spaceRead.Get("/problems/export", api.handleExportProblems)
+	spaceRead.Post("/problems/import", api.handleImportProblems)
 	spaceRead.Get("/problems/:problemId", api.handleGetSpaceProblem)
 
 	spaceRead.Get("/training-plans", api.handleListTrainingPlans)
@@ -123,8 +125,6 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 	protected.Post("/images/upload", api.handleUploadImage)
 
 	// ZIP export/import (space admin only)
-	protected.Get("/spaces/:spaceId/problems/export", api.handleExportProblems)
-	protected.Post("/spaces/:spaceId/problems/import", api.handleImportProblems)
 	protected.Get("/spaces/:spaceId/homeworks/:homeworkId/export", api.handleExportHomework)
 	protected.Get("/spaces/:spaceId/training-plans/:planId/export", api.handleExportTrainingPlan)
 
