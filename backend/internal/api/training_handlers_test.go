@@ -19,10 +19,9 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 
 	cookie := mustLogin(t, app, "training_admin", "trainadmin123")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", cookie, map[string]interface{}{
-		"title":         "Week 1 Training",
-		"allowSelfJoin": true,
-		"isPublic":      true,
-		"published":     true,
+		"title":     "Week 1 Training",
+		"isPublic":  true,
+		"published": true,
 		"chapters": []map[string]interface{}{
 			{
 				"title":      "Basics",
@@ -68,10 +67,9 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 	}
 
 	updateResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(planID), cookie, map[string]interface{}{
-		"title":         "Week 1 Updated",
-		"allowSelfJoin": false,
-		"isPublic":      false,
-		"published":     false,
+		"title":     "Week 1 Updated",
+		"isPublic":  false,
+		"published": false,
 		"chapters": []map[string]interface{}{
 			{
 				"title":      "Only One",
@@ -126,8 +124,8 @@ func TestDeleteTrainingPlanCanDeleteAssociatedProblems(t *testing.T) {
 	sharedProblemID := mustCreateSpaceProblem(t, database, "训练共享题目")
 
 	targetPlanRes, err := database.Exec(`
-INSERT INTO training_plans(space_id, title, allow_self_join, is_public)
-VALUES(?, '待删除训练', 1, 1)`, spaceID)
+INSERT INTO training_plans(space_id, title, is_public)
+VALUES(?, '待删除训练', 1)`, spaceID)
 	if err != nil {
 		t.Fatalf("create target plan: %v", err)
 	}
@@ -160,8 +158,8 @@ VALUES(?, ?, ?, 'AC', 100, ?)`, spaceID, spaceAdminID, exclusiveProblemID, submi
 	}
 
 	otherPlanRes, err := database.Exec(`
-INSERT INTO training_plans(space_id, title, allow_self_join, is_public)
-VALUES(?, '保留训练', 1, 1)`, spaceID)
+INSERT INTO training_plans(space_id, title, is_public)
+VALUES(?, '保留训练', 1)`, spaceID)
 	if err != nil {
 		t.Fatalf("create other plan: %v", err)
 	}
@@ -231,10 +229,9 @@ func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
 
 	cookie := mustLogin(t, app, "training_import_admin", "trainimport123")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", cookie, map[string]interface{}{
-		"title":         "Imported Training",
-		"allowSelfJoin": true,
-		"isPublic":      true,
-		"published":     true,
+		"title":     "Imported Training",
+		"isPublic":  true,
+		"published": true,
 		"chapters": []map[string]interface{}{
 			{
 				"title":   "导入章节",
@@ -312,53 +309,6 @@ func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
 	}
 }
 
-func TestJoinTrainingPlanRespectsAllowSelfJoin(t *testing.T) {
-	app, database := newTestApp(t, false)
-
-	spaceAdminID := seedUser(t, database, "join_admin", "joinadmin123")
-	memberID := seedUser(t, database, "join_member", "joinmember123")
-	spaceID := mustCreateSpace(t, database, "Join-Training-Space")
-	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
-	mustAddMember(t, database, spaceID, memberID, "member")
-
-	cookie := mustLogin(t, app, "join_admin", "joinadmin123")
-	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", cookie, map[string]interface{}{
-		"title":         "Admin Assigned Training",
-		"allowSelfJoin": false,
-		"isPublic":      true,
-		"published":     true,
-		"chapters":      []map[string]interface{}{},
-	})
-	if createResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
-	}
-	createEnv := decodeEnvelope[map[string]int64](t, createResp)
-	planID := createEnv.Data["id"]
-
-	memberCookie := mustLogin(t, app, "join_member", "joinmember123")
-	joinResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(planID)+"/join", memberCookie, nil)
-	defer joinResp.Body.Close()
-	if joinResp.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected join 403, got %d", joinResp.StatusCode)
-	}
-
-	assignResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(planID)+"/participants", cookie, map[string]int64{
-		"userId": memberID,
-	})
-	defer assignResp.Body.Close()
-	if assignResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected assign 200, got %d", assignResp.StatusCode)
-	}
-
-	var count int
-	if err := database.QueryRow(`SELECT COUNT(1) FROM training_participants WHERE plan_id=? AND user_id=?`, planID, memberID).Scan(&count); err != nil {
-		t.Fatalf("query participant: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("expected participant inserted, count=%d", count)
-	}
-}
-
 func TestTrainingPlanVisibilityRules(t *testing.T) {
 	app, database := newTestApp(t, false)
 
@@ -375,10 +325,9 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 	createPlan := func(title string, isPublic bool) int64 {
 		resp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", adminCookie, map[string]interface{}{
 			"title":         title,
-			"allowSelfJoin": true,
-			"isPublic":      isPublic,
-			"published":     true,
-			"chapters":      []map[string]interface{}{},
+			"isPublic":  isPublic,
+			"published": true,
+			"chapters":  []map[string]interface{}{},
 		})
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("expected create 200 for %s, got %d", title, resp.StatusCode)
@@ -389,7 +338,7 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 
 	publicPlanID := createPlan("Public Training", true)
 	hiddenAssignedPlanID := createPlan("Hidden Assigned Training", false)
-	hiddenUnassignedPlanID := createPlan("Hidden Unassigned Training", false)
+	_ = createPlan("Hidden Unassigned Training", false)
 
 	assignResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(hiddenAssignedPlanID)+"/participants", adminCookie, map[string]int64{
 		"userId": memberVisibleID,
@@ -414,7 +363,7 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 		t.Fatalf("expected visible member list 200, got %d", listRespVisible.StatusCode)
 	}
 	visiblePlans := decodeEnvelope[[]map[string]interface{}](t, listRespVisible).Data
-	if len(visiblePlans) != 2 {
+	if len(visiblePlans) != 1 {
 		t.Fatalf("expected visible member to see 2 plans, got %d", len(visiblePlans))
 	}
 	joinedByPlanID := map[int64]bool{}
@@ -436,7 +385,7 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 		t.Fatalf("expected hidden member list 200, got %d", listRespHidden.StatusCode)
 	}
 	hiddenPlans := decodeEnvelope[[]map[string]interface{}](t, listRespHidden).Data
-	if len(hiddenPlans) != 1 {
+	if len(hiddenPlans) != 0 {
 		t.Fatalf("expected hidden member to see 1 plan, got %d", len(hiddenPlans))
 	}
 
@@ -452,17 +401,7 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 	}
 	hiddenGetResp.Body.Close()
 
-	hiddenJoinResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(hiddenUnassignedPlanID)+"/join", memberHiddenCookie, nil)
-	if hiddenJoinResp.StatusCode != http.StatusNotFound {
-		t.Fatalf("expected hidden unassigned join 404, got %d", hiddenJoinResp.StatusCode)
-	}
-	hiddenJoinResp.Body.Close()
 
-	publicJoinResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(publicPlanID)+"/join", memberHiddenCookie, nil)
-	if publicJoinResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected public join 200, got %d", publicJoinResp.StatusCode)
-	}
-	publicJoinResp.Body.Close()
 }
 
 func TestTrainingPlanIncludesProblemCompletionState(t *testing.T) {
@@ -477,9 +416,8 @@ func TestTrainingPlanIncludesProblemCompletionState(t *testing.T) {
 
 	adminCookie := mustLogin(t, app, "admin", "admin123456")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", adminCookie, map[string]interface{}{
-		"title":         "带完成状态的训练",
-		"allowSelfJoin": true,
-		"isPublic":      true,
+		"title":     "带完成状态的训练",
+		"isPublic":  true,
 		"published":     true,
 		"chapters": []map[string]interface{}{
 			{
@@ -493,6 +431,12 @@ func TestTrainingPlanIncludesProblemCompletionState(t *testing.T) {
 		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
 	}
 	planID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
+
+	// Assign member as participant so they can access the training
+	_, err := database.Exec(`INSERT INTO training_participants(plan_id, user_id, joined_by) VALUES(?, ?, 'admin')`, planID, memberID)
+	if err != nil {
+		t.Fatalf("assign participant: %v", err)
+	}
 
 	submissionRes, err := database.Exec(`
 INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)

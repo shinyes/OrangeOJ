@@ -10,11 +10,10 @@ import (
 )
 
 type trainingPlanPayload struct {
-	Title         string                `json:"title"`
-	AllowSelfJoin bool                  `json:"allowSelfJoin"`
-	IsPublic      *bool                 `json:"isPublic"`
-	Published     bool                  `json:"published"`
-	Chapters      []trainingChapterBody `json:"chapters"`
+	Title     string                `json:"title"`
+	IsPublic  *bool                 `json:"isPublic"`
+	Published bool                  `json:"published"`
+	Chapters  []trainingChapterBody `json:"chapters"`
 }
 
 type trainingChapterBody struct {
@@ -46,47 +45,42 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 	}
 
 	query := `
-SELECT
-  tp.id,
-  tp.title,
-  tp.allow_self_join,
-  tp.is_public,
-  tp.published_at,
-  tp.created_at,
-  EXISTS(
-    SELECT 1
-    FROM training_participants p
-    WHERE p.plan_id=tp.id AND p.user_id=?
-  ) AS joined
-FROM training_plans tp
-WHERE tp.space_id=?
-ORDER BY tp.id DESC`
+	SELECT
+	  tp.id,
+	  tp.title,
+	  tp.is_public,
+	  tp.published_at,
+	  tp.created_at,
+	  EXISTS(
+	    SELECT 1
+	    FROM training_participants p
+	    WHERE p.plan_id=tp.id AND p.user_id=?
+	  ) AS joined
+	FROM training_plans tp
+	WHERE tp.space_id=?
+	ORDER BY tp.id DESC`
 	args := []interface{}{user.ID, spaceID}
 	if !canManage {
 		query = `
-SELECT
-  tp.id,
-  tp.title,
-  tp.allow_self_join,
-  tp.is_public,
-  tp.published_at,
-  tp.created_at,
-  EXISTS(
-    SELECT 1
-    FROM training_participants p
-    WHERE p.plan_id=tp.id AND p.user_id=?
-  ) AS joined
-FROM training_plans tp
-WHERE tp.space_id=?
-  AND (
-    tp.is_public=1
-    OR EXISTS(
-      SELECT 1
-      FROM training_participants p
-      WHERE p.plan_id=tp.id AND p.user_id=?
-    )
-  )
-ORDER BY tp.id DESC`
+	SELECT
+	  tp.id,
+	  tp.title,
+	  tp.is_public,
+	  tp.published_at,
+	  tp.created_at,
+	  EXISTS(
+	    SELECT 1
+	    FROM training_participants p
+	    WHERE p.plan_id=tp.id AND p.user_id=?
+	  ) AS joined
+	FROM training_plans tp
+	WHERE tp.space_id=?
+	  AND EXISTS(
+	    SELECT 1
+	    FROM training_participants p
+	    WHERE p.plan_id=tp.id AND p.user_id=?
+	  )
+	ORDER BY tp.id DESC`
 		args = []interface{}{user.ID, spaceID, user.ID}
 	}
 
@@ -99,20 +93,19 @@ ORDER BY tp.id DESC`
 	for rows.Next() {
 		var id int64
 		var title string
-		var allowSelfJoin, isPublic, joined int
+		var isPublic, joined int
 		var publishedAt, createdAt sql.NullString
-		if err := rows.Scan(&id, &title, &allowSelfJoin, &isPublic, &publishedAt, &createdAt, &joined); err != nil {
+		if err := rows.Scan(&id, &title, &isPublic, &publishedAt, &createdAt, &joined); err != nil {
 			return err
 		}
 		plans = append(plans, fiber.Map{
-			"id":            id,
-			"title":         title,
-			"allowSelfJoin": allowSelfJoin == 1,
-			"isPublic":      isPublic == 1,
-			"joined":        joined == 1,
-			"published":     publishedAt.Valid,
-			"publishedAt":   scanNullString(publishedAt),
-			"createdAt":     scanNullString(createdAt),
+			"id":          id,
+			"title":       title,
+			"isPublic":    isPublic == 1,
+			"joined":      joined == 1,
+			"published":   publishedAt.Valid,
+			"publishedAt": scanNullString(publishedAt),
+			"createdAt":   scanNullString(createdAt),
 		})
 	}
 	return respondData(c, plans)
@@ -147,8 +140,8 @@ func (a *API) handleCreateTrainingPlan(c *fiber.Ctx) error {
 		publishedAt = sql.NullString{Valid: true, String: time.Now().UTC().Format(time.RFC3339)}
 	}
 	res, err := tx.Exec(`
-INSERT INTO training_plans(space_id, title, allow_self_join, is_public, published_at)
-VALUES(?, ?, ?, ?, ?)`, spaceID, req.Title, boolToInt(req.AllowSelfJoin), boolToInt(trainingPlanIsPublic(req.IsPublic)), nullToInterface(publishedAt))
+	INSERT INTO training_plans(space_id, title, is_public, published_at)
+	VALUES(?, ?, ?, ?)`, spaceID, req.Title, boolToInt(trainingPlanIsPublic(req.IsPublic)), nullToInterface(publishedAt))
 	if err != nil {
 		return err
 	}
@@ -192,15 +185,14 @@ func (a *API) handleGetTrainingPlan(c *fiber.Ctx) error {
 		return err
 	}
 	return respondData(c, fiber.Map{
-		"id":            planID,
-		"spaceId":       spaceID,
-		"title":         access.Title,
-		"allowSelfJoin": access.AllowSelfJoin,
-		"isPublic":      access.IsPublic,
-		"published":     access.PublishedAt.Valid,
-		"publishedAt":   scanNullString(access.PublishedAt),
-		"chapters":      chapters,
-		"participants":  participants,
+		"id":           planID,
+		"spaceId":      spaceID,
+		"title":        access.Title,
+		"isPublic":     access.IsPublic,
+		"published":    access.PublishedAt.Valid,
+		"publishedAt":  scanNullString(access.PublishedAt),
+		"chapters":     chapters,
+		"participants": participants,
 	})
 }
 
@@ -237,9 +229,9 @@ func (a *API) handleUpdateTrainingPlan(c *fiber.Ctx) error {
 		publishedAt = sql.NullString{Valid: true, String: time.Now().UTC().Format(time.RFC3339)}
 	}
 	res, err := tx.Exec(`
-UPDATE training_plans
-SET title=?, allow_self_join=?, is_public=?, published_at=?
-WHERE id=? AND space_id=?`, req.Title, boolToInt(req.AllowSelfJoin), boolToInt(trainingPlanIsPublic(req.IsPublic)), nullToInterface(publishedAt), planID, spaceID)
+	UPDATE training_plans
+	SET title=?, is_public=?, published_at=?
+	WHERE id=? AND space_id=?`, req.Title, boolToInt(trainingPlanIsPublic(req.IsPublic)), nullToInterface(publishedAt), planID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -276,12 +268,12 @@ func (a *API) handleAddPlanParticipant(c *fiber.Ctx) error {
 		return respondError(c, fiber.StatusBadRequest, "invalid userId")
 	}
 	res, err := a.DB.Exec(`
-INSERT INTO training_participants(plan_id, user_id, joined_by)
-SELECT id, ?, 'admin'
-FROM training_plans
-WHERE id=? AND space_id=?
-ON CONFLICT(plan_id, user_id)
-DO UPDATE SET joined_by='admin', joined_at=CURRENT_TIMESTAMP`, req.UserID, planID, spaceID)
+	INSERT INTO training_participants(plan_id, user_id, joined_by)
+	SELECT id, ?, 'admin'
+	FROM training_plans
+	WHERE id=? AND space_id=?
+	ON CONFLICT(plan_id, user_id)
+	DO UPDATE SET joined_by='admin', joined_at=CURRENT_TIMESTAMP`, req.UserID, planID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -325,27 +317,27 @@ func (a *API) handleSearchTrainingCandidates(c *fiber.Ctx) error {
 
 	likeKeyword := "%" + strings.ToLower(keyword) + "%"
 	rows, err := a.DB.Query(`
-SELECT u.id, u.username, u.global_role, sm.role
-FROM space_members sm
-JOIN users u ON u.id=sm.user_id
-WHERE sm.space_id=?
-  AND NOT EXISTS (
-    SELECT 1
-    FROM training_participants tp
-    WHERE tp.plan_id=? AND tp.user_id=u.id
-  )
-  AND (
-    CAST(u.id AS TEXT) LIKE ?
-    OR LOWER(u.username) LIKE ?
-  )
-ORDER BY
-  CASE
-    WHEN CAST(u.id AS TEXT)=? THEN 0
-    WHEN LOWER(u.username)=LOWER(?) THEN 1
-    ELSE 2
-  END,
-  u.id ASC
-LIMIT 20`, spaceID, planID, likeKeyword, likeKeyword, keyword, keyword)
+	SELECT u.id, u.username, u.global_role, sm.role
+	FROM space_members sm
+	JOIN users u ON u.id=sm.user_id
+	WHERE sm.space_id=?
+	  AND NOT EXISTS (
+	    SELECT 1
+	    FROM training_participants tp
+	    WHERE tp.plan_id=? AND tp.user_id=u.id
+	  )
+	  AND (
+	    CAST(u.id AS TEXT) LIKE ?
+	    OR LOWER(u.username) LIKE ?
+	  )
+	ORDER BY
+	  CASE
+	    WHEN CAST(u.id AS TEXT)=? THEN 0
+	    WHEN LOWER(u.username)=LOWER(?) THEN 1
+	    ELSE 2
+	  END,
+	  u.id ASC
+	LIMIT 20`, spaceID, planID, likeKeyword, likeKeyword, keyword, keyword)
 	if err != nil {
 		return err
 	}
@@ -382,9 +374,9 @@ func (a *API) handleDeletePlanParticipant(c *fiber.Ctx) error {
 		return err
 	}
 	res, err := a.DB.Exec(`
-DELETE FROM training_participants
-WHERE plan_id=? AND user_id=?
-  AND EXISTS(SELECT 1 FROM training_plans WHERE id=? AND space_id=?)`,
+	DELETE FROM training_participants
+	WHERE plan_id=? AND user_id=?
+	  AND EXISTS(SELECT 1 FROM training_plans WHERE id=? AND space_id=?)`,
 		planID, participantUserID, planID, spaceID)
 	if err != nil {
 		return err
@@ -454,45 +446,10 @@ func (a *API) handleDeleteTrainingPlan(c *fiber.Ctx) error {
 	})
 }
 
-func (a *API) handleJoinPlan(c *fiber.Ctx) error {
-	user, err := getUser(c)
-	if err != nil {
-		return err
-	}
-	spaceID, err := parseIDParam(c, "spaceId")
-	if err != nil {
-		return err
-	}
-	planID, err := parseIDParam(c, "planId")
-	if err != nil {
-		return err
-	}
-	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
-		return err
-	}
-	access, err := a.loadTrainingPlanAccess(spaceID, planID, user.ID, user.GlobalRole)
-	if err != nil {
-		return err
-	}
-	if !access.AllowSelfJoin {
-		return respondError(c, fiber.StatusForbidden, "self join disabled")
-	}
-	_, err = a.DB.Exec(`
-INSERT INTO training_participants(plan_id, user_id, joined_by)
-VALUES(?, ?, 'self')
-ON CONFLICT(plan_id, user_id)
-DO UPDATE SET joined_by='self', joined_at=CURRENT_TIMESTAMP`, planID, user.ID)
-	if err != nil {
-		return err
-	}
-	return respondData(c, fiber.Map{"ok": true})
-}
-
 type trainingPlanAccess struct {
-	Title         string
-	AllowSelfJoin bool
-	IsPublic      bool
-	PublishedAt   sql.NullString
+	Title       string
+	IsPublic    bool
+	PublishedAt sql.NullString
 }
 
 func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole string) (trainingPlanAccess, error) {
@@ -502,32 +459,31 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 	}
 
 	var access trainingPlanAccess
-	var allowSelfJoin, isPublic int
+	var isPublic int
 	var publishedAt sql.NullString
 
 	if canManage {
 		err = a.DB.QueryRow(`
-SELECT title, allow_self_join, is_public, published_at
-FROM training_plans
-WHERE id=? AND space_id=?`, planID, spaceID).
-			Scan(&access.Title, &allowSelfJoin, &isPublic, &publishedAt)
+	SELECT title, is_public, published_at
+	FROM training_plans
+	WHERE id=? AND space_id=?`, planID, spaceID).
+			Scan(&access.Title, &isPublic, &publishedAt)
 	} else {
 		var isParticipant int
 		err = a.DB.QueryRow(`
-SELECT
-  tp.title,
-  tp.allow_self_join,
-  tp.is_public,
-  tp.published_at,
-  EXISTS(
-    SELECT 1
-    FROM training_participants p
-    WHERE p.plan_id=tp.id AND p.user_id=?
-  )
-FROM training_plans tp
-WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
-			Scan(&access.Title, &allowSelfJoin, &isPublic, &publishedAt, &isParticipant)
-		if err == nil && isPublic != 1 && isParticipant != 1 {
+	SELECT
+	  tp.title,
+	  tp.is_public,
+	  tp.published_at,
+	  EXISTS(
+	    SELECT 1
+	    FROM training_participants p
+	    WHERE p.plan_id=tp.id AND p.user_id=?
+	  )
+	FROM training_plans tp
+	WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
+			Scan(&access.Title, &isPublic, &publishedAt, &isParticipant)
+		if err == nil && isParticipant != 1 {
 			return trainingPlanAccess{}, fiber.NewError(fiber.StatusNotFound, "training plan not found in this space")
 		}
 	}
@@ -538,7 +494,6 @@ WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
 		return trainingPlanAccess{}, err
 	}
 
-	access.AllowSelfJoin = allowSelfJoin == 1
 	access.IsPublic = isPublic == 1
 	access.PublishedAt = publishedAt
 	return access, nil
@@ -546,13 +501,13 @@ WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
 
 func (a *API) loadPlanChapters(planID, spaceID, userID int64) ([]fiber.Map, error) {
 	rows, err := a.DB.Query(`
-SELECT c.id, c.title, c.order_no, i.problem_id, i.order_no, rp.title, rp.type, COALESCE(upp.best_verdict, '')
-FROM training_chapters c
-LEFT JOIN training_items i ON i.chapter_id = c.id
-LEFT JOIN space_problems rp ON rp.id = i.problem_id
-LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = i.problem_id
-WHERE c.plan_id=?
-ORDER BY c.order_no ASC, i.order_no ASC`, spaceID, userID, planID)
+	SELECT c.id, c.title, c.order_no, i.problem_id, i.order_no, rp.title, rp.type, COALESCE(upp.best_verdict, '')
+	FROM training_chapters c
+	LEFT JOIN training_items i ON i.chapter_id = c.id
+	LEFT JOIN space_problems rp ON rp.id = i.problem_id
+	LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = i.problem_id
+	WHERE c.plan_id=?
+	ORDER BY c.order_no ASC, i.order_no ASC`, spaceID, userID, planID)
 	if err != nil {
 		return nil, err
 	}
@@ -602,11 +557,11 @@ ORDER BY c.order_no ASC, i.order_no ASC`, spaceID, userID, planID)
 
 func (a *API) loadPlanParticipants(planID int64) ([]fiber.Map, error) {
 	rows, err := a.DB.Query(`
-SELECT p.user_id, u.username, p.joined_by, p.joined_at
-FROM training_participants p
-JOIN users u ON u.id = p.user_id
-WHERE p.plan_id=?
-ORDER BY p.joined_at DESC`, planID)
+	SELECT p.user_id, u.username, p.joined_by, p.joined_at
+	FROM training_participants p
+	JOIN users u ON u.id = p.user_id
+	WHERE p.plan_id=?
+	ORDER BY p.joined_at DESC`, planID)
 	if err != nil {
 		return nil, err
 	}

@@ -150,7 +150,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     openEditTrainingPlan,
     saveEditedTrainingPlan,
     deleteTrainingPlan,
-    joinTrainingPlan,
     handleAddTrainingParticipant,
     openCreateHomeworkModal,
     createHomework,
@@ -275,7 +274,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       onOpenAssignTrainingParticipant={openAssignTrainingParticipantModal}
       onExportTrainingPlan={(planId) => api.exportTrainingPlan(selectedSpaceId, planId)}
       onDeleteTrainingPlan={deleteTrainingPlan}
-      onJoinTrainingPlan={joinTrainingPlan}
       trainingActionMessage={trainingActionMessage}
       learningHomeworkSearch={searchState.learningHomeworkSearch}
       onLearningHomeworkSearchChange={searchState.setLearningHomeworkSearch}

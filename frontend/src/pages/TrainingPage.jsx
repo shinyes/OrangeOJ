@@ -15,12 +15,6 @@ function problemTypeText(type) {
   return type || '未知题型'
 }
 
-function joinedByText(joinedBy) {
-  if (joinedBy === 'self') return '自主加入'
-  if (joinedBy === 'admin') return '管理员分配'
-  return joinedBy || '未知来源'
-}
-
 function safeInternalPath(path, fallback) {
   if (typeof path === 'string' && path.startsWith('/')) return path
   return fallback
@@ -39,7 +33,6 @@ export default function TrainingPage({ user }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
-  const [joining, setJoining] = useState(false)
 
   const defaultBackTo = `/?spaceId=${spaceId}&tab=training`
   const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
@@ -108,21 +101,6 @@ export default function TrainingPage({ user }) {
     }
   }, [loading, scrollKey])
 
-  const handleJoin = async () => {
-    try {
-      setJoining(true)
-      setError('')
-      setActionMessage('')
-      await api.joinTrainingPlan(spaceId, planId)
-      await loadData()
-      setActionMessage('已加入训练')
-    } catch (err) {
-      setError(err.message || '加入训练失败')
-    } finally {
-      setJoining(false)
-    }
-  }
-
   if (loading) return <div className="min-h-screen flex items-center justify-center">训练加载中...</div>
 
   if (error && !plan) {
@@ -154,19 +132,8 @@ export default function TrainingPage({ user }) {
           </div>
           <div className="flex flex-wrap gap-1 md:gap-1.5 shrink-0">
             <Badge className="text-[10px] md:text-xs" variant={isPublic ? 'secondary' : 'outline'}>{isPublic ? '公开训练' : '隐藏训练'}</Badge>
-            <Badge className="text-[10px] md:text-xs" variant={plan.allowSelfJoin ? 'default' : 'outline'}>{plan.allowSelfJoin ? '允许自主加入' : '仅管理员分配'}</Badge>
             <Badge className="text-[10px] md:text-xs" variant={plan.published || plan.publishedAt ? 'default' : 'outline'}>{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
-            {myParticipant && (
-              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px] md:text-xs">
-                我的状态：已加入（{joinedByText(myParticipant.joinedBy)}）
-              </Badge>
-            )}
           </div>
-          {!myParticipant && (
-            <Button size="sm" className="h-7 md:h-8 text-xs" disabled={!plan.allowSelfJoin || joining} onClick={handleJoin}>
-              {!plan.allowSelfJoin ? '需管理员分配' : joining ? '加入中...' : '加入训练'}
-            </Button>
-          )}
           <Button size="sm" variant="outline" className="h-7 md:h-8 text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
         </div>
       </header>

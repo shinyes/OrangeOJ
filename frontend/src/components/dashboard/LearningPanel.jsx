@@ -11,7 +11,7 @@ export default function LearningPanel({
   learningProblemSearch, onLearningProblemSearchChange, filteredLearningProblems, problemTypeText,
   learningTrainingSearch, onLearningTrainingSearchChange, canManageSelectedSpace,
   onOpenCreateTrainingPlan, filteredLearningTrainingPlans, onOpenEditTrainingPlan,
-  onOpenAssignTrainingParticipant, onExportTrainingPlan, onDeleteTrainingPlan, onJoinTrainingPlan, trainingActionMessage,
+  onOpenAssignTrainingParticipant, onExportTrainingPlan, onDeleteTrainingPlan, trainingActionMessage,
   learningHomeworkSearch, onLearningHomeworkSearchChange, onOpenCreateHomework,
   filteredLearningHomeworks, onOpenEditHomework, onOpenAssignHomeworkTarget,
   onExportHomework, onDeleteHomework, homeworkActionMessage
@@ -86,9 +86,6 @@ export default function LearningPanel({
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredLearningTrainingPlans.map((plan) => {
               const isPublic = plan.isPublic !== false
-              const isJoined = plan.joined === true
-              const showEnterTraining = canManageSelectedSpace || isJoined
-              const showJoinTraining = !canManageSelectedSpace && !isJoined
 
               return (
                 <Card key={plan.id} className="flex flex-col">
@@ -96,19 +93,11 @@ export default function LearningPanel({
                     <CardTitle className="text-base line-clamp-2">{plan.title}</CardTitle>
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Badge variant={isPublic ? 'default' : 'secondary'} className="text-[11px]">{isPublic ? '公开' : '隐藏'}</Badge>
-                      <Badge variant="outline" className="text-[11px]">{plan.allowSelfJoin ? '可自行加入' : '仅管理员分配'}</Badge>
                       <Badge variant={plan.published || plan.publishedAt ? 'success' : 'secondary'} className="text-[11px]">{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
                     </div>
                   </CardHeader>
                   <CardFooter className="mt-auto pt-2 flex flex-wrap gap-2">
-                    {showEnterTraining && (
-                      <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/training-plans/${plan.id}`}>进入训练</Link></Button>
-                    )}
-                    {showJoinTraining && (
-                      <Button size="sm" onClick={() => onJoinTrainingPlan(plan.id)} disabled={!plan.allowSelfJoin}>
-                        {plan.allowSelfJoin ? '加入训练' : '需管理员分配'}
-                      </Button>
-                    )}
+                    <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/training-plans/${plan.id}`}>进入训练</Link></Button>
                     {canManageSelectedSpace && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

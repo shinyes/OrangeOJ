@@ -140,19 +140,6 @@ export default function useTrainingActions({
     }
   }
 
-  const joinTrainingPlan = async (planId) => {
-    if (!selectedSpaceId) return
-    try {
-      setError('')
-      trainingState.setTrainingActionMessage('')
-      await api.joinTrainingPlan(selectedSpaceId, planId)
-      await refreshSpaceData(selectedSpaceId)
-      trainingState.setTrainingActionMessage('已加入训练计划')
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
   const handleAddTrainingParticipant = async (targetUsers = []) => {
     if (!selectedSpaceId || !trainingState.assigningTrainingPlan?.id) return
     if (!ensureCanManageSpace()) return
@@ -189,7 +176,6 @@ export default function useTrainingActions({
     openEditTrainingPlan,
     saveEditedTrainingPlan,
     deleteTrainingPlan,
-    joinTrainingPlan,
     handleAddTrainingParticipant
   }
 }

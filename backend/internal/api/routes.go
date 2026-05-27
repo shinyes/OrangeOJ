@@ -84,8 +84,6 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 	protected.Get("/spaces/:spaceId/training-plans/:planId/participant-candidates", auth.RequireSpaceAdmin(db), api.handleSearchTrainingCandidates)
 	protected.Post("/spaces/:spaceId/training-plans/:planId/participants", auth.RequireSpaceAdmin(db), api.handleAddPlanParticipant)
 	protected.Delete("/spaces/:spaceId/training-plans/:planId/participants/:userId", auth.RequireSpaceAdmin(db), api.handleDeletePlanParticipant)
-	spaceRead.Post("/training-plans/:planId/join", api.handleJoinPlan)
-
 	spaceRead.Get("/homeworks", api.handleListHomeworks)
 	protected.Post("/spaces/:spaceId/homeworks", auth.RequireSpaceAdmin(db), api.handleCreateHomework)
 	spaceRead.Get("/homeworks/:homeworkId", api.handleGetHomework)

@@ -39,7 +39,6 @@ const errorMessageMap = {
   'space name already exists': '空间名称已存在',
   'title required': '标题不能为空',
   'training plan not found in this space': '当前空间中不存在该训练计划',
-  'self join disabled': '该训练不允许自行加入',
   'homework not found in this space': '当前空间中不存在该作业',
   'submission record items required': '当前没有可记录的作业提交内容',
   'unsupported language': '编程语言不受支持',
@@ -132,7 +131,6 @@ export const api = {
   searchTrainingCandidates: (spaceId, planId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/training-plans/${planId}/participant-candidates`, { q: keyword })),
   addTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants`, { method: 'POST', body: { userId } }),
   removeTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants/${userId}`, { method: 'DELETE' }),
-  joinTrainingPlan: (spaceId, planId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/join`, { method: 'POST' }),
 
   listHomeworks: (spaceId) => apiFetch(`/api/spaces/${spaceId}/homeworks`),
   createHomework: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks`, { method: 'POST', body }),

@@ -30,7 +30,7 @@ function buildInitialForm(plan) {
         problemSourceMode: 'manual'
       }))
     : [blankChapter(0)]
-  return { title: String(plan?.title || ''), allowSelfJoin: plan?.allowSelfJoin !== false, isPublic: plan?.isPublic !== false, published: Boolean(plan?.published ?? plan?.publishedAt), chapters }
+  return { title: String(plan?.title || ''), isPublic: plan?.isPublic !== false, published: Boolean(plan?.published ?? plan?.publishedAt), chapters }
 }
 
 export default function TrainingPlanEditor({ open, mode = 'create', plan = null, spaceId, problemOptions = [], onClose, onSubmit }) {
@@ -106,7 +106,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
       })
     } catch (err) { setSubmitError(err.message || '章节题目数据不合法'); return }
 
-    try { setSubmitting(true); setSubmitError(''); await onSubmit({ title, allowSelfJoin: form.allowSelfJoin, isPublic: form.isPublic, published: form.published, chapters }); onClose() }
+    try { setSubmitting(true); setSubmitError(''); await onSubmit({ title, isPublic: form.isPublic, published: form.published, chapters }); onClose() }
     catch (err) { setSubmitError(err.message || '保存失败') }
     finally { setSubmitting(false) }
   }
@@ -204,10 +204,6 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
           <Input placeholder="训练标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
 
           <div className="flex gap-4 flex-wrap">
-            <Label className="flex items-center gap-2 cursor-pointer">
-              <Checkbox checked={form.allowSelfJoin} onCheckedChange={(checked) => updateField('allowSelfJoin', checked)} />
-              允许成员自行加入
-            </Label>
             <Label className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={form.isPublic} onCheckedChange={(checked) => updateField('isPublic', checked)} />
               公开训练（普通成员可见）
