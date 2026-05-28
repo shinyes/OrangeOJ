@@ -386,7 +386,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                 className="flex items-center gap-1 cursor-pointer hover:opacity-90"
                 onClick={() => navigate('/')}
               >
-                <span className="text-lg font-bold text-primary">🍊 OrangeOJ</span>
+                <span className="hidden md:inline text-lg font-bold text-primary">🍊 OrangeOJ</span>
               </div>
 
               {isLearnView && (
