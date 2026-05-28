@@ -138,7 +138,7 @@ export default function LearningPanel({
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base line-clamp-2">{homework.title}</CardTitle>
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    <Badge variant={homework.published ? 'success' : 'secondary'} className="text-[11px]">{homework.published ? '已发布' : '草稿'}</Badge>
+                    <Badge variant={homework.published ? 'success' : 'secondary'} className="text-[11px]">{homework.published ? '已发布' : '未发布'}</Badge>
                     {homework.dueAt && <Badge variant="outline" className="text-[11px]">截止：{homework.dueAt}</Badge>}
                     {!canManageSelectedSpace && homework.assigned && (
                       <Badge variant="info" className="text-[11px]">已分配给我</Badge>
