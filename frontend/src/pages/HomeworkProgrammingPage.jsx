@@ -337,7 +337,7 @@ export default function HomeworkProgrammingPage() {
 
       <div className="flex flex-1 overflow-hidden p-3 gap-3">
         {/* Left Panel */}
-        <Card className="w-[40%] min-w-[400px] flex flex-col overflow-hidden">
+        <Card className="w-full md:w-[40%] md:min-w-[400px] flex flex-col overflow-hidden">
           <CardContent className="flex-1 overflow-auto p-4 scrollbar-thin">
             <h2 className="text-lg font-bold mb-3">题目描述</h2>
 

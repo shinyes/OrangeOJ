@@ -667,7 +667,7 @@ export default function HomeworkPage() {
       {groupedItems.map((group) => (
         <div key={group.type}>
           <h4 className="text-xs font-bold mb-1">{group.title}</h4>
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
             {group.items.map((item) => {
               const problemId = Number(item.problemId)
               const answered = answeredProblemIds.has(problemId)
@@ -928,7 +928,7 @@ export default function HomeworkPage() {
       <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
         <div className="flex items-center min-h-10 md:min-h-14 px-2 md:px-6 py-1 gap-1 md:gap-2 flex-wrap">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1 md:gap-2 min-w-max">
+            <div className="flex items-center gap-1 md:gap-2 min-w-0">
               <h1 className="text-xs md:text-sm font-extrabold leading-tight truncate">{homework.title}</h1>
               <Badge variant="outline" className="text-[10px] md:text-xs">{homeworkDisplayModeText(homeworkDisplayMode)}</Badge>
               {isReviewMode ? <Badge variant="outline" className="border-primary text-primary text-[10px] md:text-xs">作答记录回看</Badge> : null}
