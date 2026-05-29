@@ -383,66 +383,59 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	if !canManage {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
-	// Load chapters
-	chapterRows, err := a.DB.Query(`
-	SELECT id, title, order_no
-	FROM training_chapters
-	WHERE plan_id = ?
-	ORDER BY order_no`, planID)
+	// Load chapters with items in a single query (avoid SQLite nested query deadlock)
+	rows, err := a.DB.Query(`
+	SELECT tc.id, tc.title, tc.order_no, ti.problem_id
+	FROM training_chapters tc
+	LEFT JOIN training_items ti ON ti.chapter_id = tc.id
+	WHERE tc.plan_id = ?
+	ORDER BY tc.order_no, ti.order_no`, planID)
 	if err != nil {
 		return err
 	}
-	defer chapterRows.Close()
+	defer rows.Close()
 	type chapterInfo struct {
 		ID         int64   `json:"-"`
 		Title      string  `json:"title"`
 		OrderNo    int     `json:"orderNo"`
 		ProblemIDs []int64 `json:"problemIds"`
 	}
-	var chapters []chapterInfo
-	allProblemIDs := make(map[int64]bool)
-	for chapterRows.Next() {
-		var ch chapterInfo
-		if err := chapterRows.Scan(&ch.ID, &ch.Title, &ch.OrderNo); err != nil {
-			return err
-		}
-		// Load problem IDs for this chapter
-		itemRows, err := a.DB.Query(`
-		SELECT problem_id FROM training_items WHERE chapter_id = ? ORDER BY order_no`, ch.ID)
-		if err != nil {
-			return err
-		}
-		ch.ProblemIDs = make([]int64, 0)
-		for itemRows.Next() {
-			var pid int64
-			if err := itemRows.Scan(&pid); err != nil {
-				itemRows.Close()
-				return err
-			}
-			ch.ProblemIDs = append(ch.ProblemIDs, pid)
-			allProblemIDs[pid] = true
-		}
-		itemRows.Close()
-		chapters = append(chapters, ch)
-	}
-
-	// Load unique problems (preserving order from chapters)
+	chapterMap := make(map[int64]*chapterInfo)
+	chapterOrder := make([]int64, 0)
 	seen := make(map[int64]bool)
 	var problems []problemExportEntry
-	for _, ch := range chapters {
-		for _, pid := range ch.ProblemIDs {
-			if seen[pid] {
-				continue
+	for rows.Next() {
+		var chID int64
+		var chTitle string
+		var chOrderNo int
+		var problemID int64
+		if err := rows.Scan(&chID, &chTitle, &chOrderNo, &problemID); err != nil {
+			return err
+		}
+		ch, ok := chapterMap[chID]
+		if !ok {
+			ch = &chapterInfo{ID: chID, Title: chTitle, OrderNo: chOrderNo, ProblemIDs: make([]int64, 0)}
+			chapterMap[chID] = ch
+			chapterOrder = append(chapterOrder, chID)
+		}
+		if problemID > 0 {
+			ch.ProblemIDs = append(ch.ProblemIDs, problemID)
+			if !seen[problemID] {
+				seen[problemID] = true
+				entry, err := a.loadProblemForExport(spaceID, problemID)
+				if err != nil {
+					return err
+				}
+				problems = append(problems, *entry)
 			}
-			seen[pid] = true
-			entry, err := a.loadProblemForExport(spaceID, pid)
-			if err != nil {
-				return err
-			}
-			problems = append(problems, *entry)
 		}
 	}
-		// Convert chapterInfo to trainingPlanChapterJSON for export
+	// Build chapters slice in order
+	chapters := make([]chapterInfo, 0, len(chapterOrder))
+	for _, chID := range chapterOrder {
+		chapters = append(chapters, *chapterMap[chID])
+	}
+	// Convert chapterInfo to trainingPlanChapterJSON for export
 	planChapters := make([]trainingPlanChapterJSON, len(chapters))
 	for i, ch := range chapters {
 		planChapters[i] = trainingPlanChapterJSON{Title: ch.Title, OrderNo: ch.OrderNo, ProblemIDs: ch.ProblemIDs}
