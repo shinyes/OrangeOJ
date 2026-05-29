@@ -1,26 +1,61 @@
-# OrangeOJ
+# 🍊 OrangeOJ
 
-OrangeOJ 是一个基于 Go + Fiber + SQLite + React + Monaco 的在线 OJ 平台。
+简洁高效的在线判题与教学平台。Go + Fiber + SQLite + React + nsjail。
 
-## 服务组成
+## 功能
 
-- `orangeoj`：主服务（Web + API + 队列）
-- `judge-runtime`：常驻判题服务（nsjail + cgroup）
+- **题库管理** — 编程题 / 单选题 / 判断题，Markdown 题面 + KaTeX 公式，图片嵌入
+- **在线判题** — nsjail 沙箱隔离，支持 C++ / Python / Go，cgroup v2 内存限制
+- **作业系统** — 试卷 / 题单两种模式，截止时间、成员分配、云端草稿、提交记录
+- **训练计划** — 章节组织、进度追踪、ZIP 导入导出（含章节结构）
+- **空间管理** — 多空间隔离、管理员/成员权限、批量注册
+- **响应式 UI** — Tailwind CSS + shadcn/ui，适配桌面与移动端
 
-## 部署方式
+## 技术栈
 
-当前提供两种 Compose 方案：
+| 层 | 技术 |
+|---|---|
+| 后端 | Go + Fiber + SQLite |
+| 判题 | nsjail + cgroup v2 |
+| 前端 | React 18 + Vite + Tailwind CSS + shadcn/ui |
+| 编辑器 | Monaco Editor |
+| 渲染 | marked + KaTeX + DOMPurify |
+| CI/CD | GitHub Actions → GHCR 自动构建 |
 
-1. 拉取已发布镜像（推荐）
-2. 本地构建镜像
+## 快速开始（开发）
 
-## 方式一：拉取已发布镜像（推荐）
+### 环境要求
 
-使用文件：
+- Go 1.19+
+- Node.js 16+
+- nsjail（判题需要）
+- g++ / python3 / go（对应编程语言环境）
 
-- `deploy/docker-compose.pull.yml`
+### 启动
 
-### 首次部署（先 clone）
+```bash
+# 后端 (localhost:8080)
+cd backend && go run .
+
+# 前端 (localhost:5173)
+cd frontend && npm install && npm run dev
+```
+
+首次启动自动创建 `admin` / `123456` 管理员账号。
+
+### 开发脚本
+
+```bash
+# Windows
+.\scripts\start-dev.ps1
+
+# Linux/Mac
+./scripts/start-dev.sh
+```
+
+## Docker 部署
+
+### 拉取镜像（推荐）
 
 ```bash
 git clone https://github.com/shinyes/OrangeOJ.git ooj
@@ -28,93 +63,75 @@ cd ooj
 docker compose -f deploy/docker-compose.pull.yml up -d
 ```
 
-### 更新到最新版本
-
-```bash
-cd ooj
-git pull
-docker compose -f deploy/docker-compose.pull.yml pull
-docker compose -f deploy/docker-compose.pull.yml up -d
-```
-
-### 固定版本（示例 `v0.4.4`）
-
-将 `deploy/docker-compose.pull.yml` 中镜像改为：
-
-- `ghcr.io/shinyes/orangeoj:v0.4.4`
-- `ghcr.io/shinyes/orangeoj-judge:v0.4.4`
-
-## 方式二：本地构建镜像
-
-使用文件：
-
-- `deploy/docker-compose.build.yml`
-
-### 首次部署（先 clone）
-
-```bash
-git clone https://github.com/shinyes/OrangeOJ.git ooj
-cd ooj
-docker compose -f deploy/docker-compose.build.yml up -d --build
-```
-
-### 国内网络构建（Go 模块镜像）
-
-本地构建版默认使用：
-
-- `GOPROXY=https://goproxy.cn,direct`
-- `GOSUMDB=sum.golang.google.cn`
-
-如需临时覆盖，可在构建前设置：
-
-```bash
-export ORANGEOJ_BUILD_GOPROXY=https://goproxy.cn,direct
-export ORANGEOJ_BUILD_GOSUMDB=sum.golang.google.cn
-docker compose -f deploy/docker-compose.build.yml up -d --build
-```
-
-### 代码更新后重新构建
-
-```bash
-cd ooj
-git pull
-docker compose -f deploy/docker-compose.build.yml up -d --build
-```
-
-## 访问与初始化
-
-访问地址：
-
-- `http://localhost:23453`
-
-查看首次启动自动生成的 `admin` 密码：
+访问 `http://localhost:23453`，查看初始密码：
 
 ```bash
 docker logs orangeoj | grep BOOTSTRAP
 ```
 
+### 更新版本
+
+```bash
+cd ooj && git pull
+docker compose -f deploy/docker-compose.pull.yml pull
+docker compose -f deploy/docker-compose.pull.yml up -d
+```
+
+### 固定版本
+
+将 `deploy/docker-compose.pull.yml` 中镜像 tag 改为指定版本号，如 `v0.6.7`。
+
+### 本地构建
+
+```bash
+docker compose -f deploy/docker-compose.build.yml up -d --build
+```
+
+## 项目结构
+
+```
+OrangeOJ/
+├── backend/
+│   ├── main.go
+│   └── internal/
+│       ├── api/            # 路由、请求处理、导入导出
+│       ├── auth/           # JWT / 权限中间件
+│       ├── db/             # 数据库初始化与迁移
+│       ├── judge/          # 判题队列与调度
+│       ├── judgeserver/    # nsjail 沙箱执行器
+│       └── model/          # 数据类型 / 判题结果（AC WA TLE MLE RE CE）
+├── frontend/
+│   └── src/
+│       ├── components/
+│       │   ├── dashboard/  # 管理面板（题库/作业/训练/空间/系统）
+│       │   └── ui/         # shadcn/ui 组件
+│       ├── pages/          # 页面（Dashboard/Coding/Homework/Training/Login）
+│       ├── hooks/          # useDashboardData / useDashboardActions 等
+│       ├── utils/          # 工具函数
+│       └── api.js          # API 客户端
+├── deploy/                 # Docker Compose 部署配置
+├── scripts/                # 开发启动/停止脚本
+├── Dockerfile              # 应用镜像
+├── Dockerfile.judge        # 判题运行时镜像
+└── .github/workflows/      # CI（tag v* 触发构建）
+```
+
 ## 关键环境变量
 
-必须修改：
-
-- `ORANGEOJ_JWT_SECRET`
-- `ORANGEOJ_JUDGE_SHARED_TOKEN`
-
-常用：
-
-- `ORANGEOJ_DB_PATH`（默认 `/app/data/orangeoj.db`）
-- `ORANGEOJ_JUDGE_WORKERS`（默认 `2`）
-- `ORANGEOJ_JUDGE_ENDPOINT`（默认 `http://judge-runtime:9090`）
-- `ORANGEOJ_JUDGE_HTTP_TIMEOUT_SEC`（默认 `300`）
-- `ORANGEOJ_REGISTRATION_DEFAULT`（默认 `false`）
-- `ORANGEOJ_IMAGE_JUDGE`（仅拉取版使用，默认 `ghcr.io/shinyes/orangeoj-judge:latest`）
+| 变量 | 说明 | 默认值 |
+|---|---|---|
+| `ORANGEOJ_JWT_SECRET` | JWT 签名密钥 | `dev-secret-change-me` |
+| `ORANGEOJ_JUDGE_SHARED_TOKEN` | 判题通信令牌 | `dev-token-change-me` |
+| `ORANGEOJ_DB_PATH` | SQLite 数据库路径 | `/app/data/orangeoj.db` |
+| `ORANGEOJ_JUDGE_WORKERS` | 并发判题数 | `2` |
+| `ORANGEOJ_JUDGE_ENDPOINT` | 判题服务地址 | `http://judge-runtime:9090` |
+| `ORANGEOJ_REGISTRATION_DEFAULT` | 注册开关 | `false` |
 
 ## 运行环境要求
 
-推荐 Linux（cgroup v2）+ Docker Compose。
+- Linux + cgroup v2 + Docker Compose
+- `judge-runtime` 需要 `privileged` 权限与 `cgroup: host`
 
-`judge-runtime` 需要：
+## License
 
-- `privileged` 权限
-- `cgroup: host`
-- 挂载 `/sys/fs/cgroup`
+MIT
