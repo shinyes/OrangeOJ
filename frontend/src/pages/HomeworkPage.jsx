@@ -937,7 +937,7 @@ export default function HomeworkPage() {
 
           <div className="flex items-center gap-1 md:gap-2 ml-auto shrink-0">
             <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild><Link to={backTo}>{backLabel}</Link></Button>
-            {space?.canManage ? (
+            {!isReviewMode && space?.canManage ? (
               <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild>
                 <Link to={`/spaces/${spaceId}/homeworks/${homeworkId}/submission-records?returnTo=${allRecordsReturnTo}&returnLabel=${allRecordsReturnLabel}`}>
                   全部提交记录
