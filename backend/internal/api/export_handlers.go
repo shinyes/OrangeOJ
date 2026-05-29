@@ -60,6 +60,18 @@ type problemExportEntry struct {
 	MemoryLimitMiB int             `json:"memoryLimitMiB,omitempty"`
 }
 
+
+func marshalNoEscape(v interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	enc := json.NewEncoder(buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 func buildProblemsZip(problems []problemExportEntry) ([]byte, error) {
 	return buildTrainingPlanZip(problems, nil)
 }
@@ -74,7 +86,7 @@ func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlan
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 
-	problemsJSON, err := json.MarshalIndent(problems, "", "  ")
+	problemsJSON, err := marshalNoEscape(problems)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +100,7 @@ func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlan
 
 	// Write trainingPlan.json with chapter structure
 	if len(chapters) > 0 {
-		planJSON, err := json.MarshalIndent(map[string]interface{}{"chapters": chapters}, "", "  ")
+		planJSON, err := marshalNoEscape(map[string]interface{}{"chapters": chapters})
 		if err != nil {
 			return nil, err
 		}
