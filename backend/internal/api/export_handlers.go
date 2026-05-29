@@ -96,6 +96,64 @@ func buildProblemsZip(problems []problemExportEntry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type trainingPlanChapterJSON struct {
+	Title      string  `json:"title"`
+	OrderNo    int     `json:"orderNo"`
+	ProblemIDs []int64 `json:"problemIds"`
+}
+
+func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlanChapterJSON) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+
+	problemsJSON, err := json.MarshalIndent(problems, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	f, err := w.Create("problems.json")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Write(problemsJSON); err != nil {
+		return nil, err
+	}
+
+	// Write trainingPlan.json with chapter structure
+	if len(chapters) > 0 {
+		planJSON, err := json.MarshalIndent(map[string]interface{}{"chapters": chapters}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		tf, err := w.Create("trainingPlan.json")
+		if err != nil {
+			return nil, err
+		}
+		if _, err := tf.Write(planJSON); err != nil {
+			return nil, err
+		}
+	}
+
+	imageFiles := collectProblemImageRefs(problems)
+	for _, filename := range imageFiles {
+		imgPath := filepath.Join(uploadDir, filename)
+		data, err := os.ReadFile(imgPath)
+		if err != nil {
+			continue
+		}
+		ff, err := w.Create("images/" + filename)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := ff.Write(data); err != nil {
+			return nil, err
+		}
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 func (a *API) handleExportProblems(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
@@ -325,34 +383,71 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	if !canManage {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
-	rows, err := a.DB.Query(`
-SELECT ti.problem_id
-FROM training_items ti
-JOIN training_chapters tc ON tc.id = ti.chapter_id
-WHERE tc.plan_id = ?
-ORDER BY tc.order_no, ti.order_no`, planID)
+	// Load chapters
+	chapterRows, err := a.DB.Query(`
+	SELECT id, title, order_no
+	FROM training_chapters
+	WHERE plan_id = ?
+	ORDER BY order_no`, planID)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
-	seen := make(map[int64]bool)
-	var problems []problemExportEntry
-	for rows.Next() {
-		var problemID int64
-		if err := rows.Scan(&problemID); err != nil {
+	defer chapterRows.Close()
+	type chapterInfo struct {
+		ID         int64   `json:"-"`
+		Title      string  `json:"title"`
+		OrderNo    int     `json:"orderNo"`
+		ProblemIDs []int64 `json:"problemIds"`
+	}
+	var chapters []chapterInfo
+	allProblemIDs := make(map[int64]bool)
+	for chapterRows.Next() {
+		var ch chapterInfo
+		if err := chapterRows.Scan(&ch.ID, &ch.Title, &ch.OrderNo); err != nil {
 			return err
 		}
-		if seen[problemID] {
-			continue
-		}
-		seen[problemID] = true
-		entry, err := a.loadProblemForExport(spaceID, problemID)
+		// Load problem IDs for this chapter
+		itemRows, err := a.DB.Query(`
+		SELECT problem_id FROM training_items WHERE chapter_id = ? ORDER BY order_no`, ch.ID)
 		if err != nil {
 			return err
 		}
-		problems = append(problems, *entry)
+		ch.ProblemIDs = make([]int64, 0)
+		for itemRows.Next() {
+			var pid int64
+			if err := itemRows.Scan(&pid); err != nil {
+				itemRows.Close()
+				return err
+			}
+			ch.ProblemIDs = append(ch.ProblemIDs, pid)
+			allProblemIDs[pid] = true
+		}
+		itemRows.Close()
+		chapters = append(chapters, ch)
 	}
-	zipBytes, err := buildProblemsZip(problems)
+
+	// Load unique problems (preserving order from chapters)
+	seen := make(map[int64]bool)
+	var problems []problemExportEntry
+	for _, ch := range chapters {
+		for _, pid := range ch.ProblemIDs {
+			if seen[pid] {
+				continue
+			}
+			seen[pid] = true
+			entry, err := a.loadProblemForExport(spaceID, pid)
+			if err != nil {
+				return err
+			}
+			problems = append(problems, *entry)
+		}
+	}
+		// Convert chapterInfo to trainingPlanChapterJSON for export
+	planChapters := make([]trainingPlanChapterJSON, len(chapters))
+	for i, ch := range chapters {
+		planChapters[i] = trainingPlanChapterJSON{Title: ch.Title, OrderNo: ch.OrderNo, ProblemIDs: ch.ProblemIDs}
+	}
+	zipBytes, err := buildTrainingPlanZip(problems, planChapters)
 	if err != nil {
 		return err
 	}
