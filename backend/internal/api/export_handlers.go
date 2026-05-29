@@ -3,6 +3,7 @@ package api
 import (
 	"archive/zip"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +17,6 @@ import (
 )
 
 var imageRefPattern = regexp.MustCompile(`/api/uploads/([a-f0-9]+\.(png|jpe?g|gif|webp|svg))`)
-
 func collectImageRefs(markdownFields ...string) []string {
 	seen := make(map[string]bool)
 	var refs []string
@@ -32,6 +32,7 @@ func collectImageRefs(markdownFields ...string) []string {
 	}
 	return refs
 }
+
 
 func collectProblemImageRefs(problems []problemExportEntry) []string {
 	seen := make(map[string]bool)
@@ -60,40 +61,7 @@ type problemExportEntry struct {
 }
 
 func buildProblemsZip(problems []problemExportEntry) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	w := zip.NewWriter(buf)
-
-	problemsJSON, err := json.MarshalIndent(problems, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	f, err := w.Create("problems.json")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := f.Write(problemsJSON); err != nil {
-		return nil, err
-	}
-
-	imageFiles := collectProblemImageRefs(problems)
-	for _, filename := range imageFiles {
-		imgPath := filepath.Join(uploadDir, filename)
-		data, err := os.ReadFile(imgPath)
-		if err != nil {
-			continue
-		}
-		f, err := w.Create("images/" + filename)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := f.Write(data); err != nil {
-			return nil, err
-		}
-	}
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return buildTrainingPlanZip(problems, nil)
 }
 
 type trainingPlanChapterJSON struct {
@@ -347,7 +315,7 @@ func (a *API) handleExportHomework(c *fiber.Ctx) error {
 	}
 	var problems []problemExportEntry
 	for _, item := range items {
-		problemID := item["problemId"].(int64)
+		problemID := int64FromAny(item["problemId"])
 		entry, err := a.loadProblemForExport(spaceID, problemID)
 		if err != nil {
 			return err
@@ -408,7 +376,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 		var chID int64
 		var chTitle string
 		var chOrderNo int
-		var problemID int64
+		var problemID sql.NullInt64
 		if err := rows.Scan(&chID, &chTitle, &chOrderNo, &problemID); err != nil {
 			return err
 		}
@@ -418,11 +386,12 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 			chapterMap[chID] = ch
 			chapterOrder = append(chapterOrder, chID)
 		}
-		if problemID > 0 {
-			ch.ProblemIDs = append(ch.ProblemIDs, problemID)
-			if !seen[problemID] {
-				seen[problemID] = true
-				entry, err := a.loadProblemForExport(spaceID, problemID)
+		if problemID.Valid {
+			pid := problemID.Int64
+			ch.ProblemIDs = append(ch.ProblemIDs, pid)
+			if !seen[pid] {
+				seen[pid] = true
+				entry, err := a.loadProblemForExport(spaceID, pid)
 				if err != nil {
 					return err
 				}
