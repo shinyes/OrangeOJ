@@ -351,75 +351,85 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	if !canManage {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
-	// Phase 1: Load chapters with items in a single query, collect IDs only
+	// Single query: join chapters, items, and problem details together
 	rows, err := a.DB.Query(`
-	SELECT tc.id, tc.title, tc.order_no, ti.problem_id
+	SELECT tc.id, tc.title, tc.order_no,
+	       ti.problem_id,
+	       sp.type, sp.title, sp.tags_json, sp.statement_md,
+	       sp.body_json, sp.answer_json, sp.time_limit_ms, sp.memory_limit_mib
 	FROM training_chapters tc
 	LEFT JOIN training_items ti ON ti.chapter_id = tc.id
+	LEFT JOIN space_problems sp ON sp.id = ti.problem_id AND sp.space_id = ?
 	WHERE tc.plan_id = ?
-	ORDER BY tc.order_no, ti.order_no`, planID)
+	ORDER BY tc.order_no, ti.order_no`, spaceID, planID)
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
+
 	type chapterInfo struct {
-		ID         int64   `json:"-"`
 		Title      string  `json:"title"`
 		OrderNo    int     `json:"orderNo"`
 		ProblemIDs []int64 `json:"problemIds"`
 	}
 	chapterMap := make(map[int64]*chapterInfo)
 	chapterOrder := make([]int64, 0)
-	problemIDSet := make(map[int64]bool)
-	problemIDList := make([]int64, 0)
+	seen := make(map[int64]bool)
+	problems := make([]problemExportEntry, 0)
+
 	for rows.Next() {
 		var chID int64
 		var chTitle string
 		var chOrderNo int
 		var problemID sql.NullInt64
-		if err := rows.Scan(&chID, &chTitle, &chOrderNo, &problemID); err != nil {
-			rows.Close()
+		var pType, pTitle, pTags, pStmt, pBody, pAnswer sql.NullString
+		var pTime, pMem sql.NullInt64
+
+		if err := rows.Scan(&chID, &chTitle, &chOrderNo,
+			&problemID,
+			&pType, &pTitle, &pTags, &pStmt,
+			&pBody, &pAnswer, &pTime, &pMem); err != nil {
 			return err
 		}
+
 		ch, ok := chapterMap[chID]
 		if !ok {
-			ch = &chapterInfo{ID: chID, Title: chTitle, OrderNo: chOrderNo, ProblemIDs: make([]int64, 0)}
+			ch = &chapterInfo{Title: chTitle, OrderNo: chOrderNo, ProblemIDs: make([]int64, 0)}
 			chapterMap[chID] = ch
 			chapterOrder = append(chapterOrder, chID)
 		}
-		if problemID.Valid {
+
+		if problemID.Valid && pType.Valid {
 			pid := problemID.Int64
 			ch.ProblemIDs = append(ch.ProblemIDs, pid)
-			if !problemIDSet[pid] {
-				problemIDSet[pid] = true
-				problemIDList = append(problemIDList, pid)
+			if !seen[pid] {
+				seen[pid] = true
+				entry := problemExportEntry{
+					Type:        pType.String,
+					Title:       pTitle.String,
+					Tags:        decodeProblemTags(pTags.String),
+					StatementMD: pStmt.String,
+					BodyJSON:    json.RawMessage(pBody.String),
+					AnswerJSON:  json.RawMessage(pAnswer.String),
+				}
+				if pType.String == "programming" {
+					entry.TimeLimitMS = int(pTime.Int64)
+					entry.MemoryLimitMiB = int(pMem.Int64)
+				}
+				problems = append(problems, entry)
 			}
 		}
 	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
-	// Phase 2: Load problem details (cursor is now closed, safe to query)
-	problems := make([]problemExportEntry, 0, len(problemIDList))
-	for _, pid := range problemIDList {
-		entry, err := a.loadProblemForExport(spaceID, pid)
-		if err != nil {
-			return err
-		}
-		problems = append(problems, *entry)
-	}
 
 	// Build chapters slice in order
-	chapters := make([]chapterInfo, 0, len(chapterOrder))
+	planChapters := make([]trainingPlanChapterJSON, 0, len(chapterOrder))
 	for _, chID := range chapterOrder {
-		chapters = append(chapters, *chapterMap[chID])
+		ch := chapterMap[chID]
+		planChapters = append(planChapters, trainingPlanChapterJSON{
+			Title: ch.Title, OrderNo: ch.OrderNo, ProblemIDs: ch.ProblemIDs,
+		})
 	}
-	// Convert chapterInfo to trainingPlanChapterJSON for export
-	planChapters := make([]trainingPlanChapterJSON, len(chapters))
-	for i, ch := range chapters {
-		planChapters[i] = trainingPlanChapterJSON{Title: ch.Title, OrderNo: ch.OrderNo, ProblemIDs: ch.ProblemIDs}
-	}
+
 	zipBytes, err := buildTrainingPlanZip(problems, planChapters)
 	if err != nil {
 		return err
@@ -428,7 +438,6 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=training_plan_%d.zip", planID))
 	return c.Send(zipBytes)
 }
-
 
 func (a *API) loadProblemForExport(spaceID, problemID int64) (*problemExportEntry, error) {
 	var typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
