@@ -351,7 +351,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	if !canManage {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
-	// Load chapters with items in a single query (avoid SQLite nested query deadlock)
+	// Phase 1: Load chapters with items in a single query, collect IDs only
 	rows, err := a.DB.Query(`
 	SELECT tc.id, tc.title, tc.order_no, ti.problem_id
 	FROM training_chapters tc
@@ -361,7 +361,6 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 	type chapterInfo struct {
 		ID         int64   `json:"-"`
 		Title      string  `json:"title"`
@@ -370,14 +369,15 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	}
 	chapterMap := make(map[int64]*chapterInfo)
 	chapterOrder := make([]int64, 0)
-	seen := make(map[int64]bool)
-	var problems []problemExportEntry
+	problemIDSet := make(map[int64]bool)
+	problemIDList := make([]int64, 0)
 	for rows.Next() {
 		var chID int64
 		var chTitle string
 		var chOrderNo int
 		var problemID sql.NullInt64
 		if err := rows.Scan(&chID, &chTitle, &chOrderNo, &problemID); err != nil {
+			rows.Close()
 			return err
 		}
 		ch, ok := chapterMap[chID]
@@ -389,16 +389,27 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 		if problemID.Valid {
 			pid := problemID.Int64
 			ch.ProblemIDs = append(ch.ProblemIDs, pid)
-			if !seen[pid] {
-				seen[pid] = true
-				entry, err := a.loadProblemForExport(spaceID, pid)
-				if err != nil {
-					return err
-				}
-				problems = append(problems, *entry)
+			if !problemIDSet[pid] {
+				problemIDSet[pid] = true
+				problemIDList = append(problemIDList, pid)
 			}
 		}
 	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	// Phase 2: Load problem details (cursor is now closed, safe to query)
+	problems := make([]problemExportEntry, 0, len(problemIDList))
+	for _, pid := range problemIDList {
+		entry, err := a.loadProblemForExport(spaceID, pid)
+		if err != nil {
+			return err
+		}
+		problems = append(problems, *entry)
+	}
+
 	// Build chapters slice in order
 	chapters := make([]chapterInfo, 0, len(chapterOrder))
 	for _, chID := range chapterOrder {
@@ -417,6 +428,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=training_plan_%d.zip", planID))
 	return c.Send(zipBytes)
 }
+
 
 func (a *API) loadProblemForExport(spaceID, problemID int64) (*problemExportEntry, error) {
 	var typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
