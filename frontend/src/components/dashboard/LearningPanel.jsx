@@ -93,7 +93,11 @@ export default function LearningPanel({
                     <CardTitle className="text-base line-clamp-2">{plan.title}</CardTitle>
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Badge variant={isPublic ? 'default' : 'secondary'} className="text-[11px]">{isPublic ? '公开' : '隐藏'}</Badge>
-                      <Badge variant={plan.published || plan.publishedAt ? 'success' : 'secondary'} className="text-[11px]">{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
+                      {plan.published ? (
+                      <Badge variant="success" className="text-[11px]">已发布</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[11px]">未发布</Badge>
+                    )}
                     </div>
                   </CardHeader>
                   <CardFooter className="mt-auto pt-2 flex flex-wrap gap-2">
