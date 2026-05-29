@@ -372,6 +372,7 @@ export default function CodingPage() {
         nextTrainingProblem={nextTrainingProblem}
         solveReturnTo={solveReturnTo}
         solveReturnLabel={solveReturnLabel}
+        trainingPlan={trainingPlan}
       />
     </>
   )
@@ -388,8 +389,7 @@ function CodingPageContent({
   objectiveAnswer, setObjectiveAnswer,
   handleRunClick, handleTestClick, saveDraft, handleCodeSubmit, handleObjectiveSubmit, copyToClipboard, user,
   planId, spaceId, problemId, trainingProblems, currentTrainingIndex, prevTrainingProblem, nextTrainingProblem,
-  solveReturnTo, solveReturnLabel,
-}) {
+  solveReturnTo, solveReturnLabel, trainingPlan }) {
   const samples = body.samples || []
   const showTrainingNav = planId != null && trainingProblems.length > 0
 
@@ -405,21 +405,34 @@ function CodingPageContent({
 
   // ---- Training navigation helpers ----
   const renderTrainingNavGrid = () => (
-    <div className="grid grid-cols-5 gap-1">
-      {trainingProblems.map((p, idx) => {
-        const isCurrent = Number(p.problemId) === Number(problemId)
-        const cls = cn(
-          'h-7 w-full min-w-0 px-0 py-0 rounded text-xs font-medium border transition-colors',
-          p.completed && 'border-green-400 bg-green-50 text-green-700 hover:bg-green-100',
-          !p.completed && 'border-border bg-white hover:border-primary hover:bg-slate-50',
-          isCurrent && 'ring-2 ring-primary ring-offset-1'
-        )
+    <div className="flex flex-col gap-3">
+      {(trainingPlan?.chapters || []).map((chapter, chIdx) => {
+        const items = chapter.items || []
+        if (items.length === 0) return null
         return (
-          <Link key={`${p.problemId}-${idx}`} to={trainingNavTargetUrl(p.problemId)} className="no-underline">
-            <Button variant="outline" className={cls} title={`${idx + 1}. ${p.title}`}>
-              {p.completed ? <CheckCircle2 className="h-3 w-3" /> : idx + 1}
-            </Button>
-          </Link>
+          <div key={chIdx}>
+            <h5 className="text-[11px] font-semibold text-muted-foreground mb-1.5 tracking-wide uppercase">
+              第{chIdx + 1}章 {chapter.title}
+            </h5>
+            <div className="grid grid-cols-5 gap-1">
+              {items.map((item, itemIdx) => {
+                const isCurrent = Number(item.problemId) === Number(problemId)
+                const cls = cn(
+                  'h-7 w-full min-w-0 px-0 py-0 rounded text-xs font-medium border transition-colors',
+                  item.completed && 'border-green-400 bg-green-50 text-green-700 hover:bg-green-100',
+                  !item.completed && 'border-border bg-white hover:border-primary hover:bg-slate-50',
+                  isCurrent && 'ring-2 ring-primary ring-offset-1'
+                )
+                return (
+                  <Link key={item.problemId} to={trainingNavTargetUrl(item.problemId)} className="no-underline">
+                    <Button variant="outline" className={cls} title={`${item.title}`}>
+                      {item.completed ? <CheckCircle2 className="h-3 w-3" /> : itemIdx + 1}
+                    </Button>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
         )
       })}
     </div>
