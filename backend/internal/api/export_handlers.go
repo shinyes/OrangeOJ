@@ -79,7 +79,7 @@ func buildProblemsZip(problems []problemExportEntry) ([]byte, error) {
 type trainingPlanChapterJSON struct {
 	Title      string  `json:"title"`
 	OrderNo    int     `json:"orderNo"`
-	ProblemIDs []int64 `json:"problemIds"`
+	ProblemIDs []int   `json:"problemIds"`
 }
 
 func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlanChapterJSON) ([]byte, error) {
@@ -382,7 +382,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	type chapterInfo struct {
 		Title      string  `json:"title"`
 		OrderNo    int     `json:"orderNo"`
-		ProblemIDs []int64 `json:"problemIds"`
+		ProblemIDs []int     `json:"problemIds"`
 	}
 	chapterMap := make(map[int64]*chapterInfo)
 	chapterOrder := make([]int64, 0)
@@ -406,16 +406,16 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 
 		ch, ok := chapterMap[chID]
 		if !ok {
-			ch = &chapterInfo{Title: chTitle, OrderNo: chOrderNo, ProblemIDs: make([]int64, 0)}
+			ch = &chapterInfo{Title: chTitle, OrderNo: chOrderNo, ProblemIDs: make([]int, 0)}
 			chapterMap[chID] = ch
 			chapterOrder = append(chapterOrder, chID)
 		}
 
 		if problemID.Valid && pType.Valid {
 			pid := problemID.Int64
-			ch.ProblemIDs = append(ch.ProblemIDs, pid)
 			if !seen[pid] {
 				seen[pid] = true
+				ch.ProblemIDs = append(ch.ProblemIDs, len(problems))
 				entry := problemExportEntry{
 					Type:        pType.String,
 					Title:       pTitle.String,
