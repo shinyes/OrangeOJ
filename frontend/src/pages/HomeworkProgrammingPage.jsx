@@ -112,6 +112,7 @@ export default function HomeworkProgrammingPage() {
   const [running, setRunning] = useState(false)
   const [now, setNow] = useState(Date.now())
   const [consoleText, setConsoleText] = useState('控制台已就绪')
+  const [consoleVariant, setConsoleVariant] = useState('')
   const [runInputDialog, setRunInputDialog] = useState({ open: false, value: '' })
   const [submissions, setSubmissions] = useState([])
   const [showSubmissionHistory, setShowSubmissionHistory] = useState(false)
@@ -267,10 +268,14 @@ export default function HomeworkProgrammingPage() {
     persistProgrammingDraft((current) => ({ ...current, lastSavedAt: savedAt }), '代码草稿已保存到云端')
   }
 
-  const pollSubmission = async (submissionId) => {
+  const pollSubmission = async (submissionId, mode) => {
     for (let round = 0; round < 180; round += 1) {
       const snapshot = await api.pollSubmission(submissionId)
-      setConsoleText(`${snapshot.stdout || ''}\n${snapshot.stderr || ''}\n状态：${snapshot.status} / ${snapshot.verdict || ''}`)
+      if (mode === 'run') {
+        setConsoleText(`${snapshot.stdout || ''}\n${snapshot.stderr || ''}`)
+      } else {
+        setConsoleText(`判题中... (${snapshot.verdict || '等待'})`)
+      }
       if (snapshot.status === 'done' || snapshot.status === 'failed') return snapshot
       await new Promise((resolve) => setTimeout(resolve, snapshot.pollAfterMs || 1000))
     }
@@ -284,16 +289,38 @@ export default function HomeworkProgrammingPage() {
     try {
       setRunning(true); setError(''); setActionMessage('')
       setConsoleText(`[${new Date().toLocaleTimeString()}] 开始${mode === 'run' ? '运行' : '测试'}...`)
+      setConsoleVariant('')
       const payload = { language: nextDraft.language, sourceCode: nextDraft.code, inputData: nextDraft.customInput || '' }
       const created = mode === 'run'
         ? await api.run(spaceId, numericProblemId, payload)
         : await api.test(spaceId, numericProblemId, payload)
-      const result = await pollSubmission(created.submissionId)
-      setConsoleText((current) => `${current}\n\n最终结果：${result.verdict || '-'} | ${(result.timeMs || 0)}ms | ${(result.memoryKiB || 0)}KiB`)
+      const result = await pollSubmission(created.submissionId, mode)
+      if (mode === 'test') {
+        if (result.verdict === 'CE') {
+          setConsoleText(`测试结果 编译失败\n\n${result.stderr || result.error || ''}`)
+          setConsoleVariant('error')
+        } else if (result.verdict === 'AC') {
+          setConsoleText(`测试结果 通过`)
+          setConsoleVariant('success')
+        } else {
+          setConsoleText(`测试结果 未通过`)
+          setConsoleVariant('error')
+        }
+      } else {
+        if (result.exitCode === 0) {
+          setConsoleText(`运行结束，返回码：0`)
+          setConsoleVariant('success')
+        }
+      }
       await refreshSubmissionHistory()
     } catch (err) {
       setError(err.message || '运行失败')
-      setConsoleText((current) => `${current}\n错误：${err.message || '运行失败'}`)
+      setConsoleVariant('error')
+      if (mode === 'run') {
+        setConsoleText((current) => `${current}\n${err.message || '运行失败'}`)
+      } else {
+        setConsoleText(`错误：${err.message || '运行失败'}`)
+      }
     } finally {
       setRunning(false)
     }
@@ -473,7 +500,7 @@ export default function HomeworkProgrammingPage() {
             {/* Console */}
             <div className="flex flex-col min-h-0">
               <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
-              <div className="overflow-auto max-h-[200px] min-h-[120px] bg-muted rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap">
+              <div className={`overflow-auto max-h-[200px] min-h-[120px] rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap ${consoleVariant === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-muted'}`}>
                 {consoleText || '暂无输出'}
               </div>
             </div>

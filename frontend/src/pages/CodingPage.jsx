@@ -102,6 +102,7 @@ export default function CodingPage() {
   const [showCustomInputDialog, setShowCustomInputDialog] = useState(false)
   const [tempCustomInput, setTempCustomInput] = useState('')
   const [consoleText, setConsoleText] = useState('控制台已就绪')
+  const [consoleVariant, setConsoleVariant] = useState('')
   const [running, setRunning] = useState(false)
   const [submissions, setSubmissions] = useState([])
   const [showSubmissionHistory, setShowSubmissionHistory] = useState(false)
@@ -232,10 +233,14 @@ export default function CodingPage() {
     setConsoleText((prev) => `${prev}\n[${nowTimeText()}] 草稿已保存到本地`)
   }
 
-  const pollSubmission = async (submissionId) => {
+  const pollSubmission = async (submissionId, mode) => {
     for (let i = 0; i < 180; i += 1) {
       const snapshot = await api.pollSubmission(submissionId)
-      setConsoleText(`${snapshot.stdout || ''}\n${snapshot.stderr || ''}\n状态：${snapshot.status} / ${snapshot.verdict || ''}`)
+      if (mode === 'run') {
+        setConsoleText(`${snapshot.stdout || ''}\n${snapshot.stderr || ''}`)
+      } else {
+        setConsoleText(`判题中... (${snapshot.verdict || '等待'})`)
+      }
       if (snapshot.status === 'done' || snapshot.status === 'failed') return snapshot
       await new Promise((resolve) => setTimeout(resolve, snapshot.pollAfterMs || 1000))
     }
@@ -248,6 +253,7 @@ export default function CodingPage() {
     setError('')
     const actionText = mode === 'run' ? '运行' : '测试'
     setConsoleText(`[${nowTimeText()}] 开始${actionText}...`)
+    setConsoleVariant('')
     try {
       const payload = { language, sourceCode: code, inputData: inputDataOverride ?? customInput }
       const created = spaceId
@@ -257,15 +263,36 @@ export default function CodingPage() {
         : mode === 'run'
           ? await api.runRoot(problemId, payload)
           : await api.testRoot(problemId, payload)
-      const result = await pollSubmission(created.submissionId)
-      setConsoleText((prev) => `${prev}\n\n最终结果：${result.verdict || '-'} | ${(result.timeMs || 0)}ms | ${(result.memoryKiB || 0)}KiB`)
+      const result = await pollSubmission(created.submissionId, mode)
+      if (mode === 'test') {
+        if (result.verdict === 'CE') {
+          setConsoleText(`测试结果 编译失败\n\n${result.stderr || result.error || ''}`)
+          setConsoleVariant('error')
+        } else if (result.verdict === 'AC') {
+          setConsoleText(`测试结果 通过`)
+          setConsoleVariant('success')
+        } else {
+          setConsoleText(`测试结果 未通过`)
+          setConsoleVariant('error')
+        }
+      } else {
+        if (result.exitCode === 0) {
+          setConsoleText(`运行结束，返回码：0`)
+          setConsoleVariant('success')
+        }
+      }
       if (spaceId) {
         const historyResult = await api.listSubmissions(spaceId, problemId, { all: true })
         setSubmissions(historyResult?.submissions || [])
       }
     } catch (err) {
       setError(err.message)
-      setConsoleText((prev) => `${prev}\n错误：${err.message}`)
+      setConsoleVariant('error')
+      if (mode === 'run') {
+        setConsoleText((prev) => `${prev}\n${err.message}`)
+      } else {
+        setConsoleText(`错误：${err.message}`)
+      }
     } finally {
       setRunning(false)
     }
@@ -342,6 +369,7 @@ export default function CodingPage() {
         setTempCustomInput={setTempCustomInput}
         consoleText={consoleText}
         setConsoleText={setConsoleText}
+        consoleVariant={consoleVariant}
         running={running}
         setRunning={setRunning}
         submissions={submissions}
@@ -382,7 +410,7 @@ function CodingPageContent({
   problem, body, backTo, backLabel, canEditProblem, showProblemEditor, setShowProblemEditor,
   error, setError, language, setLanguage, code, setCode,
   customInput, setCustomInput, showCustomInputDialog, setShowCustomInputDialog,
-  tempCustomInput, setTempCustomInput, consoleText, setConsoleText,
+  tempCustomInput, setTempCustomInput, consoleText, setConsoleText, consoleVariant,
   running, submissions, showSubmissionHistory, setShowSubmissionHistory,
   selectedSubmission, setSelectedSubmission, selectedSubmissionCaseIndex, setSelectedSubmissionCaseIndex,
   submissionDetailTab, setSubmissionDetailTab,
@@ -710,7 +738,10 @@ function CodingPageContent({
             {/* Console */}
             <div className="flex flex-col min-h-0">
               <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
-              <div className="overflow-auto max-h-[200px] min-h-[120px] bg-muted rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap">
+              <div className={cn(
+                "overflow-auto max-h-[200px] min-h-[120px] rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap",
+                consoleVariant === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-muted'
+              )}>
                 {consoleText || '暂无输出'}
               </div>
             </div>
