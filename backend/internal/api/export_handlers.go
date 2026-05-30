@@ -301,6 +301,119 @@ func (a *API) handleImportProblems(c *fiber.Ctx) error {
 	return respondData(c, fiber.Map{"problems": created})
 }
 
+func parseTrainingPlanJSON(zipData []byte) ([]trainingPlanChapterJSON, error) {
+	reader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		return nil, fmt.Errorf("invalid zip file: %w", err)
+	}
+	for _, f := range reader.File {
+		if f.Name == "trainingPlan.json" {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, fmt.Errorf("read trainingPlan.json: %w", err)
+			}
+			defer rc.Close()
+			var wrapper struct {
+				Chapters []trainingPlanChapterJSON `json:"chapters"`
+			}
+			if err := json.NewDecoder(rc).Decode(&wrapper); err != nil {
+				return nil, fmt.Errorf("parse trainingPlan.json: %w", err)
+			}
+			return wrapper.Chapters, nil
+		}
+	}
+	return nil, nil // no trainingPlan.json is OK
+}
+
+func (a *API) handleImportTrainingPlan(c *fiber.Ctx) error {
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	user, err := getUser(c)
+	if err != nil {
+		return err
+	}
+	canManage, err := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
+	if err != nil {
+		return err
+	}
+	if !canManage {
+		return respondError(c, fiber.StatusForbidden, "space admin required")
+	}
+	file, err := c.FormFile("zip")
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, "missing zip file")
+	}
+	if file.Size > 100<<20 {
+		return respondError(c, fiber.StatusBadRequest, "ZIP 文件不能超过 100MB")
+	}
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	zipData, err := io.ReadAll(src)
+	if err != nil {
+		return err
+	}
+
+	// Step 1: Extract images
+	if _, err := extractZipImages(zipData); err != nil {
+		return respondError(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	// Step 2: Import problems
+	problems, err := parseProblemsJSON(zipData)
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, err.Error())
+	}
+	createdIDs := make([]int64, 0, len(problems))
+	for i := range problems {
+		p := &problems[i]
+		if err := normalizeProblemPayload(p); err != nil {
+			return respondError(c, fiber.StatusBadRequest, fmt.Sprintf("题目 %q: %v", p.Title, err))
+		}
+		problemID, err := insertSpaceProblem(a.DB, spaceID, user.ID, *p)
+		if err != nil {
+			return err
+		}
+		createdIDs = append(createdIDs, problemID)
+	}
+
+	// Step 3: Parse training plan structure
+	chapters, err := parseTrainingPlanJSON(zipData)
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, err.Error())
+	}
+	if chapters == nil {
+		// No trainingPlan.json — just return imported problems
+		return respondData(c, fiber.Map{"problems": createdIDs, "chapters": nil})
+	}
+
+	// Step 4: Map index-based problemIds to new DB IDs
+	type chapterBody struct {
+		Title      string  `json:"title"`
+		OrderNo    int     `json:"orderNo"`
+		ProblemIDs []int64 `json:"problemIds"`
+	}
+	mappedChapters := make([]chapterBody, 0, len(chapters))
+	for _, ch := range chapters {
+		cb := chapterBody{Title: ch.Title, OrderNo: ch.OrderNo, ProblemIDs: make([]int64, 0, len(ch.ProblemIDs))}
+		for _, idx := range ch.ProblemIDs {
+			if idx >= 0 && idx < len(createdIDs) {
+				cb.ProblemIDs = append(cb.ProblemIDs, createdIDs[idx])
+			}
+		}
+		mappedChapters = append(mappedChapters, cb)
+	}
+
+	return respondData(c, fiber.Map{
+		"problems": createdIDs,
+		"chapters": mappedChapters,
+	})
+}
+
 func (a *API) handleExportHomework(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {

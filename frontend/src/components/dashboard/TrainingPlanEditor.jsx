@@ -38,6 +38,8 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
   const [form, setForm] = useState(() => buildInitialForm(plan))
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [importingPlanZip, setImportingPlanZip] = useState(false)
+  const [importError, setImportError] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -69,6 +71,37 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
   const removeChapter = (index) => setForm((current) => ({ ...current, chapters: current.chapters.filter((_, i) => i !== index) }))
   const moveProblem = (chapterIndex, index, dir) => reorderProblems(chapterIndex, index, index + dir)
   const removeProblem = (chapterIndex, index) => setForm((c) => ({ ...c, chapters: c.chapters.map((ch, i) => i !== chapterIndex ? ch : { ...ch, problemIds: ch.problemIds.filter((_, j) => j !== index) }) }))
+
+  const handleImportPlanZip = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !spaceId) return
+    setImportError(''); setImportingPlanZip(true)
+    try {
+      const result = await api.importTrainingPlan(spaceId, file)
+      const newProblemIds = result?.problems || []
+      const chapters = result?.chapters || []
+      if (chapters.length > 0) {
+        setForm((c) => ({
+          ...c,
+          chapters: chapters.map((ch) => ({
+            title: ch.title,
+            problemIds: ch.problemIds || [],
+            problemSourceMode: 'manual'
+          }))
+        }))
+      } else {
+        // No chapters in ZIP, just add imported problems to first chapter
+        if (newProblemIds.length > 0 && form.chapters.length > 0) {
+          updateChapter(0, { problemIds: [...form.chapters[0].problemIds, ...newProblemIds] })
+        }
+      }
+    } catch (err) {
+      setImportError(err.message || '训练 ZIP 导入失败')
+    } finally {
+      setImportingPlanZip(false)
+      e.target.value = ''
+    }
+  }
 
   const handleChapterImportZip = async (chapterIndex, e) => {
     const file = e.target.files?.[0]
@@ -213,6 +246,18 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
               立即发布
             </Label>
           </div>
+
+          {(!isEditMode) && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground flex-1">上传训练 ZIP 文件（包含 problems.json 和 trainingPlan.json），自动导入题目和章节结构。</p>
+              <Button variant="outline" size="sm" onClick={() => document.getElementById('training-zip-input')?.click()} disabled={importingPlanZip}>
+                <Upload className="h-4 w-4 mr-1" />
+                {importingPlanZip ? '导入中...' : '导入训练 ZIP'}
+              </Button>
+              <input type="file" id="training-zip-input" accept=".zip" className="hidden" onChange={handleImportPlanZip} />
+            </div>
+          )}
+          {importError && <ToastMessage message={importError} severity="error" onShown={() => setImportError('')} />}
 
           <div className="flex justify-between items-center">
             <h4 className="text-sm font-medium">章节</h4>

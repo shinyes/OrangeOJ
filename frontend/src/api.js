@@ -132,6 +132,7 @@ export const api = {
   searchTrainingCandidates: (spaceId, planId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/training-plans/${planId}/participant-candidates`, { q: keyword })),
   addTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants`, { method: 'POST', body: { userId } }),
   removeTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants/${userId}`, { method: 'DELETE' }),
+  importTrainingPlan: (spaceId, zipFile) => uploadFile(`/api/spaces/${spaceId}/training-plans/import`, zipFile),
 
   listHomeworks: (spaceId) => apiFetch(`/api/spaces/${spaceId}/homeworks`),
   createHomework: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks`, { method: 'POST', body }),

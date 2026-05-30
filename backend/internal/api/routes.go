@@ -126,6 +126,7 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 	// ZIP export/import (space admin only)
 	protected.Get("/spaces/:spaceId/homeworks/:homeworkId/export", api.handleExportHomework)
 	protected.Get("/spaces/:spaceId/training-plans/:planId/export", api.handleExportTrainingPlan)
+	protected.Post("/spaces/:spaceId/training-plans/import", auth.RequireSpaceAdmin(db), api.handleImportTrainingPlan)
 
 	// Image tag management routes
 	protected.Get("/image-tags", api.ListImageTags)
