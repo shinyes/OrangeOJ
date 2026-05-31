@@ -6,7 +6,7 @@ import { Badge } from '../components/ui/badge'
 import { Card, CardContent } from '../components/ui/card'
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
 import { cn } from '../lib/utils'
-import { Flag, Save, Pencil } from 'lucide-react'
+import { Flag, Save, Pencil, ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert } from '../components/ui/alert'
 import { Label } from '../components/ui/label'
@@ -284,6 +284,7 @@ export default function HomeworkPage() {
   const [submissionRecordUnavailable, setSubmissionRecordUnavailable] = useState(false)
   const [editingProblemId, setEditingProblemId] = useState(null)
   const [editingProblem, setEditingProblem] = useState(null)
+  const [fontScale, setFontScale] = useState(1)
   const [reviewRecord, setReviewRecord] = useState(null)
   const [draft, setDraft] = useState({ objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' })
   const [loading, setLoading] = useState(true)
@@ -962,6 +963,12 @@ export default function HomeworkPage() {
           </div>
 
           <div className="flex items-center gap-1 md:gap-2 ml-auto shrink-0">
+            <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="缩小字体" disabled={fontScale <= 0.7} onClick={() => setFontScale((s) => Math.max(0.7, s - 0.1))}>
+              <ZoomOut className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="放大字体" disabled={fontScale >= 1.5} onClick={() => setFontScale((s) => Math.min(1.5, s + 0.1))}>
+              <ZoomIn className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            </Button>
             <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild><Link to={backTo}>{backLabel}</Link></Button>
             {!isReviewMode && space?.canManage ? (
               <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild>
@@ -984,6 +991,7 @@ export default function HomeworkPage() {
         </div>
       </header>
 
+      <div style={{ fontSize: `${fontScale * 100}%` }}>
       {homeworkDisplayMode === 'exam' ? (
         <div className="flex items-start p-3 md:p-4 gap-3 flex-col md:flex-row">
           <div className="w-full md:w-[250px] md:sticky md:top-[72px] self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto shrink-0">
@@ -1041,6 +1049,7 @@ export default function HomeworkPage() {
           </div>
         </div>
       )}
+      </div>
       {editingProblem && (
         <ProblemEditor
           open={editingProblemId != null}
