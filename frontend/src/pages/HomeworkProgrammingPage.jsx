@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '../components/ui/textarea'
 import { Alert } from '../components/ui/alert'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, ZoomIn, ZoomOut } from 'lucide-react'
+import { X, History, Copy, Play, Save } from 'lucide-react'
 import MarkdownContent from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -113,7 +113,6 @@ export default function HomeworkProgrammingPage() {
   const [now, setNow] = useState(Date.now())
   const [consoleText, setConsoleText] = useState('控制台已就绪')
   const [consoleVariant, setConsoleVariant] = useState('')
-  const [fontScale, setFontScale] = useState(1)
   const [runInputDialog, setRunInputDialog] = useState({ open: false, value: '' })
   const [submissions, setSubmissions] = useState([])
   const [showSubmissionHistory, setShowSubmissionHistory] = useState(false)
@@ -354,12 +353,6 @@ export default function HomeworkProgrammingPage() {
               </span>
             )}
           </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="缩小字体" disabled={fontScale <= 0.7} onClick={() => setFontScale((s) => Math.max(0.7, s - 0.1))}>
-            <ZoomOut className="h-3 w-3 md:h-3.5 md:w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="放大字体" disabled={fontScale >= 1.5} onClick={() => setFontScale((s) => Math.min(1.5, s + 0.1))}>
-            <ZoomIn className="h-3 w-3 md:h-3.5 md:w-3.5" />
-          </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>
             <Link to={backTo} aria-label={backLabel}><X className="h-3.5 w-3.5 md:h-4 md:w-4" /></Link>
           </Button>
@@ -369,7 +362,7 @@ export default function HomeworkProgrammingPage() {
       {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
       {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
-      <div className="flex flex-1 overflow-hidden p-3 gap-3" style={{ fontSize: `${fontScale * 100}%` }}>
+      <div className="flex flex-1 overflow-hidden p-3 gap-3">
         {/* Left Panel */}
         <Card className="w-full md:w-[40%] md:min-w-[400px] flex flex-col overflow-hidden">
           <CardContent className="flex-1 overflow-auto p-4 scrollbar-thin">

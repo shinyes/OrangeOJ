@@ -15,7 +15,7 @@ import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -103,7 +103,6 @@ export default function CodingPage() {
   const [tempCustomInput, setTempCustomInput] = useState('')
   const [consoleText, setConsoleText] = useState('控制台已就绪')
   const [consoleVariant, setConsoleVariant] = useState('')
-  const [fontScale, setFontScale] = useState(1)
   const [running, setRunning] = useState(false)
   const [submissions, setSubmissions] = useState([])
   const [showSubmissionHistory, setShowSubmissionHistory] = useState(false)
@@ -421,7 +420,6 @@ function CodingPageContent({
   solveReturnTo, solveReturnLabel, trainingPlan }) {
   const samples = body.samples || []
   const showTrainingNav = planId != null && trainingProblems.length > 0
-  const [fontScale, setFontScale] = useState(1)
 
   const selectedSubmissionCaseDetails = selectedSubmission?.caseDetails || []
   const selectedSubmissionCase = selectedSubmissionCaseDetails[selectedSubmissionCaseIndex] || null
@@ -508,18 +506,12 @@ function CodingPageContent({
                   <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="缩小字体" disabled={fontScale <= 0.7} onClick={() => setFontScale((s) => Math.max(0.7, s - 0.1))}>
-                <ZoomOut className="h-3 w-3 md:h-3.5 md:w-3.5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="放大字体" disabled={fontScale >= 1.5} onClick={() => setFontScale((s) => Math.min(1.5, s + 0.1))}>
-                <ZoomIn className="h-3 w-3 md:h-3.5 md:w-3.5" />
-              </Button>
               <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-3 text-[10px] md:text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
             </div>
           </div>
         </header>
 
-        <div className="flex flex-col md:flex-row flex-1 overflow-hidden" style={{ fontSize: `${fontScale * 100}%` }}>
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
           {showTrainingNav && (
             <aside className="w-full md:w-44 shrink-0 border-b md:border-b-0 md:border-r bg-muted/20 overflow-y-auto p-1.5 md:p-2 max-h-[8rem] md:max-h-none">
               {renderTrainingNavGrid()}
@@ -604,12 +596,6 @@ function CodingPageContent({
                 <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="缩小字体" disabled={fontScale <= 0.7} onClick={() => setFontScale((s) => Math.max(0.7, s - 0.1))}>
-              <ZoomOut className="h-3 w-3 md:h-3.5 md:w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" title="放大字体" disabled={fontScale >= 1.5} onClick={() => setFontScale((s) => Math.min(1.5, s + 0.1))}>
-              <ZoomIn className="h-3 w-3 md:h-3.5 md:w-3.5" />
-            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>
               <Link to={backTo}><X className="h-3.5 w-3.5 md:h-4 md:w-4" /></Link>
             </Button>
@@ -619,7 +605,7 @@ function CodingPageContent({
 
       {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
 
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden p-1.5 md:p-3 gap-1.5 md:gap-3" style={{ fontSize: `${fontScale * 100}%` }}>
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden p-1.5 md:p-3 gap-1.5 md:gap-3">
         {/* Training Nav Sidebar */}
         {showTrainingNav && (
           <aside className="hidden md:block w-44 shrink-0 border-r bg-muted/20 rounded-lg overflow-y-auto p-2">
