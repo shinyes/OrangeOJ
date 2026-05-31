@@ -509,7 +509,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
                     <div key={index} className="flex items-center gap-2">
                       <Badge variant="outline" className="min-w-[42px] justify-center">{OPTION_LABELS[index]}</Badge>
                       <div className="flex-1 flex items-center gap-1">
-                        <Textarea placeholder={`选项 ${OPTION_LABELS[index]}`} value={option} onChange={(e) => updateOption(index, e.target.value)} className="flex-1 min-h-9" rows={1} />
+                        <Textarea placeholder={`选项 ${OPTION_LABELS[index]}`} value={option} onChange={(e) => updateOption(index, e.target.value)} className="flex-1" rows={Math.max(1, option.split('\n').length)} />
                         <ImageUploadButton onUploaded={(md) => updateOption(index, option + ' ' + md)} />
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => removeOption(index)} disabled={form.singleChoice.options.length <= 2}>
