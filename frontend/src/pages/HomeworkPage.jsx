@@ -673,11 +673,13 @@ export default function HomeworkPage() {
               const answered = answeredProblemIds.has(problemId)
               const active = Number(activeProblemId) === problemId
               const reviewState = getReviewProblemState(problemId)
+              const isFlagged = flaggedProblemIds.has(problemId)
               return (
                 <Button key={`${group.type}-${problemId}`} variant="outline"
-                  className={questionNavigatorClass({ active, answered, reviewState })}
+                  className={cn(questionNavigatorClass({ active, answered, reviewState }), 'relative')}
                   onClick={() => scrollToProblem(problemId)}>
                   {item.displayOrder}
+                  {isFlagged && <Flag className="absolute -bottom-0.5 -left-0.5 h-3 w-3 text-red-500 fill-red-500" />}
                 </Button>
               )
             })}
@@ -702,11 +704,13 @@ export default function HomeworkPage() {
             const answered = answeredProblemIds.has(problemId)
             const active = Number(activeProblemId) === problemId
             const reviewState = getReviewProblemState(problemId)
+            const isFlagged = flaggedProblemIds.has(problemId)
             return (
               <Button key={`list-status-${problemId}`} variant="outline"
-                className={questionNavigatorClass({ active, answered, reviewState })}
+                className={cn(questionNavigatorClass({ active, answered, reviewState }), 'relative')}
                 onClick={() => scrollToProblem(problemId)}>
                 {item.displayOrder}
+                {isFlagged && <Flag className="absolute -bottom-0.5 -left-0.5 h-3 w-3 text-red-500 fill-red-500" />}
               </Button>
             )
           })}
