@@ -6,12 +6,13 @@ import { Badge } from '../components/ui/badge'
 import { Card, CardContent } from '../components/ui/card'
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
 import { cn } from '../lib/utils'
-import { Flag, Save } from 'lucide-react'
+import { Flag, Save, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert } from '../components/ui/alert'
 import { Label } from '../components/ui/label'
 import { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
+import ProblemEditor from '../components/dashboard/ProblemEditor'
 import { useAuth } from '../hooks/useAuth'
 import { homeworkDraftStorageKey } from '../utils/userScopedStorage'
 
@@ -281,6 +282,8 @@ export default function HomeworkPage() {
   const [submissionsByProblemId, setSubmissionsByProblemId] = useState({})
   const [submissionRecords, setSubmissionRecords] = useState([])
   const [submissionRecordUnavailable, setSubmissionRecordUnavailable] = useState(false)
+  const [editingProblemId, setEditingProblemId] = useState(null)
+  const [editingProblem, setEditingProblem] = useState(null)
   const [reviewRecord, setReviewRecord] = useState(null)
   const [draft, setDraft] = useState({ objectiveAnswers: {}, flags: {}, programming: {}, lastSavedAt: '' })
   const [loading, setLoading] = useState(true)
@@ -720,6 +723,16 @@ export default function HomeworkPage() {
     </Card>
   )
 
+  const openEditProblemFromHomework = async (problemId) => {
+    try {
+      const detail = await api.getProblem(spaceId, problemId, { includeAnswer: true })
+      setEditingProblemId(problemId)
+      setEditingProblem(detail)
+    } catch (err) {
+      setError(err.message || '加载题目失败')
+    }
+  }
+
   const renderProblemCard = (item, standalone = false) => {
     const problemId = Number(item.problemId)
     const problem = item.problem
@@ -749,7 +762,15 @@ export default function HomeworkPage() {
         style={{ scrollMarginTop: 84 }}
       >
         <div className="flex justify-between items-start gap-1 mb-1">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 flex items-start gap-1">
+            {!isReviewMode && (
+              <Button variant="ghost" size="icon"
+                className={cn('h-5 w-5 -ml-0.5 shrink-0', isFlagged ? 'text-red-500' : 'text-muted-foreground/40 hover:text-red-400')}
+                title={isFlagged ? '取消标记' : '标记本题'}
+                onClick={() => { setActiveProblemId(problemId); toggleFlag(problemId) }}>
+                <Flag className={cn('h-3.5 w-3.5', isFlagged && 'fill-red-500')} />
+              </Button>
+            )}
             {problemType === 'programming' ? (
               <h3 className={cn('font-semibold leading-relaxed whitespace-pre-wrap break-words', standalone ? 'text-sm md:text-[0.98rem]' : 'text-sm md:text-base')}>
                 {programmingTitle}
@@ -773,13 +794,14 @@ export default function HomeworkPage() {
             )}
           </div>
 
-          <Button variant="ghost" size="icon"
-            className={cn('h-7 w-7 -mt-0.5', isFlagged ? 'text-amber-500' : 'text-muted-foreground')}
-            disabled={isReviewMode}
-            title={isFlagged ? '取消标记' : '标记本题'}
-            onClick={() => { setActiveProblemId(problemId); toggleFlag(problemId) }}>
-            <Flag className={cn('h-4 w-4', isFlagged && 'fill-current')} />
-          </Button>
+          {!isReviewMode && space?.canManage && (
+            <Button variant="ghost" size="icon"
+              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary"
+              title="编辑本题"
+              onClick={() => openEditProblemFromHomework(problemId)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
 
         <div onMouseEnter={() => setActiveProblemId(problemId)}>
@@ -1018,6 +1040,25 @@ export default function HomeworkPage() {
             </Card>
           </div>
         </div>
+      )}
+      {editingProblem && (
+        <ProblemEditor
+          open={editingProblemId != null}
+          mode="edit"
+          problem={editingProblem}
+          spaceId={spaceId}
+          problemOptions={[]}
+          onClose={() => { setEditingProblemId(null); setEditingProblem(null) }}
+          onSubmit={async (problemData) => {
+            await api.updateSpaceProblem(spaceId, editingProblemId, problemData)
+            const updated = await api.getProblem(spaceId, editingProblemId, { includeAnswer: true })
+            const nextProblemsById = { ...problemsById, [editingProblemId]: updated }
+            setProblemsById(nextProblemsById)
+            setEditingProblemId(null)
+            setEditingProblem(null)
+            toast.success('题目已保存')
+          }}
+        />
       )}
     </div>
   )
