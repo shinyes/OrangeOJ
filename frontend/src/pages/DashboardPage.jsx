@@ -5,7 +5,8 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu'
-import { ChevronDown } from 'lucide-react'
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetClose } from '../components/ui/sheet'
+import { ChevronDown, Menu, Home, Building2, Settings, LogOut, KeyRound } from 'lucide-react'
 import ChangePasswordPanel from '../components/dashboard/ChangePasswordPanel'
 import ConfirmDialog from '../components/dashboard/ConfirmDialog'
 import DashboardDialogs from '../components/dashboard/DashboardDialogs'
@@ -381,7 +382,59 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
         <div className="max-w-screen-xl mx-auto px-2 md:px-4">
           <div className="flex items-center justify-between min-h-10 md:min-h-14 py-1 gap-2 flex-wrap">
             {/* Left section */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 md:gap-3 min-w-0">
+              {/* Mobile navigation drawer */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 shrink-0">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[260px] sm:w-[300px]">
+                  <SheetHeader className="mb-6">
+                    <SheetTitle className="text-left text-xl">🍊 OrangeOJ</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex flex-col gap-1">
+                    <SheetClose asChild>
+                      <Button variant={isLearnView ? 'default' : 'ghost'} className="justify-start gap-3 h-11" onClick={() => navigate('/')}>
+                        <Home className="h-4 w-4" />学习主页
+                      </Button>
+                    </SheetClose>
+                    {hasAnySpaceAdminRole && (
+                      <SheetClose asChild>
+                        <Button variant={isSpaceManageView ? 'default' : 'ghost'} className="justify-start gap-3 h-11" onClick={() => navigate('/manage/space')}>
+                          <Building2 className="h-4 w-4" />空间管理
+                        </Button>
+                      </SheetClose>
+                    )}
+                    {isSystemAdmin && (
+                      <SheetClose asChild>
+                        <Button variant={isSystemManageView ? 'default' : 'ghost'} className="justify-start gap-3 h-11" onClick={() => navigate('/manage/system')}>
+                          <Settings className="h-4 w-4" />系统管理
+                        </Button>
+                      </SheetClose>
+                    )}
+                  </div>
+                  <div className="mt-6 pt-4 border-t">
+                    <p className="text-xs text-muted-foreground mb-3 px-3">{user.username}</p>
+                    <div className="flex flex-col gap-1">
+                      <SheetClose asChild>
+                        <Button variant="ghost" className="justify-start gap-3 h-11"
+                          onClick={() => passwordState.openChangePassword()}>
+                          <KeyRound className="h-4 w-4" />修改密码
+                        </Button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Button variant="ghost" className="justify-start gap-3 h-11 text-destructive hover:text-destructive"
+                          onClick={() => onLogout()}>
+                          <LogOut className="h-4 w-4" />退出登录
+                        </Button>
+                      </SheetClose>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
               <div
                 className="flex items-center gap-1 cursor-pointer hover:opacity-90"
                 onClick={() => navigate('/')}
@@ -434,8 +487,8 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
               )}
             </div>
 
-            {/* Right section: User menu */}
-            <div>
+            {/* Right section: User menu (hidden on mobile, available in drawer) */}
+            <div className="hidden md:block">
               <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost">

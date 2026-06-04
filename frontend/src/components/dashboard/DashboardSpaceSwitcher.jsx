@@ -20,7 +20,7 @@ export default function DashboardSpaceSwitcher({
         onValueChange={(v) => onSpaceChange(Number(v))}
         disabled={availableSpaces.length === 0}
       >
-        <SelectTrigger className="w-[160px] h-8">
+        <SelectTrigger className="w-[140px] sm:w-[160px] h-8">
           <SelectValue placeholder="空间" />
         </SelectTrigger>
         <SelectContent>

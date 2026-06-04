@@ -362,7 +362,7 @@ export default function HomeworkProgrammingPage() {
       {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
       {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
-      <div className="flex flex-1 overflow-hidden p-3 gap-3">
+      <div className="flex flex-1 flex-col md:flex-row overflow-hidden p-3 gap-3">
         {/* Left Panel */}
         <Card className="w-full md:w-[40%] md:min-w-[400px] flex flex-col overflow-hidden">
           <CardContent className="flex-1 overflow-auto p-4 scrollbar-thin">
@@ -542,10 +542,10 @@ export default function HomeworkProgrammingPage() {
                 {selectedSubmissionCaseDetails.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 px-1 pt-1">
                     <Badge variant="outline">测试点 {selectedSubmissionCaseDetails.length} 个</Badge>
-                    <Badge variant="outline" variant="success">
+                    <Badge variant="success">
                       通过 {selectedSubmissionCaseDetails.filter((item) => item.verdict === 'AC' || item.verdict === 'OK').length} 个
                     </Badge>
-                    <Badge variant="outline" variant="destructive">
+                    <Badge variant="destructive">
                       未通过 {selectedSubmissionCaseDetails.filter((item) => item.verdict && item.verdict !== 'AC' && item.verdict !== 'OK').length} 个
                     </Badge>
                   </div>
@@ -567,12 +567,12 @@ export default function HomeworkProgrammingPage() {
                   </div>
                 )}
                 <Tabs value={submissionDetailTab} onValueChange={setSubmissionDetailTab}>
-                  <TabsList className="w-full">
-                    <TabsTrigger value="code" className="flex-1">代码</TabsTrigger>
-                    <TabsTrigger value="input" className="flex-1">输入</TabsTrigger>
-                    <TabsTrigger value="output" className="flex-1">输出</TabsTrigger>
-                    <TabsTrigger value="expected" className="flex-1">预期输出</TabsTrigger>
-                    <TabsTrigger value="error" className="flex-1">错误</TabsTrigger>
+                  <TabsList className="w-full overflow-x-auto flex-nowrap">
+                    <TabsTrigger value="code" className="flex-1 whitespace-nowrap">代码</TabsTrigger>
+                    <TabsTrigger value="input" className="flex-1 whitespace-nowrap">输入</TabsTrigger>
+                    <TabsTrigger value="output" className="flex-1 whitespace-nowrap">输出</TabsTrigger>
+                    <TabsTrigger value="expected" className="flex-1 whitespace-nowrap">预期输出</TabsTrigger>
+                    <TabsTrigger value="error" className="flex-1 whitespace-nowrap">错误</TabsTrigger>
                   </TabsList>
                   <div className="p-3">
                     {submissionDetailTab === 'code' && (

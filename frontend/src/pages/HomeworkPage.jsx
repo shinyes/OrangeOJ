@@ -6,10 +6,11 @@ import { Badge } from '../components/ui/badge'
 import { Card, CardContent } from '../components/ui/card'
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group'
 import { cn } from '../lib/utils'
-import { Flag, Save, Pencil } from 'lucide-react'
+import { Flag, Save, Pencil, LayoutGrid, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert } from '../components/ui/alert'
 import { Label } from '../components/ui/label'
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetClose } from '../components/ui/sheet'
 import { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import ProblemEditor from '../components/dashboard/ProblemEditor'
@@ -292,6 +293,7 @@ export default function HomeworkPage() {
   const [now, setNow] = useState(Date.now())
   const [activeProblemId, setActiveProblemId] = useState(null)
   const [submittingAll, setSubmittingAll] = useState(false)
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const questionRefs = useRef({})
 
   const draftStorageKey = homeworkDraftStorageKey(user, spaceId, homeworkId)
@@ -962,6 +964,10 @@ export default function HomeworkPage() {
           </div>
 
           <div className="flex items-center gap-1 md:gap-2 ml-auto shrink-0">
+            {/* Mobile: question navigator toggle */}
+            <Button variant="outline" size="sm" className="md:hidden h-7 w-7 p-0" onClick={() => setShowMobileSidebar(true)} title="题目导航">
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild><Link to={backTo}>{backLabel}</Link></Button>
             {!isReviewMode && space?.canManage ? (
               <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" asChild>
@@ -986,9 +992,22 @@ export default function HomeworkPage() {
 
       {homeworkDisplayMode === 'exam' ? (
         <div className="flex items-start p-3 md:p-4 gap-3 flex-col md:flex-row">
+          {/* Mobile: question navigator drawer */}
+          <Sheet open={showMobileSidebar} onOpenChange={setShowMobileSidebar}>
+            <SheetContent side="left" className="w-[280px] sm:w-[320px]">
+              <SheetHeader className="mb-4">
+                <SheetTitle className="text-left text-base">题目导航</SheetTitle>
+              </SheetHeader>
+              <div className="overflow-y-auto max-h-[calc(100vh-100px)]">
+                {renderQuestionNavigatorGrid()}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* Desktop sidebar: visible on md+, mobile sidebar: hidden on mobile because navigator is in a Sheet */}
           <div className="w-full md:w-[250px] md:sticky md:top-[72px] self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto shrink-0">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
-            {renderQuestionNavigatorPanel()}
+            <div className="hidden md:block">{renderQuestionNavigatorPanel()}</div>
           </div>
 
           <div className="flex-1 min-w-0">
@@ -1013,7 +1032,7 @@ export default function HomeworkPage() {
         <div className="grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] items-start p-3 md:p-4 gap-3">
           <div className="md:sticky md:top-[72px] self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
-            {renderQuestionStatusPanel()}
+            <div className="hidden md:block">{renderQuestionStatusPanel()}</div>
           </div>
 
           <div className="min-w-0">

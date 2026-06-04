@@ -144,14 +144,14 @@ export default function HomeworkSubmissionRecordsPage() {
 
       <header className="sticky top-0 z-40 bg-background border-b shadow-sm">
         <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
-          <div className="flex-1 min-w-[220px]">
+          <div className="flex-1 min-w-0 md:min-w-[220px]">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-bold">{homework?.title}</h1>
               <Badge variant="outline">全部提交记录</Badge>
             </div>
             <p className="text-xs text-muted-foreground">{space?.name || '当前空间'}</p>
           </div>
-          <div className="flex flex-wrap gap-1.5 min-w-[180px]">
+          <div className="flex flex-wrap gap-1.5 min-w-0 md:min-w-[180px]">
             <Badge variant="outline">{filteredRecords.length}/{records.length} 条记录</Badge>
             <Badge variant="outline">{userCount} 名用户</Badge>
             <Badge variant="outline">待判 {pendingRecordCount} 条</Badge>

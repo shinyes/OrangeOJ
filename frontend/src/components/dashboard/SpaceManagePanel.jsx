@@ -159,10 +159,10 @@ export default function SpaceManagePanel({
         <div>
           <Card className="mb-6">
             <Tabs value={spaceManageTab} onValueChange={onSpaceManageTabChange}>
-              <TabsList className="w-full">
-                <TabsTrigger value="settings" className="flex-1">空间设置</TabsTrigger>
-                <TabsTrigger value="problems" className="flex-1">题库设置</TabsTrigger>
-                <TabsTrigger value="members" className="flex-1">成员管理</TabsTrigger>
+              <TabsList className="w-full overflow-x-auto flex-nowrap">
+                <TabsTrigger value="settings" className="flex-1 whitespace-nowrap">空间设置</TabsTrigger>
+                <TabsTrigger value="problems" className="flex-1 whitespace-nowrap">题库设置</TabsTrigger>
+                <TabsTrigger value="members" className="flex-1 whitespace-nowrap">成员管理</TabsTrigger>
               </TabsList>
             </Tabs>
           </Card>
@@ -206,9 +206,9 @@ export default function SpaceManagePanel({
                     <h2 className="text-lg font-bold">当前空间题库</h2>
                     <p className="text-sm text-muted-foreground mt-1">题目只属于当前空间，仅管理当前空间题目。</p>
                   </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button onClick={openUploadProblemModal}>新建题目</Button>
-                    <Button variant="outline" disabled={zipImporting} onClick={() => document.getElementById('problem-zip-import-input')?.click()}>
+                  <div className="flex gap-2 flex-wrap w-full sm:w-auto">
+                    <Button onClick={openUploadProblemModal} className="flex-1 sm:flex-none">新建题目</Button>
+                    <Button variant="outline" disabled={zipImporting} onClick={() => document.getElementById('problem-zip-import-input')?.click()} className="flex-1 sm:flex-none">
                       <Upload className="h-4 w-4 mr-1" />
                       {zipImporting ? '导入中...' : '从ZIP导入'}
                     </Button>
