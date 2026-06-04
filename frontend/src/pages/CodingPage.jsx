@@ -15,7 +15,7 @@ import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -25,12 +25,14 @@ import ProblemEditor from '../components/dashboard/ProblemEditor'
 const editorLang = {
   cpp: 'cpp',
   python: 'python',
-  go: 'go'
+  go: 'go',
+  turtle: 'python'
 }
 
 function normalizeDefaultLanguage(language) {
   if (language === 'python') return 'python'
   if (language === 'go') return 'go'
+  if (language === 'turtle') return 'turtle'
   return 'cpp'
 }
 
@@ -39,6 +41,9 @@ function pickStarter(body, language) {
     if (language === 'python') return 'print("hello")'
     if (language === 'go') {
       return 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}'
+    }
+    if (language === 'turtle') {
+      return 'import turtle\n\nt = turtle.Turtle()\nt.speed(3)\n\n# 在这里编写你的绘图代码\n# 示例：画一个正方形\nfor _ in range(4):\n    t.forward(100)\n    t.left(90)\n\nturtle.done()'
     }
     return '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;\n}'
   }
@@ -431,6 +436,41 @@ function CodingPageContent({
   const trainingNavTargetUrl = (targetProblemId) =>
     `/spaces/${spaceId}/problems/${targetProblemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`
 
+  // ---- Turtle mode ----
+  const isTurtleMode = language === 'turtle'
+  const [turtleImage, setTurtleImage] = useState('')
+  const [turtleError, setTurtleError] = useState('')
+  const [turtleRunning, setTurtleRunning] = useState(false)
+
+  const handleTurtleRun = async () => {
+    if (!problem || problem.type !== 'programming') return
+    setTurtleRunning(true)
+    setError('')
+    setTurtleImage('')
+    setTurtleError('')
+    setConsoleText(`[${nowTimeText()}] Turtle 运行中...`)
+    try {
+      const result = await api.turtleRun(spaceId, problemId, { sourceCode: code })
+      if (result.image) {
+        setTurtleImage(result.image)
+        setConsoleText(`[${nowTimeText()}] Turtle 运行成功`)
+        setConsoleVariant('success')
+      } else if (result.error) {
+        setTurtleError(result.error)
+        setConsoleText(`[${nowTimeText()}] Turtle 错误: ${result.error}`)
+        setConsoleVariant('error')
+        if (result.stderr) setTurtleError(result.stderr || result.error)
+      }
+    } catch (err) {
+      const msg = err.message || 'Turtle 运行失败'
+      setTurtleError(msg)
+      setConsoleText(`[${nowTimeText()}] ${msg}`)
+      setConsoleVariant('error')
+    } finally {
+      setTurtleRunning(false)
+    }
+  }
+
   // ---- Training navigation helpers ----
   const renderTrainingNavGrid = () => (
     <div className="flex flex-col gap-3">
@@ -693,15 +733,29 @@ function CodingPageContent({
                   <SelectItem value="cpp">C++11</SelectItem>
                   <SelectItem value="python">Python 3.8</SelectItem>
                   <SelectItem value="go">Go 1.25</SelectItem>
+                  <SelectItem value="turtle">🐢 Python Turtle</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="default" className="bg-green-600 hover:bg-green-700 h-7 md:h-8 text-xs px-1.5 md:px-3" size="sm" disabled={running} onClick={handleRunClick}>
-                <Play className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />运行
-              </Button>
-              <Button size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" disabled={running} onClick={handleTestClick}>测试</Button>
-              <Button variant="secondary" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={saveDraft}>
-                <Save className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />保存
-              </Button>
+              {isTurtleMode ? (
+                <>
+                  <Button variant="default" className="bg-green-600 hover:bg-green-700 h-7 md:h-8 text-xs px-1.5 md:px-3" size="sm" disabled={turtleRunning} onClick={handleTurtleRun}>
+                    <Play className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />运行
+                  </Button>
+                  <Button variant="secondary" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={saveDraft}>
+                    <Save className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />保存
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="default" className="bg-green-600 hover:bg-green-700 h-7 md:h-8 text-xs px-1.5 md:px-3" size="sm" disabled={running} onClick={handleRunClick}>
+                    <Play className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />运行
+                  </Button>
+                  <Button size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" disabled={running} onClick={handleTestClick}>测试</Button>
+                  <Button variant="secondary" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={saveDraft}>
+                    <Save className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />保存
+                  </Button>
+                </>
+              )}
               <div className="flex-1" />
               <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => setShowSubmissionHistory(true)}>
                 <History className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />
@@ -735,16 +789,39 @@ function CodingPageContent({
               />
             </div>
 
-            {/* Console */}
-            <div className="flex flex-col min-h-0">
-              <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
-              <div className={cn(
-                "overflow-auto max-h-[200px] min-h-[120px] rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap",
-                consoleVariant === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-muted'
-              )}>
-                {consoleText || '暂无输出'}
+            {/* Console / Turtle Canvas */}
+            {isTurtleMode ? (
+              <div className="flex flex-col min-h-0">
+                <h3 className="text-xs font-semibold mb-1 shrink-0">🐢 Turtle 绘图输出</h3>
+                <div className="overflow-auto max-h-[420px] min-h-[200px] rounded-lg border p-3 bg-white flex items-center justify-center">
+                  {turtleRunning ? (
+                    <div className="text-center text-muted-foreground">
+                      <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                      <p className="text-sm">Turtle 运行中...</p>
+                    </div>
+                  ) : turtleImage ? (
+                    <img src={`data:image/png;base64,${turtleImage}`} alt="Turtle 绘图" className="max-w-full h-auto rounded" />
+                  ) : turtleError ? (
+                    <pre className="text-sm text-red-600 whitespace-pre-wrap font-mono w-full">{turtleError}</pre>
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">点击"运行"查看 Turtle 绘图结果</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col min-h-0">
+                <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
+                <div className={cn(
+                  "overflow-auto max-h-[200px] min-h-[120px] rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap",
+                  consoleVariant === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-muted'
+                )}>
+                  {consoleText || '暂无输出'}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -253,6 +253,7 @@ export default function DashboardDialogs({
                   <SelectItem value="cpp">C++</SelectItem>
                   <SelectItem value="python">Python</SelectItem>
                   <SelectItem value="go">Go</SelectItem>
+                  <SelectItem value="turtle">Turtle</SelectItem>
                 </SelectContent>
               </Select>
             </Label>

@@ -24,7 +24,8 @@ function defaultStarterCode() {
   return {
     cpp: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;\n}',
     python: 'print("hello")',
-    go: 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}'
+    go: 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}',
+    turtle: 'import turtle\n\nt = turtle.Turtle()\nt.speed(3)\n\n# 在这里编写你的绘图代码\n# 示例：画一个正方形\nfor _ in range(4):\n    t.forward(100)\n    t.left(90)\n\nturtle.done()'
   }
 }
 
@@ -484,9 +485,9 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
               <div>
                 <h4 className="text-sm font-medium mb-2">默认代码模板</h4>
                 <div className="flex flex-col gap-2">
-                  {['cpp', 'python', 'go'].map((lang) => (
+                  {['cpp', 'python', 'go', 'turtle'].map((lang) => (
                     <div key={lang}>
-                      <Label className="text-xs mb-1 block">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : 'Go'}</Label>
+                      <Label className="text-xs mb-1 block">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : lang === 'turtle' ? '🐢 Turtle' : 'Go'}</Label>
                       <Textarea className="font-mono min-h-[100px]" value={form.programming.starterCode[lang]} onChange={(e) => updateStarterCode(lang, e.target.value)} />
                     </div>
                   ))}

@@ -161,7 +161,7 @@ func decodeProblemTags(raw string) []string {
 
 func isValidLanguage(language string) bool {
 	switch strings.ToLower(strings.TrimSpace(language)) {
-	case "cpp", "c++", "python", "python3", "py", "go", "golang":
+	case "cpp", "c++", "python", "python3", "py", "go", "golang", "turtle":
 		return true
 	default:
 		return false
@@ -174,6 +174,8 @@ func normalizeSpaceProgrammingLanguage(language string) string {
 		return "python"
 	case "go", "golang":
 		return "go"
+	case "turtle":
+		return "turtle"
 	default:
 		return "cpp"
 	}
@@ -181,7 +183,7 @@ func normalizeSpaceProgrammingLanguage(language string) string {
 
 func isValidSpaceProgrammingLanguage(language string) bool {
 	switch strings.ToLower(strings.TrimSpace(language)) {
-	case "cpp", "c++", "python", "python3", "py", "go", "golang":
+	case "cpp", "c++", "python", "python3", "py", "go", "golang", "turtle":
 		return true
 	default:
 		return false

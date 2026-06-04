@@ -1,11 +1,17 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 
 	oauth "orangeoj/backend/internal/auth"
 	"orangeoj/backend/internal/model"
@@ -446,4 +452,128 @@ func (a *API) isSpaceMember(spaceID, userID int64) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (a *API) handleTurtleRun(c *fiber.Ctx) error {
+	user, err := getUser(c)
+	if err != nil {
+		return err
+	}
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	problemID, err := parseIDParam(c, "problemId")
+	if err != nil {
+		return err
+	}
+	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
+		return err
+	}
+	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
+		return err
+	}
+
+	var req struct {
+		SourceCode string `json:"sourceCode"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid request")
+	}
+	if strings.TrimSpace(req.SourceCode) == "" {
+		return respondError(c, fiber.StatusBadRequest, "sourceCode is required")
+	}
+
+	workDir, err := os.MkdirTemp("", "turtle-*")
+	if err != nil {
+		return fmt.Errorf("create work dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
+	wrapper := fmt.Sprintf(`import turtle
+import base64
+import subprocess
+import sys
+
+# User turtle code
+%s
+
+# Wait for drawing to complete
+try:
+    turtle.update()
+    turtle.getscreen().getturtle().getscreen().update()
+except:
+    pass
+
+# Capture the canvas output
+try:
+    canvas = turtle.getcanvas()
+    epsPath = "/tmp/output.eps"
+    pngPath = "/tmp/output.png"
+    canvas.postscript(file=epsPath, colormode='color')
+
+    # Convert EPS to PNG using Ghostscript
+    result = subprocess.run(
+        ["gs", "-dSAFER", "-dBATCH", "-dNOPAUSE",
+         "-sDEVICE=png16m", "-r150",
+         "-sOutputFile=" + pngPath, epsPath],
+        capture_output=True, timeout=15, text=True
+    )
+    if result.returncode == 0:
+        with open(pngPath, "rb") as f:
+            png_data = base64.b64encode(f.read()).decode()
+        print("TURTLE_IMAGE:" + png_data, flush=True)
+    else:
+        print("TURTLE_ERROR:ghostscript conversion failed: " + result.stderr, flush=True)
+except Exception as e:
+    print("TURTLE_ERROR:" + str(e), flush=True)
+`, req.SourceCode)
+
+	wrapperPath := filepath.Join(workDir, "turtle_run.py")
+	if err := os.WriteFile(wrapperPath, []byte(wrapper), 0o600); err != nil {
+		return fmt.Errorf("write wrapper: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "xvfb-run", "-a", "-s", "-screen 0 800x600x24", "python3", wrapperPath)
+	cmd.Dir = workDir
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if runErr := cmd.Run(); runErr != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return respondData(c, fiber.Map{"error": "Turtle 运行超时（30秒）", "stderr": trimTurtleStderr(stderr.String())})
+		}
+		return respondData(c, fiber.Map{"error": runErr.Error(), "stderr": trimTurtleStderr(stderr.String())})
+	}
+
+	stdoutStr := stdout.String()
+	if strings.Contains(stdoutStr, "TURTLE_IMAGE:") {
+		parts := strings.SplitN(stdoutStr, "TURTLE_IMAGE:", 2)
+		imageData := strings.TrimSpace(parts[1])
+		// Remove any trailing content after the base64 data
+		if idx := strings.Index(imageData, "\n"); idx > 0 {
+			imageData = imageData[:idx]
+		}
+		return respondData(c, fiber.Map{"image": imageData, "stdout": "", "stderr": trimTurtleStderr(stderr.String())})
+	}
+
+	// Check for error
+	if strings.Contains(stdoutStr, "TURTLE_ERROR:") {
+		parts := strings.SplitN(stdoutStr, "TURTLE_ERROR:", 2)
+		errMsg := strings.TrimSpace(strings.SplitN(parts[1], "\n", 2)[0])
+		return respondData(c, fiber.Map{"error": errMsg, "stderr": trimTurtleStderr(stderr.String())})
+	}
+
+	return respondData(c, fiber.Map{"error": "Turtle 程序没有产生输出，请检查代码", "stderr": trimTurtleStderr(stderr.String())})
+}
+
+func trimTurtleStderr(s string) string {
+	if len(s) > 2000 {
+		return s[:2000] + "\n...[truncated]"
+	}
+	return s
 }

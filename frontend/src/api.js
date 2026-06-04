@@ -152,6 +152,7 @@ export const api = {
   run: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/run`, { method: 'POST', body }),
   test: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/test`, { method: 'POST', body }),
   submit: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/submit`, { method: 'POST', body }),
+  turtleRun: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/turtle-run`, { method: 'POST', body }),
   listSubmissions: (spaceId, problemId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/problems/${problemId}/submissions`, { all: options.all ? 1 : undefined })),
   getSubmission: (submissionId) => apiFetch(`/api/submissions/${submissionId}`),
   pollSubmission: (submissionId) => apiFetch(`/api/submissions/${submissionId}/stream`),
