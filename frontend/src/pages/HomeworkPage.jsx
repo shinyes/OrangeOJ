@@ -1007,7 +1007,7 @@ export default function HomeworkPage() {
           </Sheet>
 
           {/* Desktop sidebar: sticky on scroll */}
-          <aside className="w-full md:w-[250px] md:sticky md:top-[72px] md:self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto shrink-0">
+          <aside className="w-full md:w-[250px] shrink-0 md:sticky md:top-[60px]">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             <div className="hidden md:block">{renderQuestionNavigatorPanel()}</div>
           </aside>
@@ -1032,7 +1032,7 @@ export default function HomeworkPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] items-start p-3 md:p-4 gap-3">
-          <aside className="md:sticky md:top-[72px] md:self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto">
+          <aside className="md:sticky md:top-[60px]">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             <div className="hidden md:block">{renderQuestionStatusPanel()}</div>
           </aside>
