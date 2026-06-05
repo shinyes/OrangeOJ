@@ -501,18 +501,34 @@ func (a *API) handleTurtleRun(c *fiber.Ctx) error {
 		return fmt.Errorf("write wrapper: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(c.Context(), 35*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "xvfb-run", "-a", "-s", "-screen 0 800x600x24", "python3", wrapperPath)
+	// Start Xvfb virtual display
+	displayNum := "99"
+	xvfb := exec.CommandContext(ctx, "Xvfb", ":"+displayNum, "-screen", "0", "800x600x24")
+	if err := xvfb.Start(); err != nil {
+		return respondData(c, fiber.Map{"error": "Unable to start Xvfb: " + err.Error()})
+	}
+
+	cmd := exec.CommandContext(ctx, "python3", wrapperPath)
 	cmd.Dir = workDir
+	cmd.Env = append(os.Environ(), "DISPLAY=:"+displayNum)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if runErr := cmd.Run(); runErr != nil {
+	runErr := cmd.Run()
+
+	// Stop Xvfb
+	if err := xvfb.Process.Kill(); err != nil {
+		log.Printf("warning: kill Xvfb: %v", err)
+	}
+	xvfb.Wait()
+
+	if runErr != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return respondData(c, fiber.Map{"error": "Turtle 运行超时（30秒）", "stderr": trimTurtleStderr(stderr.String())})
+			return respondData(c, fiber.Map{"error": "Turtle timeout (35s)", "stderr": trimTurtleStderr(stderr.String())})
 		}
 		return respondData(c, fiber.Map{"error": runErr.Error(), "stderr": trimTurtleStderr(stderr.String())})
 	}
