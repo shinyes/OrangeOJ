@@ -375,6 +375,7 @@ export default function CodingPage() {
         consoleText={consoleText}
         setConsoleText={setConsoleText}
         consoleVariant={consoleVariant}
+        setConsoleVariant={setConsoleVariant}
         running={running}
         setRunning={setRunning}
         submissions={submissions}
@@ -415,7 +416,7 @@ function CodingPageContent({
   problem, body, backTo, backLabel, canEditProblem, showProblemEditor, setShowProblemEditor,
   error, setError, language, setLanguage, code, setCode,
   customInput, setCustomInput, showCustomInputDialog, setShowCustomInputDialog,
-  tempCustomInput, setTempCustomInput, consoleText, setConsoleText, consoleVariant,
+  tempCustomInput, setTempCustomInput, consoleText, setConsoleText, consoleVariant, setConsoleVariant,
   running, submissions, showSubmissionHistory, setShowSubmissionHistory,
   selectedSubmission, setSelectedSubmission, selectedSubmissionCaseIndex, setSelectedSubmissionCaseIndex,
   submissionDetailTab, setSubmissionDetailTab,
