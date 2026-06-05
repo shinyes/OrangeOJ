@@ -1006,13 +1006,15 @@ export default function HomeworkPage() {
             </SheetContent>
           </Sheet>
 
-          {/* Desktop sidebar: sticky on scroll */}
-          <aside className="w-full md:w-[250px] shrink-0 md:sticky md:top-[60px]">
-            {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
-            <div className="hidden md:block">{renderQuestionNavigatorPanel()}</div>
+          {/* Desktop sidebar: fixed on scroll */}
+          <aside className="hidden md:flex md:flex-col md:w-[250px] md:shrink-0 md:fixed md:top-[56px] md:bottom-0 md:overflow-y-auto md:z-30 md:pb-4">
+            <div className="p-4 md:px-0 md:pt-4">
+              {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
+              {renderQuestionNavigatorPanel()}
+            </div>
           </aside>
 
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 md:ml-[266px]">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
@@ -1031,13 +1033,14 @@ export default function HomeworkPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] items-start p-3 md:p-4 gap-3">
-          <aside className="md:sticky md:top-[60px]">
-            {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
-            <div className="hidden md:block">{renderQuestionStatusPanel()}</div>
+        <div className="flex flex-col md:flex-row p-3 md:p-4 gap-3">
+          <aside className="hidden md:flex md:flex-col md:w-[250px] md:shrink-0 md:fixed md:top-[56px] md:bottom-0 md:overflow-y-auto md:z-30 md:pb-4">
+            <div className="pt-4">
+              {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
+              <div className="hidden md:block">{renderQuestionStatusPanel()}</div>
+            </div>
           </aside>
-
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0 md:ml-[266px]">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
