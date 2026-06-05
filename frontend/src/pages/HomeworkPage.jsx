@@ -955,7 +955,7 @@ export default function HomeworkPage() {
 
   return (
     <div className="min-h-screen bg-[#eef2f7]">
-      <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-40 border-b bg-background shadow-sm">
         <div className="flex items-center min-h-10 md:min-h-14 px-2 md:px-6 py-1 gap-1 md:gap-2 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 md:gap-2 min-w-0">
@@ -993,7 +993,7 @@ export default function HomeworkPage() {
       </header>
 
       {homeworkDisplayMode === 'exam' ? (
-        <div className="flex items-start p-3 md:p-4 gap-3 flex-col md:flex-row">
+        <div className="flex items-start p-3 md:p-4 gap-3 flex-col md:flex-row pt-[60px] md:pt-[64px]">
           {/* Mobile: question navigator drawer */}
           <Sheet open={showMobileSidebar} onOpenChange={setShowMobileSidebar}>
             <SheetContent side="left" className="w-[280px] sm:w-[320px]">
@@ -1033,7 +1033,7 @@ export default function HomeworkPage() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col md:flex-row p-3 md:p-4 gap-3">
+        <div className="flex flex-col md:flex-row p-3 md:p-4 gap-3 pt-[60px] md:pt-[64px]">
           <aside className="hidden md:flex md:flex-col md:w-[250px] md:shrink-0 md:fixed md:top-[56px] md:bottom-0 md:overflow-y-auto md:z-30 md:pb-4">
             <div className="pt-4">
               {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
