@@ -506,9 +506,20 @@ func (a *API) handleTurtleRun(c *fiber.Ctx) error {
 
 	// Start Xvfb virtual display
 	displayNum := "99"
-	xvfb := exec.CommandContext(ctx, "Xvfb", ":"+displayNum, "-screen", "0", "800x600x24")
+	// Resolve Xvfb path
+	xvfbPath := ""
+	for _, p := range []string{"/usr/bin/Xvfb", "/usr/local/bin/Xvfb", "Xvfb"} {
+		if _, err := os.Stat(p); err == nil || p == "Xvfb" {
+			xvfbPath = p
+			break
+		}
+	}
+	if xvfbPath == "" {
+		return respondData(c, fiber.Map{"error": "Xvfb is not installed; turtle mode requires xvfb package"})
+	}
+	xvfb := exec.CommandContext(ctx, xvfbPath, ":"+displayNum, "-screen", "0", "800x600x24")
 	if err := xvfb.Start(); err != nil {
-		return respondData(c, fiber.Map{"error": "Unable to start Xvfb: " + err.Error()})
+		return respondData(c, fiber.Map{"error": "Start Xvfb failed: " + err.Error()})
 	}
 
 	cmd := exec.CommandContext(ctx, "python3", wrapperPath)
