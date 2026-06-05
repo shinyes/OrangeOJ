@@ -1006,11 +1006,11 @@ export default function HomeworkPage() {
             </SheetContent>
           </Sheet>
 
-          {/* Desktop sidebar: visible on md+, mobile sidebar: hidden on mobile because navigator is in a Sheet */}
-          <div className="w-full md:w-[250px] md:sticky md:top-[72px] self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto shrink-0">
+          {/* Desktop sidebar: sticky on scroll */}
+          <aside className="w-full md:w-[250px] md:sticky md:top-[72px] md:self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto shrink-0">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             <div className="hidden md:block">{renderQuestionNavigatorPanel()}</div>
-          </div>
+          </aside>
 
           <div className="flex-1 min-w-0">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
@@ -1032,10 +1032,10 @@ export default function HomeworkPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] items-start p-3 md:p-4 gap-3">
-          <div className="md:sticky md:top-[72px] self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto">
+          <aside className="md:sticky md:top-[72px] md:self-start md:max-h-[calc(100vh-88px)] md:overflow-y-auto">
             {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
             <div className="hidden md:block">{renderQuestionStatusPanel()}</div>
-          </div>
+          </aside>
 
           <div className="min-w-0">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
