@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -454,6 +455,9 @@ func (a *API) isSpaceMember(spaceID, userID int64) (bool, error) {
 	return count > 0, nil
 }
 
+//go:embed turtle_wrapper.py
+var turtleWrapperTemplate string
+
 func (a *API) handleTurtleRun(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
@@ -490,44 +494,7 @@ func (a *API) handleTurtleRun(c *fiber.Ctx) error {
 	}
 	defer os.RemoveAll(workDir)
 
-	wrapper := fmt.Sprintf(`import turtle
-import base64
-import subprocess
-import sys
-
-# User turtle code
-%s
-
-# Wait for drawing to complete
-try:
-    turtle.update()
-    turtle.getscreen().getturtle().getscreen().update()
-except:
-    pass
-
-# Capture the canvas output
-try:
-    canvas = turtle.getcanvas()
-    epsPath = "/tmp/output.eps"
-    pngPath = "/tmp/output.png"
-    canvas.postscript(file=epsPath, colormode='color')
-
-    # Convert EPS to PNG using Ghostscript
-    result = subprocess.run(
-        ["gs", "-dSAFER", "-dBATCH", "-dNOPAUSE",
-         "-sDEVICE=png16m", "-r150",
-         "-sOutputFile=" + pngPath, epsPath],
-        capture_output=True, timeout=15, text=True
-    )
-    if result.returncode == 0:
-        with open(pngPath, "rb") as f:
-            png_data = base64.b64encode(f.read()).decode()
-        print("TURTLE_IMAGE:" + png_data, flush=True)
-    else:
-        print("TURTLE_ERROR:ghostscript conversion failed: " + result.stderr, flush=True)
-except Exception as e:
-    print("TURTLE_ERROR:" + str(e), flush=True)
-`, req.SourceCode)
+	wrapper := strings.ReplaceAll(turtleWrapperTemplate, "__USER_CODE__", req.SourceCode)
 
 	wrapperPath := filepath.Join(workDir, "turtle_run.py")
 	if err := os.WriteFile(wrapperPath, []byte(wrapper), 0o600); err != nil {
@@ -551,17 +518,24 @@ except Exception as e:
 	}
 
 	stdoutStr := stdout.String()
+	if strings.Contains(stdoutStr, "TURTLE_FRAMES:") {
+		parts := strings.SplitN(stdoutStr, "TURTLE_FRAMES:", 2)
+		var frames []string
+		framesLine := strings.TrimSpace(strings.SplitN(parts[1], "\n", 2)[0])
+		if err := json.Unmarshal([]byte(framesLine), &frames); err == nil && len(frames) > 0 {
+			return respondData(c, fiber.Map{"frames": frames, "image": frames[len(frames)-1], "stdout": "", "stderr": trimTurtleStderr(stderr.String())})
+		}
+	}
+
 	if strings.Contains(stdoutStr, "TURTLE_IMAGE:") {
 		parts := strings.SplitN(stdoutStr, "TURTLE_IMAGE:", 2)
 		imageData := strings.TrimSpace(parts[1])
-		// Remove any trailing content after the base64 data
 		if idx := strings.Index(imageData, "\n"); idx > 0 {
 			imageData = imageData[:idx]
 		}
 		return respondData(c, fiber.Map{"image": imageData, "stdout": "", "stderr": trimTurtleStderr(stderr.String())})
 	}
 
-	// Check for error
 	if strings.Contains(stdoutStr, "TURTLE_ERROR:") {
 		parts := strings.SplitN(stdoutStr, "TURTLE_ERROR:", 2)
 		errMsg := strings.TrimSpace(strings.SplitN(parts[1], "\n", 2)[0])

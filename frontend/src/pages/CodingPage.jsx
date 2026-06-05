@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../api'
@@ -439,19 +439,48 @@ function CodingPageContent({
   // ---- Turtle mode ----
   const isTurtleMode = language === 'turtle'
   const [turtleImage, setTurtleImage] = useState('')
+  const [turtleFrames, setTurtleFrames] = useState(null)
+  const [turtleFrameIndex, setTurtleFrameIndex] = useState(0)
   const [turtleError, setTurtleError] = useState('')
   const [turtleRunning, setTurtleRunning] = useState(false)
+  const turtleTimerRef = useRef(null)
+
+  // Animate frames when available
+  useEffect(() => {
+    if (turtleFrames && turtleFrames.length > 1) {
+      turtleTimerRef.current = setInterval(() => {
+        setTurtleFrameIndex(prev => {
+          const next = prev + 1
+          if (next >= turtleFrames.length) {
+            clearInterval(turtleTimerRef.current)
+            return prev  // Stay on last frame
+          }
+          return next
+        })
+      }, 180)  // ~5.5 FPS
+      return () => clearInterval(turtleTimerRef.current)
+    }
+  }, [turtleFrames])
+
+  const currentDisplayImage = turtleFrames ? turtleFrames[turtleFrameIndex] : turtleImage
 
   const handleTurtleRun = async () => {
     if (!problem || problem.type !== 'programming') return
     setTurtleRunning(true)
     setError('')
     setTurtleImage('')
+    setTurtleFrames(null)
+    setTurtleFrameIndex(0)
     setTurtleError('')
     setConsoleText(`[${nowTimeText()}] Turtle 运行中...`)
     try {
       const result = await api.turtleRun(spaceId, problemId, { sourceCode: code })
-      if (result.image) {
+      if (result.frames && result.frames.length > 0) {
+        setTurtleFrames(result.frames)
+        setTurtleImage(result.frames[result.frames.length - 1])
+        setConsoleText(`[${nowTimeText()}] Turtle 运行成功 (${result.frames.length} 帧)`)
+        setConsoleVariant('success')
+      } else if (result.image) {
         setTurtleImage(result.image)
         setConsoleText(`[${nowTimeText()}] Turtle 运行成功`)
         setConsoleVariant('success')
@@ -799,8 +828,15 @@ function CodingPageContent({
                       <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
                       <p className="text-sm">Turtle 运行中...</p>
                     </div>
-                  ) : turtleImage ? (
-                    <img src={`data:image/png;base64,${turtleImage}`} alt="Turtle 绘图" className="max-w-full h-auto rounded" />
+                  ) : currentDisplayImage ? (
+                    <div className="w-full">
+                      {turtleFrames && turtleFrames.length > 1 && (
+                        <div className="text-center text-xs text-muted-foreground mb-2">
+                          绘制过程 ({turtleFrameIndex + 1}/{turtleFrames.length})
+                        </div>
+                      )}
+                      <img src={`data:image/png;base64,${currentDisplayImage}`} alt="Turtle 绘图" className="max-w-full h-auto rounded mx-auto" />
+                    </div>
                   ) : turtleError ? (
                     <pre className="text-sm text-red-600 whitespace-pre-wrap font-mono w-full">{turtleError}</pre>
                   ) : (

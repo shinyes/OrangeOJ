@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../api'
@@ -116,6 +116,9 @@ export default function HomeworkProgrammingPage() {
   const [consoleText, setConsoleText] = useState('控制台已就绪')
   const [consoleVariant, setConsoleVariant] = useState('')
   const [turtleImage, setTurtleImage] = useState('')
+const [turtleFrames, setTurtleFrames] = useState(null)
+const [turtleFrameIndex, setTurtleFrameIndex] = useState(0)
+const turtleTimerRef = useRef(null)
   const [turtleError, setTurtleError] = useState('')
   const [turtleRunning, setTurtleRunning] = useState(false)
   const [runInputDialog, setRunInputDialog] = useState({ open: false, value: '' })
@@ -150,6 +153,24 @@ export default function HomeworkProgrammingPage() {
   }
 
   const isTurtleMode = draft?.language === 'turtle'
+
+  useEffect(() => {
+    if (turtleFrames && turtleFrames.length > 1) {
+      turtleTimerRef.current = setInterval(() => {
+        setTurtleFrameIndex(prev => {
+          const next = prev + 1;
+          if (next >= turtleFrames.length) {
+            clearInterval(turtleTimerRef.current);
+            return prev;
+          }
+          return next;
+        });
+      }, 180);
+      return () => clearInterval(turtleTimerRef.current);
+    }
+  }, [turtleFrames])
+
+  const currentDisplayImage = turtleFrames ? turtleFrames[turtleFrameIndex] : turtleImage
 
   const handleTurtleRun = async () => {
     if (isReviewMode || !draft) return
