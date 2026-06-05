@@ -21,7 +21,8 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/orangeoj ./main.go
 
 FROM --platform=$TARGETPLATFORM alpine:3.21
-RUN apk add --no-cache ca-certificates tzdata python3 py3-tkinter xvfb ghostscript
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/v3.21/community" >> /etc/apk/repositories && \
+    apk add --no-cache ca-certificates tzdata python3 py3-tkinter xvfb ghostscript
 WORKDIR /app
 COPY --from=backend-build /out/orangeoj /app/orangeoj
 COPY --from=frontend-build /src/frontend/dist /app/web
