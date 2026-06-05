@@ -762,7 +762,7 @@ function CodingPageContent({
                   <SelectItem value="cpp">C++11</SelectItem>
                   <SelectItem value="python">Python 3.8</SelectItem>
                   <SelectItem value="go">Go 1.25</SelectItem>
-                  <SelectItem value="turtle">🐢 Python Turtle</SelectItem>
+                  <SelectItem value="turtle">Python Turtle</SelectItem>
                 </SelectContent>
               </Select>
               {isTurtleMode ? (

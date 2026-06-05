@@ -487,7 +487,7 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
                 <div className="flex flex-col gap-2">
                   {['cpp', 'python', 'go', 'turtle'].map((lang) => (
                     <div key={lang}>
-                      <Label className="text-xs mb-1 block">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : lang === 'turtle' ? '🐢 Turtle' : 'Go'}</Label>
+                      <Label className="text-xs mb-1 block">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : lang === 'turtle' ? 'Turtle' : 'Go'}</Label>
                       <Textarea className="font-mono min-h-[100px]" value={form.programming.starterCode[lang]} onChange={(e) => updateStarterCode(lang, e.target.value)} />
                     </div>
                   ))}
