@@ -199,8 +199,8 @@ export default function HomeworkSubmissionRecordsPage() {
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant="outline">题目 {record.answeredCount}/{record.homeworkItemCount}</Badge>
                           <Badge variant="outline">待判题 {record.pendingCount}</Badge>
-                          <Badge variant="outline">客观错 {objectiveWrongCount} 道</Badge>
-                          <Badge variant="outline">编程错 {programmingWrongCount} 道</Badge>
+                          <Badge variant="outline">客观题错 {objectiveWrongCount} 道</Badge>
+                          <Badge variant="outline">编程题错 {programmingWrongCount} 道</Badge>
                         </div>
                       </div>
                       <Button variant="outline" asChild className="shrink-0">

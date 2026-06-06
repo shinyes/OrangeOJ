@@ -98,14 +98,11 @@ export default function LearningPanel({
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredLearningTrainingPlans.map((plan) => {
-              const isPublic = plan.isPublic !== false
-
               return (
                 <Card key={plan.id} className="flex flex-col">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base line-clamp-2">{plan.title}</CardTitle>
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Badge variant={isPublic ? 'default' : 'secondary'} className="text-[11px]">{isPublic ? '公开' : '隐藏'}</Badge>
                       {plan.published ? (
                       <Badge variant="success" className="text-[11px]">已发布</Badge>
                     ) : (

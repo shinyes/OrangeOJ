@@ -715,7 +715,7 @@ const turtleTimerRef = useRef(null)
                   return (
                     <div
                       key={submission.id || index}
-                      className="flex items-center gap-3 px-3 py-2.5 border-b cursor-pointer hover:bg-accent transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 border-b cursor-pointer hover:bg-accent"
                       onClick={() => {
                         const caseDetails = normalizeSubmissionCaseDetails(submission.caseDetails)
                         setSelectedSubmission({

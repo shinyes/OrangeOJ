@@ -602,19 +602,17 @@ export default function HomeworkPage() {
     if (!reviewRecord) return null
     const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(reviewRecord)
     return (
-      <Card className="mb-3">
-        <CardContent className="p-3">
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-sm font-bold">当前作答记录</h3>
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant={recordStatusBadgeVariant(reviewRecord.statusText)}>{reviewRecord.statusText || '已提交'}</Badge>
-            <Badge variant="outline">{formatDateTime(reviewRecord.createdAt)}</Badge>
-            {reviewRecord.username ? <Badge variant="outline">用户 {reviewRecord.username}</Badge> : null}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="outline">客观错 {objectiveWrongCount} 道</Badge>
-            <Badge variant="outline">编程错 {programmingWrongCount} 道</Badge>
-          </div>
+      <Card className="mb-2">
+        <CardContent className="px-3 py-2.5">
+        <h3 className="text-sm font-bold mb-1.5">当前作答记录</h3>
+        <div className="flex items-center gap-1.5 mb-1">
+          <Badge variant={recordStatusBadgeVariant(reviewRecord.statusText)} className="text-[11px] whitespace-nowrap">{reviewRecord.statusText || '已提交'}</Badge>
+          <Badge variant="outline" className="text-[11px] whitespace-nowrap">{formatDateTime(reviewRecord.createdAt)}</Badge>
+          {reviewRecord.username && <span className="text-xs text-muted-foreground ml-1">{reviewRecord.username}</span>}
+        </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground whitespace-nowrap">
+          <span>客观题错 <strong>{objectiveWrongCount}</strong> 道</span>
+          <span>编程题错 <strong>{programmingWrongCount}</strong> 道</span>
         </div>
       </CardContent>
     </Card>
@@ -649,12 +647,12 @@ export default function HomeworkPage() {
           {submissionRecords.map((record) => {
             const { objectiveWrongCount, programmingWrongCount } = getRecordWrongCounts(record)
             return (
-              <Card key={record.id} className="p-2 cursor-pointer transition-colors hover:border-primary hover:shadow-md hover:-translate-y-px"
+              <Card key={record.id} className="p-2 cursor-pointer hover:border-primary"
                 onClick={() => openRecordReview(record)}>
                 <p className="text-sm font-bold mb-1">{formatDateTime(record.createdAt)}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="outline">客观错 {objectiveWrongCount} 道</Badge>
-                  <Badge variant="outline">编程错 {programmingWrongCount} 道</Badge>
+                  <Badge variant="outline">客观题错 {objectiveWrongCount} 道</Badge>
+                  <Badge variant="outline">编程题错 {programmingWrongCount} 道</Badge>
                 </div>
               </Card>
             )

@@ -350,6 +350,18 @@ FROM root_problems`); err != nil {
 	return nil
 }
 
+func dropColumnIfExists(ctx context.Context, db *sql.DB, table, column string) error {
+	stmt := fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", table, column)
+	if _, err := db.ExecContext(ctx, stmt); err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "unknown column") || strings.Contains(msg, "duplicate column name") {
+			return nil
+		}
+		return fmt.Errorf("drop column %s.%s failed: %w", table, column, err)
+	}
+	return nil
+}
+
 func addColumnIfNotExists(ctx context.Context, db *sql.DB, table, column, definition string) error {
 	stmt := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)
 	if _, err := db.ExecContext(ctx, stmt); err != nil {

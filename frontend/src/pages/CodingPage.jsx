@@ -937,7 +937,7 @@ function CodingPageContent({
                   return (
                     <div
                       key={sub.id || index}
-                      className="flex items-center gap-3 px-3 py-2.5 border-b cursor-pointer hover:bg-accent transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 border-b cursor-pointer hover:bg-accent"
                       onClick={() => {
                         const caseDetails = normalizeSubmissionCaseDetails(sub.caseDetails)
                         setSelectedSubmission({
