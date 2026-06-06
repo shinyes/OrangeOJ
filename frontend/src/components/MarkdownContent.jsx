@@ -65,14 +65,13 @@ export default function MarkdownContent({ content = '', className, ...props }) {
 
 export function MarkdownWithMarker({ marker, content = '', className, markerClassName, contentClassName }) {
   return (
-    <div className={cn('grid gap-x-2 items-start', className)}
+    <div className={cn('grid gap-x-2 items-baseline', className)}
       style={{ gridTemplateColumns: 'max-content minmax(0, 1fr)' }}
     >
       <span className={cn(
-        'shrink-0 min-w-[2.4ch] font-bold text-right tabular-nums',
+        'shrink-0 min-w-[2.4ch] font-bold text-right tabular-nums leading-snug',
         markerClassName
       )}
-        style={{ lineHeight: 1.7 }}
       >
         {marker}
       </span>
