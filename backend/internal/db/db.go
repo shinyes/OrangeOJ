@@ -112,7 +112,6 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			space_id INTEGER NOT NULL,
 			title TEXT NOT NULL,
 			allow_self_join INTEGER NOT NULL DEFAULT 0,
-			is_public INTEGER NOT NULL DEFAULT 1,
 			published_at DATETIME,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE
