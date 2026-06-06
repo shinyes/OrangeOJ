@@ -759,6 +759,23 @@ const turtleTimerRef = useRef(null)
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Turtle Result Dialog */}
+      <Dialog open={showTurtleDialog} onOpenChange={setShowTurtleDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>U0001f422 Turtle 绘图结果</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-2">
+            {turtleImage && (
+              <img src={`data:image/png;base64,${turtleImage}`} alt="Turtle 绘图" className="max-w-full h-auto rounded" />
+            )}
+            {turtleError && (
+              <pre className="text-sm text-red-600 whitespace-pre-wrap font-mono w-full">{turtleError}</pre>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

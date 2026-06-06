@@ -440,49 +440,23 @@ function CodingPageContent({
   // ---- Turtle mode ----
   const isTurtleMode = language === 'turtle'
   const [turtleImage, setTurtleImage] = useState('')
-  const [turtleFrames, setTurtleFrames] = useState(null)
-  const [turtleFrameIndex, setTurtleFrameIndex] = useState(0)
   const [turtleError, setTurtleError] = useState('')
   const [turtleRunning, setTurtleRunning] = useState(false)
-  const turtleTimerRef = useRef(null)
-
-  // Animate frames when available
-  useEffect(() => {
-    if (turtleFrames && turtleFrames.length > 1) {
-      turtleTimerRef.current = setInterval(() => {
-        setTurtleFrameIndex(prev => {
-          const next = prev + 1
-          if (next >= turtleFrames.length) {
-            clearInterval(turtleTimerRef.current)
-            return prev  // Stay on last frame
-          }
-          return next
-        })
-      }, 180)  // ~5.5 FPS
-      return () => clearInterval(turtleTimerRef.current)
-    }
-  }, [turtleFrames])
-
-  const currentDisplayImage = turtleFrames ? turtleFrames[turtleFrameIndex] : turtleImage
+  const [showTurtleDialog, setShowTurtleDialog] = useState(false)
 
   const handleTurtleRun = async () => {
     if (!problem || problem.type !== 'programming') return
     setTurtleRunning(true)
     setError('')
     setTurtleImage('')
-    setTurtleFrames(null)
-    setTurtleFrameIndex(0)
     setTurtleError('')
+    setShowTurtleDialog(false)
     setConsoleText(`[${nowTimeText()}] Turtle 运行中...`)
     try {
       const result = await api.turtleRun(spaceId, problemId, { sourceCode: code })
-      if (result.frames && result.frames.length > 0) {
-        setTurtleFrames(result.frames)
-        setTurtleImage(result.frames[result.frames.length - 1])
-        setConsoleText(`[${nowTimeText()}] Turtle 运行成功 (${result.frames.length} 帧)`)
-        setConsoleVariant('success')
-      } else if (result.image) {
+      if (result.image) {
         setTurtleImage(result.image)
+        setShowTurtleDialog(true)
         setConsoleText(`[${nowTimeText()}] Turtle 运行成功`)
         setConsoleVariant('success')
       } else if (result.error) {
@@ -819,46 +793,16 @@ function CodingPageContent({
               />
             </div>
 
-            {/* Console / Turtle Canvas */}
-            {isTurtleMode ? (
-              <div className="flex flex-col min-h-0">
-                <h3 className="text-xs font-semibold mb-1 shrink-0">🐢 Turtle 绘图输出</h3>
-                <div className="overflow-auto max-h-[420px] min-h-[200px] rounded-lg border p-3 bg-white flex items-center justify-center">
-                  {turtleRunning ? (
-                    <div className="text-center text-muted-foreground">
-                      <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                      <p className="text-sm">Turtle 运行中...</p>
-                    </div>
-                  ) : currentDisplayImage ? (
-                    <div className="w-full">
-                      {turtleFrames && turtleFrames.length > 1 && (
-                        <div className="text-center text-xs text-muted-foreground mb-2">
-                          绘制过程 ({turtleFrameIndex + 1}/{turtleFrames.length})
-                        </div>
-                      )}
-                      <img src={`data:image/png;base64,${currentDisplayImage}`} alt="Turtle 绘图" className="max-w-full h-auto rounded mx-auto" />
-                    </div>
-                  ) : turtleError ? (
-                    <pre className="text-sm text-red-600 whitespace-pre-wrap font-mono w-full">{turtleError}</pre>
-                  ) : (
-                    <div className="text-center text-muted-foreground">
-                      <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm">点击"运行"查看 Turtle 绘图结果</p>
-                    </div>
-                  )}
-                </div>
+            {/* Console */}
+            <div className="flex flex-col min-h-0">
+              <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
+              <div className={cn(
+                "overflow-auto max-h-[200px] min-h-[120px] rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap",
+                consoleVariant === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-muted'
+              )}>
+                {consoleText || '暂无输出'}
               </div>
-            ) : (
-              <div className="flex flex-col min-h-0">
-                <h3 className="text-xs font-semibold mb-1 shrink-0">控制台输出</h3>
-                <div className={cn(
-                  "overflow-auto max-h-[200px] min-h-[120px] rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap",
-                  consoleVariant === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-muted'
-                )}>
-                  {consoleText || '暂无输出'}
-                </div>
-              </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1021,6 +965,23 @@ function CodingPageContent({
               <Button variant="outline" onClick={() => setShowSubmissionHistory(false)}>关闭</Button>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Turtle Result Dialog */}
+      <Dialog open={showTurtleDialog} onOpenChange={setShowTurtleDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>U0001f422 Turtle 绘图结果</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-2">
+            {turtleImage && (
+              <img src={`data:image/png;base64,${turtleImage}`} alt="Turtle 绘图" className="max-w-full h-auto rounded" />
+            )}
+            {turtleError && (
+              <pre className="text-sm text-red-600 whitespace-pre-wrap font-mono w-full">{turtleError}</pre>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
