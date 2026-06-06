@@ -554,30 +554,29 @@ function CodingPageContent({
     return (
       <div className="h-screen bg-background flex flex-col">
         <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
-          <div className="flex items-center justify-between min-h-10 md:min-h-12 px-2 md:px-4 py-1 gap-1 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sm md:text-base font-semibold truncate">{problem.title}</h1>
-              <p className="text-[10px] md:text-xs text-muted-foreground">{problemTypeText(problem.type)}</p>
-            </div>
-            <div className="flex items-center gap-1 md:gap-2 shrink-0">
+          <div className="flex items-center justify-between min-h-8 md:min-h-10 px-2 md:px-4 py-0.5 gap-1">
+            <h1 className="text-xs md:text-sm font-semibold flex-1 truncate">{problem.title}</h1>
+            <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
               {canEditProblem && (
-                <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-3 text-[10px] md:text-xs" onClick={() => setShowProblemEditor(true)}>
+                <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowProblemEditor(true)}>
                   <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
                 </Button>
               )}
-              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-3 text-[10px] md:text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>
+                <Link to={backTo}><X className="h-3.5 w-3.5 md:h-4 md:w-4" /></Link>
+              </Button>
             </div>
           </div>
         </header>
 
-        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden p-1.5 md:p-3 gap-1.5 md:gap-3">
           {showTrainingNav && (
-            <aside className="w-full md:w-44 shrink-0 border-b md:border-b-0 md:border-r bg-muted/20 overflow-y-auto p-1.5 md:p-2 max-h-[8rem] md:max-h-none">
+            <aside className="hidden md:block w-44 shrink-0 border-r bg-muted/20 rounded-lg overflow-y-auto p-2">
               {renderTrainingNavGrid()}
             </aside>
           )}
 
-          <div className="flex-1 overflow-y-auto p-2 md:p-4">
+          <div className="flex-1 overflow-y-auto">
             <div className="max-w-3xl mx-auto">
               {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
 
