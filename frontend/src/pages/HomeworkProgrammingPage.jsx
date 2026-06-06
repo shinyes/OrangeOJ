@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../api'
@@ -121,6 +121,7 @@ const [turtleFrameIndex, setTurtleFrameIndex] = useState(0)
 const turtleTimerRef = useRef(null)
   const [turtleError, setTurtleError] = useState('')
   const [turtleRunning, setTurtleRunning] = useState(false)
+  const [showTurtleDialog, setShowTurtleDialog] = useState(false)
   const [runInputDialog, setRunInputDialog] = useState({ open: false, value: '' })
   const [submissions, setSubmissions] = useState([])
   const [showSubmissionHistory, setShowSubmissionHistory] = useState(false)
