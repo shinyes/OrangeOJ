@@ -324,7 +324,12 @@ export default function CodingPage() {
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">题目加载中...</div>
+  // During training transition (loading while problem exists), keep old problem visible
+  const isTransitioning = loading && problem != null
+
+  if (loading && !problem) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">题目加载中...</div>
+  }
 
   if (error && !problem) {
     return (
@@ -399,6 +404,7 @@ export default function CodingPage() {
         user={user}
         planId={planId}
         spaceId={spaceId}
+        isTransitioning={isTransitioning}
         problemId={problemId}
         trainingProblems={trainingProblems}
         currentTrainingIndex={currentTrainingIndex}
@@ -423,7 +429,7 @@ function CodingPageContent({
   objectiveAnswer, setObjectiveAnswer,
   handleRunClick, handleTestClick, saveDraft, handleCodeSubmit, handleObjectiveSubmit, copyToClipboard, user,
   planId, spaceId, problemId, trainingProblems, currentTrainingIndex, prevTrainingProblem, nextTrainingProblem,
-  solveReturnTo, solveReturnLabel, trainingPlan }) {
+  solveReturnTo, solveReturnLabel, trainingPlan, isTransitioning }) {
   const samples = body.samples || []
   const showTrainingNav = planId != null && trainingProblems.length > 0
 
@@ -512,24 +518,33 @@ function CodingPageContent({
 
   const renderTrainingBottomNav = () => (
     <div className="flex items-center justify-center gap-4 px-4 py-2 border-t bg-background">
-      {prevTrainingProblem ? (
-        <Button variant="outline" size="sm" asChild>
-          <Link to={trainingNavTargetUrl(prevTrainingProblem.problemId)}>
-            <ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题
-          </Link>
-        </Button>
+      {isTransitioning ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+          <span className="text-xs">切换中...</span>
+        </div>
       ) : (
-        <Button variant="outline" size="sm" disabled><ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题</Button>
-      )}
-      <span className="text-xs text-muted-foreground">{currentTrainingIndex + 1} / {trainingProblems.length}</span>
-      {nextTrainingProblem ? (
-        <Button variant="outline" size="sm" asChild>
-          <Link to={trainingNavTargetUrl(nextTrainingProblem.problemId)}>
-            下一题<ChevronRight className="h-3.5 w-3.5 ml-1" />
-          </Link>
-        </Button>
-      ) : (
-        <Button variant="outline" size="sm" disabled>下一题<ChevronRight className="h-3.5 w-3.5 ml-1" /></Button>
+        <>
+          {prevTrainingProblem ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link to={trainingNavTargetUrl(prevTrainingProblem.problemId)}>
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled><ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题</Button>
+          )}
+          <span className="text-xs text-muted-foreground">{currentTrainingIndex + 1} / {trainingProblems.length}</span>
+          {nextTrainingProblem ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link to={trainingNavTargetUrl(nextTrainingProblem.problemId)}>
+                下一题<ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled>下一题<ChevronRight className="h-3.5 w-3.5 ml-1" /></Button>
+          )}
+        </>
       )}
     </div>
   )
