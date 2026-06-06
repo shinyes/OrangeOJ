@@ -489,7 +489,7 @@ function CodingPageContent({
         if (items.length === 0) return null
         return (
           <div key={chIdx}>
-            <h5 className="text-[11px] font-semibold text-muted-foreground mb-1.5 tracking-wide uppercase">
+            <h5 className="text-[11px] font-semibold text-muted-foreground mb-1.5 tracking-wide">
               {chapter.title || `第 ${chIdx + 1} 章`}
             </h5>
             <div className="grid grid-cols-5 gap-1">
