@@ -537,15 +537,6 @@ func (a *API) handleGetSpaceProblem(c *fiber.Ctx) error {
 	if err := a.ensureProblemInSpace(spaceID, problemID); err != nil {
 		return err
 	}
-	includeAnswer := false
-	if parseBoolQueryParam(c, "includeAnswer") {
-		canManage, err := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
-		if err != nil {
-			return err
-		}
-		includeAnswer = canManage
-	}
-
 	var (
 		typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
 		timeLimit, memoryLimit                                    int64
@@ -556,6 +547,17 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeSt
 	if err != nil {
 		return err
 	}
+
+	includeAnswer := false
+	if parseBoolQueryParam(c, "includeAnswer") {
+		canManage, err := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
+		if err != nil {
+			return err
+		}
+		// Allow regular users to see answer for objective questions (for homework review)
+		includeAnswer = canManage || typeStr != "programming"
+	}
+
 	resp := fiber.Map{
 		"id":          problemID,
 		"type":        typeStr,

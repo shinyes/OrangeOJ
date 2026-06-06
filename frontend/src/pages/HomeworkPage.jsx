@@ -420,7 +420,7 @@ export default function HomeworkPage() {
     const uniqueProblemIds = Array.from(
       new Set((homeworkData?.items || []).map((item) => Number(item.problemId)).filter((problemId) => Number.isInteger(problemId) && problemId > 0))
     )
-    const includeAnswer = spaceData?.canManage === true
+    const includeAnswer = spaceData?.canManage === true || isReviewMode
     const problemList = await Promise.all(uniqueProblemIds.map((problemId) => api.getProblem(spaceId, problemId, { includeAnswer })))
     const nextProblemsById = {}
     problemList.forEach((problem) => { nextProblemsById[problem.id] = problem })
