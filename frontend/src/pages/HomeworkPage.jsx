@@ -614,11 +614,7 @@ export default function HomeworkPage() {
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="outline">客观错 {objectiveWrongCount} 道</Badge>
             <Badge variant="outline">编程错 {programmingWrongCount} 道</Badge>
-            <Badge variant="outline">待判题 {reviewRecord.pendingCount || 0}</Badge>
           </div>
-          <Button size="sm" variant="outline" asChild className="self-start">
-            <Link to={`/spaces/${spaceId}/homeworks/${homeworkId}`}>返回当前作业</Link>
-          </Button>
         </div>
       </CardContent>
     </Card>
@@ -1007,14 +1003,14 @@ export default function HomeworkPage() {
           </Sheet>
 
           {/* Desktop sidebar: fixed on scroll */}
-          <aside className="hidden md:flex md:flex-col md:w-[250px] md:shrink-0 md:fixed md:top-[56px] md:bottom-0 md:overflow-y-auto md:z-30 md:pb-4">
-            <div className="p-4 md:px-0 md:pt-4">
+          <aside className="hidden md:flex md:flex-col md:w-[250px] md:shrink-0 md:fixed md:top-[56px] md:bottom-0 md:overflow-y-auto md:z-30 md:pb-4 md:pr-3">
+            <div className="pt-4">
               {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
               {renderQuestionNavigatorPanel()}
             </div>
           </aside>
 
-          <div className="flex-1 min-w-0 md:ml-[266px]">
+          <div className="flex-1 min-w-0 md:ml-[266px] md:pr-4">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 
@@ -1034,13 +1030,13 @@ export default function HomeworkPage() {
         </div>
       ) : (
         <div className="flex flex-col md:flex-row p-3 md:p-4 gap-3 pt-[60px] md:pt-[64px]">
-          <aside className="hidden md:flex md:flex-col md:w-[250px] md:shrink-0 md:fixed md:top-[56px] md:bottom-0 md:overflow-y-auto md:z-30 md:pb-4">
+          <aside className="hidden md:flex md:flex-col md:w-[250px] md:shrink-0 md:fixed md:top-[56px] md:bottom-0 md:overflow-y-auto md:z-30 md:pb-4 md:pr-3">
             <div className="pt-4">
               {isReviewMode ? renderCurrentRecordPanel() : renderSubmissionRecordsPanel()}
               <div className="hidden md:block">{renderQuestionStatusPanel()}</div>
             </div>
           </aside>
-          <div className="flex-1 min-w-0 md:ml-[266px]">
+          <div className="flex-1 min-w-0 md:ml-[266px] md:pr-4">
             {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
             {actionMessage && <ToastMessage message={actionMessage} severity="success" onShown={() => setActionMessage('')} />}
 

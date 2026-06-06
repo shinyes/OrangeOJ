@@ -100,7 +100,7 @@ export default function SpaceManagePanel({
       const result = await api.importProblems(selectedSpaceId, file)
       const count = result?.problems?.length || 0
       setZipImportMessage(`已从 ZIP 导入 ${count} 道题目`)
-      if (onProblemsImported) onProblemsImported()
+      if (onProblemsImported) onProblemsImported(selectedSpaceId)
     } catch (err) {
       setZipImportMessage(err.message || 'ZIP 导入失败')
     } finally {
