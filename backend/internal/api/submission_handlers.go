@@ -504,40 +504,13 @@ func (a *API) handleTurtleRun(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.Context(), 35*time.Second)
 	defer cancel()
 
-	// Start Xvfb virtual display
-	displayNum := "99"
-	// Resolve Xvfb path
-	xvfbPath := ""
-	for _, p := range []string{"/usr/bin/Xvfb", "/usr/local/bin/Xvfb", "Xvfb"} {
-		if _, err := os.Stat(p); err == nil || p == "Xvfb" {
-			xvfbPath = p
-			break
-		}
-	}
-	if xvfbPath == "" {
-		return respondData(c, fiber.Map{"error": "Xvfb is not installed; turtle mode requires xvfb package"})
-	}
-	xvfb := exec.CommandContext(ctx, xvfbPath, ":"+displayNum, "-ac", "-screen", "0", "800x600x24")
-	if err := xvfb.Start(); err != nil {
-		return respondData(c, fiber.Map{"error": "Start Xvfb failed: " + err.Error()})
-	}
-	// Wait for Xvfb to be ready
-	time.Sleep(500 * time.Millisecond)
-
-	cmd := exec.CommandContext(ctx, "python3", wrapperPath)
+	cmd := exec.CommandContext(ctx, "xvfb-run", "-a", "-s", "-screen 0 800x600x24", "python3", wrapperPath)
 	cmd.Dir = workDir
-	cmd.Env = append(os.Environ(), "DISPLAY=:"+displayNum)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	runErr := cmd.Run()
-
-	// Stop Xvfb
-	if err := xvfb.Process.Kill(); err != nil {
-		log.Printf("warning: kill Xvfb: %v", err)
-	}
-	xvfb.Wait()
 
 	if runErr != nil {
 		if ctx.Err() == context.DeadlineExceeded {
