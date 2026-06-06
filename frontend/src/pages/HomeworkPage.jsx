@@ -827,15 +827,10 @@ export default function HomeworkPage() {
                 : answerJson.answer
               const userAnswer = objectiveValue
               let isCorrect = false
+              // In review mode, use the submission verdict (works for all users)
               if (isReviewMode && reviewRecordItem) {
                 const v = String(reviewRecordItem.verdict || '').trim()
                 isCorrect = v === 'AC' || v === 'OK'
-              } else if (problemType === 'single_choice') {
-                isCorrect = correctAnswer !== undefined && correctAnswer !== null && userAnswer === String(correctAnswer)
-              } else if (problemType === 'true_false') {
-                const normalizedCorrect =
-                  correctAnswer === true || correctAnswer === 'true' || correctAnswer === '正确' || correctAnswer === 1
-                isCorrect = (userAnswer === 'true') === normalizedCorrect
               }
               const correctLabel = problemType === 'true_false'
                 ? (correctAnswer === true || correctAnswer === 'true' || correctAnswer === '正确' || correctAnswer === 1 ? '正确' : '错误')
