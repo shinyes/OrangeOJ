@@ -517,10 +517,12 @@ func (a *API) handleTurtleRun(c *fiber.Ctx) error {
 	if xvfbPath == "" {
 		return respondData(c, fiber.Map{"error": "Xvfb is not installed; turtle mode requires xvfb package"})
 	}
-	xvfb := exec.CommandContext(ctx, xvfbPath, ":"+displayNum, "-screen", "0", "800x600x24")
+	xvfb := exec.CommandContext(ctx, xvfbPath, ":"+displayNum, "-ac", "-screen", "0", "800x600x24")
 	if err := xvfb.Start(); err != nil {
 		return respondData(c, fiber.Map{"error": "Start Xvfb failed: " + err.Error()})
 	}
+	// Wait for Xvfb to be ready
+	time.Sleep(500 * time.Millisecond)
 
 	cmd := exec.CommandContext(ctx, "python3", wrapperPath)
 	cmd.Dir = workDir
@@ -543,7 +545,6 @@ func (a *API) handleTurtleRun(c *fiber.Ctx) error {
 		}
 		return respondData(c, fiber.Map{"error": runErr.Error(), "stderr": trimTurtleStderr(stderr.String())})
 	}
-
 	stdoutStr := stdout.String()
 	if strings.Contains(stdoutStr, "TURTLE_FRAMES:") {
 		parts := strings.SplitN(stdoutStr, "TURTLE_FRAMES:", 2)
