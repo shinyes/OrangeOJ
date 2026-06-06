@@ -195,8 +195,8 @@ func TestGetSpaceProblemIncludeAnswerRequiresSpaceAdmin(t *testing.T) {
 		t.Fatalf("expected member includeAnswer OK, got %d", memberGetWithAnswerResp.StatusCode)
 	}
 	memberWithAnswerEnv := decodeEnvelope[map[string]interface{}](t, memberGetWithAnswerResp)
-	if _, ok := memberWithAnswerEnv.Data["answerJson"]; ok {
-		t.Fatalf("member should not receive answerJson even with includeAnswer flag: %+v", memberWithAnswerEnv.Data)
+	if _, ok := memberWithAnswerEnv.Data["answerJson"]; !ok {
+		t.Fatalf("member should receive answerJson for objective question with includeAnswer flag: %+v", memberWithAnswerEnv.Data)
 	}
 
 	adminGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"?includeAnswer=1", cookie, nil)

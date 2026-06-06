@@ -54,7 +54,6 @@ export default function TrainingPage({ user }) {
     () => (plan?.chapters || []).reduce((sum, chapter) => sum + (chapter.items?.length || 0), 0),
     [plan]
   )
-  const isPublic = plan?.isPublic !== false
   const myParticipant = useMemo(
     () => (plan?.participants || []).find((participant) => Number(participant.userId) === Number(user?.id)) || null,
     [plan, user]
@@ -131,7 +130,6 @@ export default function TrainingPage({ user }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-1 md:gap-1.5 shrink-0">
-            <Badge className="text-[10px] md:text-xs" variant={isPublic ? 'secondary' : 'outline'}>{isPublic ? '公开训练' : '隐藏训练'}</Badge>
             <Badge className="text-[10px] md:text-xs" variant={plan.published || plan.publishedAt ? 'default' : 'outline'}>{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
           </div>
           <Button size="sm" variant="outline" className="h-7 md:h-8 text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>

@@ -20,7 +20,6 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 	cookie := mustLogin(t, app, "training_admin", "trainadmin123")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", cookie, map[string]interface{}{
 		"title":     "Week 1 Training",
-		"isPublic":  true,
 		"published": true,
 		"chapters": []map[string]interface{}{
 			{
@@ -50,9 +49,6 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 	if getEnv.Data["published"] != true {
 		t.Fatalf("expected published=true, got %+v", getEnv.Data["published"])
 	}
-	if getEnv.Data["isPublic"] != true {
-		t.Fatalf("expected isPublic=true, got %+v", getEnv.Data["isPublic"])
-	}
 	chapters, ok := getEnv.Data["chapters"].([]interface{})
 	if !ok || len(chapters) != 1 {
 		t.Fatalf("unexpected chapters: %+v", getEnv.Data["chapters"])
@@ -68,7 +64,6 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 
 	updateResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(planID), cookie, map[string]interface{}{
 		"title":     "Week 1 Updated",
-		"isPublic":  false,
 		"published": false,
 		"chapters": []map[string]interface{}{
 			{
@@ -93,9 +88,6 @@ func TestTrainingPlanLifecycle(t *testing.T) {
 	}
 	if verifyEnv.Data["published"] != false {
 		t.Fatalf("expected published=false, got %+v", verifyEnv.Data["published"])
-	}
-	if verifyEnv.Data["isPublic"] != false {
-		t.Fatalf("expected isPublic=false, got %+v", verifyEnv.Data["isPublic"])
 	}
 
 	deleteResp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(planID), cookie, nil)
@@ -124,8 +116,7 @@ func TestDeleteTrainingPlanCanDeleteAssociatedProblems(t *testing.T) {
 	sharedProblemID := mustCreateSpaceProblem(t, database, "训练共享题目")
 
 	targetPlanRes, err := database.Exec(`
-INSERT INTO training_plans(space_id, title, is_public)
-VALUES(?, '待删除训练', 1)`, spaceID)
+INSERT INTO training_plans(space_id, title) VALUES(?, '待删除训练')`, spaceID)
 	if err != nil {
 		t.Fatalf("create target plan: %v", err)
 	}
@@ -158,8 +149,7 @@ VALUES(?, ?, ?, 'AC', 100, ?)`, spaceID, spaceAdminID, exclusiveProblemID, submi
 	}
 
 	otherPlanRes, err := database.Exec(`
-INSERT INTO training_plans(space_id, title, is_public)
-VALUES(?, '保留训练', 1)`, spaceID)
+INSERT INTO training_plans(space_id, title) VALUES(?, '保留训练')`, spaceID)
 	if err != nil {
 		t.Fatalf("create other plan: %v", err)
 	}
@@ -230,7 +220,6 @@ func TestCreateTrainingPlanWithProblemDrafts(t *testing.T) {
 	cookie := mustLogin(t, app, "training_import_admin", "trainimport123")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", cookie, map[string]interface{}{
 		"title":     "Imported Training",
-		"isPublic":  true,
 		"published": true,
 		"chapters": []map[string]interface{}{
 			{
@@ -322,10 +311,9 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 
 	adminCookie := mustLogin(t, app, "visibility_admin", "visibilityadmin123")
 
-	createPlan := func(title string, isPublic bool) int64 {
+	createPlan := func(title string) int64 {
 		resp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", adminCookie, map[string]interface{}{
 			"title":         title,
-			"isPublic":  isPublic,
 			"published": true,
 			"chapters":  []map[string]interface{}{},
 		})
@@ -336,9 +324,9 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 		return env.Data["id"]
 	}
 
-	publicPlanID := createPlan("Public Training", true)
-	hiddenAssignedPlanID := createPlan("Hidden Assigned Training", false)
-	_ = createPlan("Hidden Unassigned Training", false)
+	publicPlanID := createPlan("Public Training")
+	hiddenAssignedPlanID := createPlan("Hidden Assigned Training")
+	_ = createPlan("Hidden Unassigned Training")
 
 	assignResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(hiddenAssignedPlanID)+"/participants", adminCookie, map[string]int64{
 		"userId": memberVisibleID,
@@ -363,8 +351,8 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 		t.Fatalf("expected visible member list 200, got %d", listRespVisible.StatusCode)
 	}
 	visiblePlans := decodeEnvelope[[]map[string]interface{}](t, listRespVisible).Data
-	if len(visiblePlans) != 1 {
-		t.Fatalf("expected visible member to see 2 plans, got %d", len(visiblePlans))
+	if len(visiblePlans) != 3 {
+		t.Fatalf("expected member to see 3 planss, got %d", len(visiblePlans))
 	}
 	joinedByPlanID := map[int64]bool{}
 	for _, plan := range visiblePlans {
@@ -385,8 +373,8 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 		t.Fatalf("expected hidden member list 200, got %d", listRespHidden.StatusCode)
 	}
 	hiddenPlans := decodeEnvelope[[]map[string]interface{}](t, listRespHidden).Data
-	if len(hiddenPlans) != 0 {
-		t.Fatalf("expected hidden member to see 1 plan, got %d", len(hiddenPlans))
+	if len(hiddenPlans) != 3 {
+		t.Fatalf("expected hidden member to see 3 plans, got %d", len(hiddenPlans))
 	}
 
 	visibleGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(hiddenAssignedPlanID), memberVisibleCookie, nil)
@@ -417,7 +405,6 @@ func TestTrainingPlanIncludesProblemCompletionState(t *testing.T) {
 	adminCookie := mustLogin(t, app, "admin", "admin123456")
 	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/training-plans", adminCookie, map[string]interface{}{
 		"title":     "带完成状态的训练",
-		"isPublic":  true,
 		"published":     true,
 		"chapters": []map[string]interface{}{
 			{

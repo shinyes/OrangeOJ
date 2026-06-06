@@ -11,7 +11,6 @@ import (
 
 type trainingPlanPayload struct {
 	Title     string                `json:"title"`
-	IsPublic  *bool                 `json:"isPublic"`
 	Published bool                  `json:"published"`
 	Chapters  []trainingChapterBody `json:"chapters"`
 }
@@ -48,7 +47,6 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 	SELECT
 	  tp.id,
 	  tp.title,
-	  tp.is_public,
 	  tp.published_at,
 	  tp.created_at,
 	  EXISTS(
@@ -61,27 +59,21 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 	ORDER BY tp.id DESC`
 	args := []interface{}{user.ID, spaceID}
 	if !canManage {
-		query = `
-	SELECT
-	  tp.id,
-	  tp.title,
-	  tp.is_public,
-	  tp.published_at,
-	  tp.created_at,
-	  EXISTS(
-	    SELECT 1
-	    FROM training_participants p
-	    WHERE p.plan_id=tp.id AND p.user_id=?
-	  ) AS joined
-	FROM training_plans tp
-	WHERE tp.space_id=?
-	  AND EXISTS(
-	    SELECT 1
-	    FROM training_participants p
-	    WHERE p.plan_id=tp.id AND p.user_id=?
-	  )
-	ORDER BY tp.id DESC`
-		args = []interface{}{user.ID, spaceID, user.ID}
+			query = `
+		SELECT
+		  tp.id,
+		  tp.title,
+		  tp.published_at,
+		  tp.created_at,
+		  EXISTS(
+		    SELECT 1
+		    FROM training_participants p
+		    WHERE p.plan_id=tp.id AND p.user_id=?
+		  ) AS joined
+		FROM training_plans tp
+		WHERE tp.space_id=?
+		ORDER BY tp.id DESC`
+		args = []interface{}{user.ID, spaceID}
 	}
 
 	rows, err := a.DB.Query(query, args...)
@@ -93,15 +85,14 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 	for rows.Next() {
 		var id int64
 		var title string
-		var isPublic, joined int
+		var joined int
 		var publishedAt, createdAt sql.NullString
-		if err := rows.Scan(&id, &title, &isPublic, &publishedAt, &createdAt, &joined); err != nil {
+		if err := rows.Scan(&id, &title, &publishedAt, &createdAt, &joined); err != nil {
 			return err
 		}
 		plans = append(plans, fiber.Map{
 			"id":          id,
 			"title":       title,
-			"isPublic":    isPublic == 1,
 			"joined":      joined == 1,
 			"published":   publishedAt.Valid,
 			"publishedAt": scanNullString(publishedAt),
@@ -140,8 +131,8 @@ func (a *API) handleCreateTrainingPlan(c *fiber.Ctx) error {
 		publishedAt = sql.NullString{Valid: true, String: time.Now().UTC().Format(time.RFC3339)}
 	}
 	res, err := tx.Exec(`
-	INSERT INTO training_plans(space_id, title, is_public, published_at)
-	VALUES(?, ?, ?, ?)`, spaceID, req.Title, boolToInt(trainingPlanIsPublic(req.IsPublic)), nullToInterface(publishedAt))
+	INSERT INTO training_plans(space_id, title, published_at)
+	VALUES(?, ?, ?)`, spaceID, req.Title, nullToInterface(publishedAt))
 	if err != nil {
 		return err
 	}
@@ -188,7 +179,6 @@ func (a *API) handleGetTrainingPlan(c *fiber.Ctx) error {
 		"id":           planID,
 		"spaceId":      spaceID,
 		"title":        access.Title,
-		"isPublic":     access.IsPublic,
 		"published":    access.PublishedAt.Valid,
 		"publishedAt":  scanNullString(access.PublishedAt),
 		"chapters":     chapters,
@@ -230,8 +220,8 @@ func (a *API) handleUpdateTrainingPlan(c *fiber.Ctx) error {
 	}
 	res, err := tx.Exec(`
 	UPDATE training_plans
-	SET title=?, is_public=?, published_at=?
-	WHERE id=? AND space_id=?`, req.Title, boolToInt(trainingPlanIsPublic(req.IsPublic)), nullToInterface(publishedAt), planID, spaceID)
+	SET title=?, published_at=?
+	WHERE id=? AND space_id=?`, req.Title, nullToInterface(publishedAt), planID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -448,7 +438,6 @@ func (a *API) handleDeleteTrainingPlan(c *fiber.Ctx) error {
 
 type trainingPlanAccess struct {
 	Title       string
-	IsPublic    bool
 	PublishedAt sql.NullString
 }
 
@@ -459,21 +448,19 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 	}
 
 	var access trainingPlanAccess
-	var isPublic int
 	var publishedAt sql.NullString
 
 	if canManage {
 		err = a.DB.QueryRow(`
-	SELECT title, is_public, published_at
+	SELECT title,  published_at
 	FROM training_plans
 	WHERE id=? AND space_id=?`, planID, spaceID).
-			Scan(&access.Title, &isPublic, &publishedAt)
+			Scan(&access.Title, &publishedAt)
 	} else {
 		var isParticipant int
 		err = a.DB.QueryRow(`
 	SELECT
 	  tp.title,
-	  tp.is_public,
 	  tp.published_at,
 	  EXISTS(
 	    SELECT 1
@@ -482,7 +469,7 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 	  )
 	FROM training_plans tp
 	WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
-			Scan(&access.Title, &isPublic, &publishedAt, &isParticipant)
+			Scan(&access.Title, &publishedAt, &isParticipant)
 		if err == nil && isParticipant != 1 {
 			return trainingPlanAccess{}, fiber.NewError(fiber.StatusNotFound, "training plan not found in this space")
 		}
@@ -494,7 +481,6 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 		return trainingPlanAccess{}, err
 	}
 
-	access.IsPublic = isPublic == 1
 	access.PublishedAt = publishedAt
 	return access, nil
 }
@@ -642,23 +628,16 @@ func spaceProblemExistsTx(tx *sql.Tx, spaceID, problemID int64) (bool, error) {
 	return count > 0, nil
 }
 
-func boolToInt(v bool) int {
-	if v {
-		return 1
-	}
-	return 0
-}
-
-func trainingPlanIsPublic(v *bool) bool {
-	if v == nil {
-		return true
-	}
-	return *v
-}
-
 func nullToInterface(v sql.NullString) interface{} {
 	if !v.Valid {
 		return nil
 	}
 	return v.String
+}
+
+func boolToInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
 }
