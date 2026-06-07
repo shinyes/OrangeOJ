@@ -518,33 +518,35 @@ function CodingPageContent({
 
   const renderTrainingBottomNav = () => (
     <div className="flex items-center justify-center gap-4 px-4 py-2 border-t bg-background">
-      {isTransitioning ? (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-          <span className="text-xs">切换中...</span>
-        </div>
+      {prevTrainingProblem ? (
+        <Button variant="outline" size="sm" disabled={isTransitioning} asChild={!isTransitioning}>
+          {isTransitioning ? (
+            <span><ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题</span>
+          ) : (
+            <Link to={trainingNavTargetUrl(prevTrainingProblem.problemId)}>
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题
+            </Link>
+          )}
+        </Button>
       ) : (
-        <>
-          {prevTrainingProblem ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link to={trainingNavTargetUrl(prevTrainingProblem.problemId)}>
-                <ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题
-              </Link>
-            </Button>
+        <Button variant="outline" size="sm" disabled><ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题</Button>
+      )}
+      <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+        {isTransitioning && <span className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full inline-block" />}
+        {currentTrainingIndex + 1} / {trainingProblems.length}
+      </span>
+      {nextTrainingProblem ? (
+        <Button variant="outline" size="sm" disabled={isTransitioning} asChild={!isTransitioning}>
+          {isTransitioning ? (
+            <span>下一题<ChevronRight className="h-3.5 w-3.5 ml-1" /></span>
           ) : (
-            <Button variant="outline" size="sm" disabled><ChevronLeft className="h-3.5 w-3.5 mr-1" />上一题</Button>
+            <Link to={trainingNavTargetUrl(nextTrainingProblem.problemId)}>
+              下一题<ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Link>
           )}
-          <span className="text-xs text-muted-foreground">{currentTrainingIndex + 1} / {trainingProblems.length}</span>
-          {nextTrainingProblem ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link to={trainingNavTargetUrl(nextTrainingProblem.problemId)}>
-                下一题<ChevronRight className="h-3.5 w-3.5 ml-1" />
-              </Link>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" disabled>下一题<ChevronRight className="h-3.5 w-3.5 ml-1" /></Button>
-          )}
-        </>
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" disabled>下一题<ChevronRight className="h-3.5 w-3.5 ml-1" /></Button>
       )}
     </div>
   )
