@@ -129,9 +129,6 @@ export default function TrainingPage({ user }) {
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-1 md:gap-1.5 shrink-0">
-            <Badge className="text-[10px] md:text-xs" variant={plan.published || plan.publishedAt ? 'default' : 'outline'}>{plan.published || plan.publishedAt ? '已发布' : '未发布'}</Badge>
-          </div>
           <Button size="sm" variant="outline" className="h-7 md:h-8 text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
         </div>
       </header>
