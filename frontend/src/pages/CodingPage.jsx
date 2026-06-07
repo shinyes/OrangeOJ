@@ -187,6 +187,14 @@ export default function CodingPage() {
       try {
         setLoading(true)
         setError('')
+        setConsoleText('控制台已就绪')
+        setConsoleVariant('')
+        setCustomInput('')
+        setTempCustomInput('')
+        setSubmissions([])
+        setSelectedSubmission(null)
+        setSelectedSubmissionCaseIndex(0)
+        setShowSubmissionHistory(false)
         if (!spaceId) throw new Error('缺少空间信息')
         const promises = [api.getProblem(spaceId, problemId, { includeAnswer: true }), api.getSpace(spaceId)]
         if (planId) promises.push(api.getTrainingPlan(spaceId, planId))
@@ -449,6 +457,13 @@ function CodingPageContent({
   const [turtleError, setTurtleError] = useState('')
   const [turtleRunning, setTurtleRunning] = useState(false)
   const [showTurtleDialog, setShowTurtleDialog] = useState(false)
+  const prevTurtleProblemId = useRef(problemId)
+  if (prevTurtleProblemId.current !== problemId) {
+    prevTurtleProblemId.current = problemId
+    setTurtleImage('')
+    setTurtleError('')
+    setShowTurtleDialog(false)
+  }
 
   const handleTurtleRun = async () => {
     if (!problem || problem.type !== 'programming') return
