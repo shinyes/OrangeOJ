@@ -111,7 +111,7 @@ export default function LearningPanel({
                     {plan.participantUsernames && plan.participantUsernames
                       .split(',').map(s => s.trim()).filter(Boolean)
                       .map((name) => (
-                        <Badge key={name} variant="secondary" className="text-[10px] h-5 px-1.5">{name}</Badge>
+                        <Badge key={name} variant="outline" className="text-[10px] h-5 px-1.5 bg-slate-50">{name}</Badge>
                       ))}
                     </div>
                   </CardHeader>
@@ -162,7 +162,7 @@ export default function LearningPanel({
                     {homework.targetUsernames && homework.targetUsernames
                       .split(',').map(s => s.trim()).filter(Boolean)
                       .map((name) => (
-                        <Badge key={name} variant="secondary" className="text-[10px] h-5 px-1.5">{name}</Badge>
+                        <Badge key={name} variant="outline" className="text-[10px] h-5 px-1.5 bg-slate-50">{name}</Badge>
                       ))}
                     {!canManageSelectedSpace && homework.assigned && (
                       <Badge variant="info" className="text-[11px]">已分配给我</Badge>

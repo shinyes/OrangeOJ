@@ -146,8 +146,9 @@ ORDER BY h.id DESC`
 			"published":   published == 1,
 			"createdAt":   scanNullString(createdAt),
 			"itemCount":   itemCount,
-			"targetCount": targetCount,
-			"assigned":    assigned == 1,
+			"targetCount":     targetCount,
+			"targetUsernames": scanNullString(targetUsernames),
+			"assigned":        assigned == 1,
 		})
 	}
 	return respondData(c, items)
