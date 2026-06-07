@@ -108,6 +108,11 @@ export default function LearningPanel({
                     ) : (
                       <Badge variant="secondary" className="text-[11px]">未发布</Badge>
                     )}
+                    {plan.participantUsernames && plan.participantUsernames.length > 0 && (
+                      <Badge variant="outline" className="text-[11px] max-w-[200px] truncate" title={plan.participantUsernames}>
+                        {plan.participantUsernames}
+                      </Badge>
+                    )}
                     </div>
                   </CardHeader>
                   <CardFooter className="mt-auto pt-2 flex flex-wrap gap-2">
@@ -154,6 +159,11 @@ export default function LearningPanel({
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     <Badge variant={homework.published ? 'success' : 'secondary'} className="text-[11px]">{homework.published ? '已发布' : '未发布'}</Badge>
                     {homework.dueAt && <Badge variant="outline" className="text-[11px]">截止：{homework.dueAt}</Badge>}
+                    {homework.targetUsernames && homework.targetUsernames.length > 0 && (
+                      <Badge variant="outline" className="text-[11px] max-w-[200px] truncate" title={homework.targetUsernames}>
+                        {homework.targetUsernames}
+                      </Badge>
+                    )}
                     {!canManageSelectedSpace && homework.assigned && (
                       <Badge variant="info" className="text-[11px]">已分配给我</Badge>
                     )}

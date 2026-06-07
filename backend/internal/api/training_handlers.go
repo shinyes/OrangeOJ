@@ -65,6 +65,7 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 		  tp.title,
 		  tp.published_at,
 		  tp.created_at,
+		  (SELECT GROUP_CONCAT(u.username, ", ") FROM training_participants tp2 JOIN users u ON u.id=tp2.user_id WHERE tp2.plan_id=tp.id) AS participant_usernames,
 		  EXISTS(
 		    SELECT 1
 		    FROM training_participants p
