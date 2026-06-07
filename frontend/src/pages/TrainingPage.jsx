@@ -22,8 +22,14 @@ function safeInternalPath(path, fallback) {
 }
 
 function problemTitleWithCompletion(item, index) {
-  const completionText = item?.completed ? '✅ ' : ''
-  return `${index + 1}. #${item.problemId} ${completionText}${item.title || `题目 ${item.problemId}`}`
+  return `${index + 1}. #${item.problemId} ${item.title || `题目 ${item.problemId}`}`
+}
+
+function chapterProgress(chapter) {
+  const total = chapter.items?.length || 0
+  if (total === 0) return { total: 0, done: 0 }
+  const done = chapter.items.filter((item) => item.completed).length
+  return { total, done }
 }
 
 export default function TrainingPage({ user }) {
@@ -186,7 +192,12 @@ export default function TrainingPage({ user }) {
                     <div className="flex justify-between items-start gap-2 md:gap-4 flex-wrap">
                       <div>
                         <h2 className="text-base md:text-lg font-semibold">{chapter.title || `第 ${chapter.orderNo} 章`}</h2>
-                        <p className="text-xs md:text-sm text-muted-foreground">共 {chapter.items?.length || 0} 道题目</p>
+                        {(() => { const p = chapterProgress(chapter); return (
+                          <p className="text-xs md:text-sm">
+                            <span className="text-muted-foreground">共 {p.total} 道题目</span>
+                            {p.done > 0 && <span className="text-emerald-600 ml-2 font-medium">{p.done} 道已完成</span>}
+                          </p>
+                        )})()}
                       </div>
                       <Badge variant="outline" className="text-[10px] md:text-xs">第 {chapter.orderNo} 章</Badge>
                     </div>
@@ -199,20 +210,27 @@ export default function TrainingPage({ user }) {
                       <p className="text-xs md:text-sm text-muted-foreground">当前章节暂无题目。</p>
                     ) : (
                       <div className="flex flex-col gap-1 md:gap-1.5">
-                        {(chapter.items || []).map((item, index) => (
-                          <Card key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`} className="transition-all hover:border-primary hover:bg-accent hover:-translate-y-px p-0">
+                        {(chapter.items || []).map((item, index) => {
+                          const isDone = item.completed
+                          return (
+                          <Card key={`${chapter.id || chapter.orderNo}-${item.problemId}-${item.orderNo || index + 1}`}
+                            className={`transition-all hover:-translate-y-px p-0 border ${isDone ? 'border-emerald-400 bg-emerald-50/50 hover:border-emerald-500' : 'hover:border-primary hover:bg-accent'}`}>
                             <Link
                               to={`/spaces/${spaceId}/problems/${item.problemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`}
                               className="block px-2 md:px-4 py-2 md:py-2.5 no-underline text-foreground"
                               onClick={saveScrollPosition}
                             >
                               <div className="flex justify-between items-center gap-1.5 md:gap-2">
-                                <span className="font-medium text-sm md:text-base truncate">{problemTitleWithCompletion(item, index)}</span>
+                                <span className="font-medium text-sm md:text-base truncate flex items-center gap-1.5">
+                                  {isDone && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                                  {problemTitleWithCompletion(item, index)}
+                                </span>
                                 <Badge variant="outline" className="shrink-0 text-[10px] md:text-xs">{problemTypeText(item.type)}</Badge>
                               </div>
                             </Link>
                           </Card>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>
