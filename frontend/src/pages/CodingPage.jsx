@@ -15,7 +15,7 @@ import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon, Users } from 'lucide-react'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -497,16 +497,40 @@ function CodingPageContent({
   }
 
   // ---- Training navigation helpers ----
+  // Auto-collapse completed chapters
+  const [expandedChapters, setExpandedChapters] = useState({})
+  const getChapterExpanded = (chIdx, items) => {
+    if (expandedChapters[chIdx] !== undefined) return expandedChapters[chIdx]
+    const allDone = items.length > 0 && items.every(it => it.completed)
+    return !allDone
+  }
+  const toggleChapterExpanded = (chIdx) => {
+    setExpandedChapters(prev => {
+      const items = (trainingPlan?.chapters || [])[chIdx]?.items || []
+      const allDone = items.length > 0 && items.every(it => it.completed)
+      const currentState = prev[chIdx] !== undefined ? prev[chIdx] : !allDone
+      return { ...prev, [chIdx]: !currentState }
+    })
+  }
+
   const renderTrainingNavGrid = () => (
     <div className="flex flex-col gap-3">
       {(trainingPlan?.chapters || []).map((chapter, chIdx) => {
         const items = chapter.items || []
         if (items.length === 0) return null
+        const allDone = items.length > 0 && items.every(it => it.completed)
+        const isExpanded = getChapterExpanded(chIdx, items)
         return (
           <div key={chIdx}>
-            <h5 className="text-[11px] font-semibold text-muted-foreground mb-1.5 tracking-wide">
-              {chapter.title || `第 ${chIdx + 1} 章`}
-            </h5>
+            <div className="flex items-center gap-1 mb-1.5 cursor-pointer" onClick={() => toggleChapterExpanded(chIdx)}>
+              <h5 className={`text-[11px] font-semibold flex-1 truncate tracking-wide ${allDone ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                {chapter.title || `第 ${chIdx + 1} 章`}
+              </h5>
+              <span className="text-[9px] text-muted-foreground shrink-0">
+                {isExpanded ? '▼' : '▶'}
+              </span>
+            </div>
+            {isExpanded && (
             <div className="grid grid-cols-5 gap-1">
               {items.map((item, itemIdx) => {
                 const isCurrent = Number(item.problemId) === Number(problemId)
@@ -525,6 +549,7 @@ function CodingPageContent({
                 )
               })}
             </div>
+          )}
           </div>
         )
       })}
@@ -669,6 +694,13 @@ function CodingPageContent({
             {canEditProblem && (
               <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowProblemEditor(true)}>
                 <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
+              </Button>
+            )}
+            {planId && canEditProblem && (
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" asChild>
+                <Link to={`/spaces/${spaceId}/training-plans/${planId}/progress?returnTo=${encodeURIComponent(`/spaces/${spaceId}/problems/${problemId}/solve?planId=${planId}`)}&returnLabel=${encodeURIComponent('返回做题')}`}>
+                  <Users className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />进度
+                </Link>
               </Button>
             )}
             <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>

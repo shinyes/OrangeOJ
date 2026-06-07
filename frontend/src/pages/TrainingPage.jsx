@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
@@ -35,6 +35,7 @@ function chapterProgress(chapter) {
 export default function TrainingPage({ user }) {
   const { spaceId, planId } = useParams()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [space, setSpace] = useState(null)
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -94,6 +95,15 @@ export default function TrainingPage({ user }) {
       }
     })()
   }, [spaceId, planId, viewAsUserId])
+
+  // Auto-redirect to first problem
+  useEffect(() => {
+    if (loading || !plan) return
+    const firstProblem = flatProblems[0]
+    if (firstProblem) {
+      navigate(`/spaces/${spaceId}/problems/${firstProblem.problemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`, { replace: true })
+    }
+  }, [loading, plan, flatProblems, spaceId, planId, navigate, solveReturnTo, solveReturnLabel])
 
   const scrollKey = `scroll-/spaces/${spaceId}/training-plans/${planId}`
 
