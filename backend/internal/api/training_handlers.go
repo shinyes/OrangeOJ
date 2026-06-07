@@ -49,6 +49,7 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 	  tp.title,
 	  tp.published_at,
 	  tp.created_at,
+		  (SELECT GROUP_CONCAT(u.username, ", ") FROM training_participants tp2 JOIN users u ON u.id=tp2.user_id WHERE tp2.plan_id=tp.id) AS participant_usernames,
 	  EXISTS(
 	    SELECT 1
 	    FROM training_participants p
@@ -65,6 +66,7 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 		  tp.title,
 		  tp.published_at,
 		  tp.created_at,
+		  (SELECT GROUP_CONCAT(u.username, ", ") FROM training_participants tp2 JOIN users u ON u.id=tp2.user_id WHERE tp2.plan_id=tp.id) AS participant_usernames,
 		  EXISTS(
 		    SELECT 1
 		    FROM training_participants p
@@ -92,14 +94,15 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 		var id int64
 		var title string
 		var joined int
-		var publishedAt, createdAt sql.NullString
-		if err := rows.Scan(&id, &title, &publishedAt, &createdAt, &joined); err != nil {
+		var participantUsernames, publishedAt, createdAt sql.NullString
+		if err := rows.Scan(&id, &title, &publishedAt, &createdAt, &participantUsernames, &joined); err != nil {
 			return err
 		}
 		plans = append(plans, fiber.Map{
 			"id":          id,
 			"title":       title,
 			"joined":      joined == 1,
+			"participantUsernames": scanNullString(participantUsernames),
 			"published":   publishedAt.Valid,
 			"publishedAt": scanNullString(publishedAt),
 			"createdAt":   scanNullString(createdAt),

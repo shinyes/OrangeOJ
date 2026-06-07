@@ -75,6 +75,7 @@ SELECT
     FROM homework_targets ht
     WHERE ht.homework_id=h.id
   ) AS target_count,
+  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
   EXISTS(
     SELECT 1
     FROM homework_targets ht
@@ -104,6 +105,7 @@ SELECT
     FROM homework_targets ht
     WHERE ht.homework_id=h.id
   ) AS target_count,
+  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
   EXISTS(
     SELECT 1
     FROM homework_targets ht
@@ -130,9 +132,9 @@ ORDER BY h.id DESC`
 	for rows.Next() {
 		var id int64
 		var title, desc, displayMode string
-		var dueAt, createdAt sql.NullString
+		var dueAt, createdAt, targetUsernames sql.NullString
 		var published, itemCount, targetCount, assigned int
-		if err := rows.Scan(&id, &title, &desc, &dueAt, &displayMode, &published, &createdAt, &itemCount, &targetCount, &assigned); err != nil {
+		if err := rows.Scan(&id, &title, &desc, &dueAt, &displayMode, &published, &createdAt, &itemCount, &targetCount, &targetUsernames, &assigned); err != nil {
 			return err
 		}
 		items = append(items, fiber.Map{
