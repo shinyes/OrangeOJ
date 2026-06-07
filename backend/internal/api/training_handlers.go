@@ -176,7 +176,16 @@ func (a *API) handleGetTrainingPlan(c *fiber.Ctx) error {
 		return err
 	}
 
-	chapters, err := a.loadPlanChapters(planID, spaceID, user.ID)
+	viewUserID := user.ID
+	if viewAsParam := c.Query("viewAs"); viewAsParam != "" {
+		canManage, mgrErr := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
+		if mgrErr == nil && canManage {
+			if vid, parseErr := strconv.ParseInt(viewAsParam, 10, 64); parseErr == nil && vid > 0 {
+				viewUserID = vid
+			}
+		}
+	}
+	chapters, err := a.loadPlanChapters(planID, spaceID, viewUserID)
 	if err != nil {
 		return err
 	}

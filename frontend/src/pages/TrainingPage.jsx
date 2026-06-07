@@ -5,8 +5,9 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { Separator } from '../components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Alert, AlertDescription } from '../components/ui/alert'
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Users } from 'lucide-react'
 
 function problemTypeText(type) {
   if (type === 'programming') return '编程题'
@@ -33,6 +34,8 @@ export default function TrainingPage({ user }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
+  const [viewAsUserId, setViewAsUserId] = useState('')
+  const canManageSpace = space?.canManage
 
   const defaultBackTo = `/?spaceId=${spaceId}&tab=training`
   const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
@@ -54,15 +57,19 @@ export default function TrainingPage({ user }) {
     () => (plan?.chapters || []).reduce((sum, chapter) => sum + (chapter.items?.length || 0), 0),
     [plan]
   )
+  const completedCount = useMemo(() => {
+    let count = 0
+    ;(plan?.chapters || []).forEach((ch) => (ch.items || []).forEach((item) => { if (item.completed) count++ }))
+    return count
+  }, [plan])
   const myParticipant = useMemo(
     () => (plan?.participants || []).find((participant) => Number(participant.userId) === Number(user?.id)) || null,
     [plan, user]
   )
-
   const loadData = async () => {
     const [spaceData, planData] = await Promise.all([
       api.getSpace(spaceId),
-      api.getTrainingPlan(spaceId, planId)
+      api.getTrainingPlan(spaceId, planId, viewAsUserId ? { viewAs: viewAsUserId } : undefined)
     ])
     setSpace(spaceData)
     setPlan(planData)
@@ -80,7 +87,7 @@ export default function TrainingPage({ user }) {
         setLoading(false)
       }
     })()
-  }, [spaceId, planId])
+  }, [spaceId, planId, viewAsUserId])
 
   const scrollKey = `scroll-/spaces/${spaceId}/training-plans/${planId}`
 
@@ -129,7 +136,25 @@ export default function TrainingPage({ user }) {
               </span>
             </div>
           </div>
-          <Button size="sm" variant="outline" className="h-7 md:h-8 text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {canManageSpace && (plan?.participants || []).length > 0 && (
+              <>
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <Select value={viewAsUserId} onValueChange={(v) => setViewAsUserId(v)}>
+                  <SelectTrigger className="w-[140px] h-7 text-xs">
+                    <SelectValue placeholder="我的进度" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">我的进度</SelectItem>
+                    {(plan?.participants || []).map((p) => (
+                      <SelectItem key={p.userId} value={String(p.userId)}>{p.username}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+            <Button size="sm" variant="outline" className="h-7 md:h-8 text-xs" asChild><Link to={backTo}>{backLabel}</Link></Button>
+          </div>
         </div>
       </header>
 
