@@ -72,8 +72,14 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 		  ) AS joined
 		FROM training_plans tp
 		WHERE tp.space_id=?
+		  AND tp.published_at IS NOT NULL
+		  AND EXISTS(
+		    SELECT 1
+		    FROM training_participants p
+		    WHERE p.plan_id=tp.id AND p.user_id=?
+		  )
 		ORDER BY tp.id DESC`
-		args = []interface{}{user.ID, spaceID}
+		args = []interface{}{user.ID, spaceID, user.ID}
 	}
 
 	rows, err := a.DB.Query(query, args...)

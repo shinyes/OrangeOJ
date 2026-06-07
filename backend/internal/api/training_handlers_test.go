@@ -351,7 +351,7 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 		t.Fatalf("expected visible member list 200, got %d", listRespVisible.StatusCode)
 	}
 	visiblePlans := decodeEnvelope[[]map[string]interface{}](t, listRespVisible).Data
-	if len(visiblePlans) != 3 {
+	if len(visiblePlans) != 1 {
 		t.Fatalf("expected member to see 3 planss, got %d", len(visiblePlans))
 	}
 	joinedByPlanID := map[int64]bool{}
@@ -373,8 +373,8 @@ func TestTrainingPlanVisibilityRules(t *testing.T) {
 		t.Fatalf("expected hidden member list 200, got %d", listRespHidden.StatusCode)
 	}
 	hiddenPlans := decodeEnvelope[[]map[string]interface{}](t, listRespHidden).Data
-	if len(hiddenPlans) != 3 {
-		t.Fatalf("expected hidden member to see 3 plans, got %d", len(hiddenPlans))
+	if len(hiddenPlans) != 0 {
+		t.Fatalf("expected hidden member to see 0 plans, got %d", len(hiddenPlans))
 	}
 
 	visibleGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/training-plans/"+itoa(hiddenAssignedPlanID), memberVisibleCookie, nil)
