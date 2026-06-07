@@ -6,7 +6,6 @@ import RegisterPage from './pages/RegisterPage'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const CodingPage = lazy(() => import('./pages/CodingPage'))
-const TrainingPage = lazy(() => import('./pages/TrainingPage'))
 const HomeworkPage = lazy(() => import('./pages/HomeworkPage'))
 const HomeworkProgrammingPage = lazy(() => import('./pages/HomeworkProgrammingPage'))
 const HomeworkSubmissionRecordsPage = lazy(() => import('./pages/HomeworkSubmissionRecordsPage'))
@@ -70,10 +69,6 @@ export default function App() {
       <Route
         path="/spaces/:spaceId/problems/:problemId/solve"
         element={renderProtectedPage(<CodingPage user={user} onLogout={handleLogout} />)}
-      />
-      <Route
-        path="/spaces/:spaceId/training-plans/:planId"
-        element={renderProtectedPage(<TrainingPage user={user} onLogout={handleLogout} />)}
       />
       <Route
         path="/spaces/:spaceId/training-plans/:planId/progress"

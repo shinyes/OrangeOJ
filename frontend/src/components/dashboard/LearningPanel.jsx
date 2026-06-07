@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { MoreHorizontal, Search, CheckCircle2 } from 'lucide-react'
+import { api } from '../../api'
 
 export default function LearningPanel({
   selectedSpace, spaces, spaceTab,
@@ -16,6 +17,22 @@ export default function LearningPanel({
   filteredLearningHomeworks, onOpenEditHomework, onOpenAssignHomeworkTarget,
   onExportHomework, onDeleteHomework, homeworkActionMessage
 }) {
+  const navigate = useNavigate()
+
+  const handleEnterTraining = async (planId) => {
+    try {
+      const plan = await api.getTrainingPlan(selectedSpace.id, planId)
+      const firstProblem = (plan?.chapters || []).flatMap(ch => ch.items || [])[0]
+      if (firstProblem) {
+        navigate(`/spaces/${selectedSpace.id}/problems/${firstProblem.problemId}/solve?planId=${planId}`)
+      } else {
+        navigate(`/spaces/${selectedSpace.id}/training-plans/${planId}/progress`)
+      }
+    } catch {
+      navigate(`/spaces/${selectedSpace.id}/training-plans/${planId}/progress`)
+    }
+  }
+
   if (!selectedSpace) {
     return (
       <Card><CardContent className="p-6 text-center">
@@ -116,7 +133,7 @@ export default function LearningPanel({
                     </div>
                   </CardHeader>
                   <CardFooter className="mt-auto pt-2 flex flex-wrap gap-2">
-                    <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/training-plans/${plan.id}`}>进入训练</Link></Button>
+                    <Button size="sm" onClick={() => handleEnterTraining(plan.id)}>进入训练</Button>
                     {canManageSelectedSpace && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
