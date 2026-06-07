@@ -24,7 +24,8 @@ export default function LearningPanel({
       const plan = await api.getTrainingPlan(selectedSpace.id, planId)
       const firstProblem = (plan?.chapters || []).flatMap(ch => ch.items || [])[0]
       if (firstProblem) {
-        navigate(`/spaces/${selectedSpace.id}/problems/${firstProblem.problemId}/solve?planId=${planId}`)
+        const returnTo = '/?spaceId=' + selectedSpace.id + '&tab=training'
+        navigate('/spaces/' + selectedSpace.id + '/problems/' + firstProblem.problemId + '/solve?planId=' + planId + '&returnTo=' + encodeURIComponent(returnTo) + '&returnLabel=' + encodeURIComponent('返回训练列表'))
       } else {
         navigate(`/spaces/${selectedSpace.id}/training-plans/${planId}/progress`)
       }
