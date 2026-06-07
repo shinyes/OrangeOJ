@@ -140,12 +140,12 @@ export default function TrainingPage({ user }) {
             {canManageSpace && (plan?.participants || []).length > 0 && (
               <>
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <Select value={viewAsUserId} onValueChange={(v) => setViewAsUserId(v)}>
+                <Select value={viewAsUserId || '__self__'} onValueChange={(v) => setViewAsUserId(v === '__self__' ? '' : v)}>
                   <SelectTrigger className="w-[140px] h-7 text-xs">
                     <SelectValue placeholder="我的进度" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">我的进度</SelectItem>
+                    <SelectItem value="__self__">我的进度</SelectItem>
                     {(plan?.participants || []).map((p) => (
                       <SelectItem key={p.userId} value={String(p.userId)}>{p.username}</SelectItem>
                     ))}
