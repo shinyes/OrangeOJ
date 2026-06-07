@@ -371,7 +371,8 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 		timeLimitSec = 1
 	}
 
-	memoryBytes := int64(memoryLimitMiB) * 1024 * 1024
+	cgroupMemoryMiB := memoryLimitMiB + 32
+		memoryBytes := int64(cgroupMemoryMiB) * 1024 * 1024
 	shell := "/bin/sh"
 	if _, err := os.Stat(shell); err != nil {
 		if _, bashErr := os.Stat("/bin/bash"); bashErr == nil {
