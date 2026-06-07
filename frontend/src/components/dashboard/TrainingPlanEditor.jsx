@@ -3,7 +3,6 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { Checkbox } from '../ui/checkbox'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, ChevronRight, ChevronDown } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
@@ -14,7 +13,7 @@ import { Upload } from 'lucide-react'
 import { api } from '../../api'
 
 function blankChapter(index) {
-  return { title: `第 ${index + 1} 章`, problemIds: [], problemSourceMode: 'manual' }
+  return { title: `第 ${index + 1} 章`, problemIds: [],  }
 }
 
 function normalizeProblemIds(chapter) {
@@ -27,7 +26,7 @@ function buildInitialForm(plan) {
   const chapters = Array.isArray(plan?.chapters)
     ? plan.chapters.map((chapter, index) => ({
         title: String(chapter?.title || `第 ${index + 1} 章`), problemIds: normalizeProblemIds(chapter),
-        problemSourceMode: 'manual'
+        
       }))
     : [blankChapter(0)]
   return { title: String(plan?.title || ''), published: Boolean(plan?.published ?? plan?.publishedAt), chapters }
@@ -103,22 +102,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
     }
   }
 
-  const handleChapterImportZip = async (chapterIndex, e) => {
-    const file = e.target.files?.[0]
-    if (!file || !spaceId) return
-    setChapterImporting((prev) => ({ ...prev, [chapterIndex]: true }))
-    try {
-      const result = await api.importProblems(spaceId, file)
-      setChapterImportedProblems((prev) => ({ ...prev, [chapterIndex]: result?.problems || [] }))
-    } catch (err) {
-      setSubmitError(err.message || 'ZIP 导入失败')
-      setChapterImportedProblems((prev) => ({ ...prev, [chapterIndex]: [] }))
-    } finally {
-      setChapterImporting((prev) => ({ ...prev, [chapterIndex]: false }))
-      e.target.value = ''
-    }
-  }
-
+    
   const handleClose = () => { if (submitting) return; setSubmitError(''); onClose() }
 
   const handleSubmit = async () => {
@@ -147,8 +131,6 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
   // Helper for searchable problem select
   const [collapsedChapters, setCollapsedChapters] = useState(() => new Set())
   const [newChapterIndices, setNewChapterIndices] = useState(() => new Set())
-  const [chapterImportedProblems, setChapterImportedProblems] = useState({})
-  const [chapterImporting, setChapterImporting] = useState({})
   const [searchInputs, setSearchInputs] = useState({})
   const itemRefs = useRef({})
   const chapterRefs = useRef({})
@@ -309,40 +291,6 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
               {collapsedChapters.has(chapterIndex) ? null : (
               <>
               {(!isEditMode || newChapterIndices.has(chapterIndex)) && (
-                <div className="px-2 pb-1.5">
-                  <Tabs value={chapter.problemSourceMode || 'manual'} onValueChange={(v) => { if (v) updateChapter(chapterIndex, { problemSourceMode: v }); setSubmitError('') }}>
-                    <TabsList className="w-full">
-                      <TabsTrigger value="manual" className="flex-1">从题库选题</TabsTrigger>
-                      <TabsTrigger value="import" className="flex-1">导入题目 ZIP</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-              )}
-
-              {(!isEditMode || newChapterIndices.has(chapterIndex)) && chapter.problemSourceMode === 'import' ? (
-                <div className="px-2 pb-2">
-                  <p className="text-xs text-muted-foreground mb-2">上传题目 ZIP 文件（含 problems.json 和 images/ 目录），导入后自动创建题目。</p>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" disabled={chapterImporting[chapterIndex]}
-                      onClick={() => document.getElementById(`tp-zip-${chapterIndex}`)?.click()}>
-                      <Upload className="h-4 w-4 mr-1" />
-                      {chapterImporting[chapterIndex] ? '导入中...' : '选择 ZIP 文件'}
-                    </Button>
-                    <input type="file" id={`tp-zip-${chapterIndex}`} accept=".zip" className="hidden"
-                      onChange={(e) => handleChapterImportZip(chapterIndex, e)} />
-                  </div>
-                  {(chapterImportedProblems[chapterIndex] || []).length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-sm font-medium">已导入 {chapterImportedProblems[chapterIndex].length} 道题目</p>
-                      <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
-                        {chapterImportedProblems[chapterIndex].map((p) => (
-                          <li key={p.id}>#{p.id} {p.title}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
                 <div className="px-2 pb-2">
                   <div className="relative">
                     <Input className="h-7 text-xs" placeholder="搜索题号、标题或标签..."
