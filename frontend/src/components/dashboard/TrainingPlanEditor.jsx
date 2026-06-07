@@ -4,7 +4,7 @@ import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { Checkbox } from '../ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
-import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, ChevronRight, ChevronDown, Download } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
@@ -285,6 +285,15 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
                     }
                     e.target.value = ''
                   }} />
+                <Button size="icon" variant="ghost" className="shrink-0 h-7 w-7" title="导出章节题目"
+                  onClick={() => {
+                    if (chapter.problemIds.length === 0) return
+                    api.exportProblems(spaceId, chapter.problemIds).catch((err) => {
+                      setSubmitError(err.message || '导出失败')
+                    })
+                  }}>
+                  <Download className="h-3.5 w-3.5" />
+                </Button>
                 <Button size="icon" variant="ghost" onClick={() => removeChapter(chapterIndex)} className="shrink-0 h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
               </div>
 
