@@ -653,6 +653,86 @@ func nullToInterface(v sql.NullString) interface{} {
 	return v.String
 }
 
+func (a *API) handleTrainingPlanProgress(c *fiber.Ctx) error {
+	user, err := getUser(c)
+	if err != nil {
+		return err
+	}
+	spaceID, err := parseIDParam(c, "spaceId")
+	if err != nil {
+		return err
+	}
+	planID, err := parseIDParam(c, "planId")
+	if err != nil {
+		return err
+	}
+	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
+		return err
+	}
+	canManage, err := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
+	if err != nil || !canManage {
+		return respondError(c, fiber.StatusForbidden, "space admin required")
+	}
+
+	// Load chapters
+	chapters, err := a.loadPlanChapters(planID, spaceID, user.ID)
+	if err != nil {
+		return err
+	}
+
+	// Load participants
+	participants, err := a.loadPlanParticipants(planID)
+	if err != nil {
+		return err
+	}
+
+	// Build participant progress
+	type participantProgress struct {
+		UserID             int64   `json:"userId"`
+		Username           string  `json:"username"`
+		CompletedProblemIDs []int64 `json:"completedProblemIds"`
+	}
+
+	progressList := make([]participantProgress, 0, len(participants))
+	for _, p := range participants {
+		userID := int64(p["userId"].(int64))
+		username := p["username"].(string)
+
+		rows, err := a.DB.Query(`
+SELECT i.problem_id
+FROM training_chapters c
+JOIN training_items i ON i.chapter_id = c.id
+JOIN user_problem_progress upp ON upp.problem_id = i.problem_id AND upp.space_id = ? AND upp.user_id = ?
+WHERE c.plan_id = ? AND upp.best_verdict = 'AC'
+ORDER BY i.problem_id`, spaceID, userID, planID)
+		if err != nil {
+			return err
+		}
+
+		var completedIDs []int64
+		for rows.Next() {
+			var pid int64
+			if err := rows.Scan(&pid); err != nil {
+				rows.Close()
+				return err
+			}
+			completedIDs = append(completedIDs, pid)
+		}
+		rows.Close()
+
+		progressList = append(progressList, participantProgress{
+			UserID:             userID,
+			Username:           username,
+			CompletedProblemIDs: completedIDs,
+		})
+	}
+
+	return respondData(c, fiber.Map{
+		"chapters":     chapters,
+		"participants": progressList,
+	})
+}
+
 func boolToInt(v bool) int {
 	if v {
 		return 1

@@ -10,6 +10,7 @@ const TrainingPage = lazy(() => import('./pages/TrainingPage'))
 const HomeworkPage = lazy(() => import('./pages/HomeworkPage'))
 const HomeworkProgrammingPage = lazy(() => import('./pages/HomeworkProgrammingPage'))
 const HomeworkSubmissionRecordsPage = lazy(() => import('./pages/HomeworkSubmissionRecordsPage'))
+const TrainingProgressPage = lazy(() => import('./pages/TrainingProgressPage'))
 
 function PageFallback() {
   return <div className="min-h-screen flex items-center justify-center text-muted-foreground">加载中...</div>
@@ -73,6 +74,10 @@ export default function App() {
       <Route
         path="/spaces/:spaceId/training-plans/:planId"
         element={renderProtectedPage(<TrainingPage user={user} onLogout={handleLogout} />)}
+      />
+      <Route
+        path="/spaces/:spaceId/training-plans/:planId/progress"
+        element={renderProtectedPage(<TrainingProgressPage user={user} onLogout={handleLogout} />)}
       />
       <Route
         path="/spaces/:spaceId/homeworks/:homeworkId"

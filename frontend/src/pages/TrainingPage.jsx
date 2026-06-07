@@ -143,6 +143,14 @@ export default function TrainingPage({ user }) {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {canManageSpace && (
+              <Button size="sm" variant="outline" className="h-7 text-xs" asChild
+                onClick={saveScrollPosition}>
+                <Link to={`/spaces/${spaceId}/training-plans/${planId}/progress?returnTo=${encodeURIComponent(`/spaces/${spaceId}/training-plans/${planId}`)}&returnLabel=${encodeURIComponent('返回训练')}`}>
+                  <Users className="h-3 w-3 mr-1" />进度
+                </Link>
+              </Button>
+            )}
             {canManageSpace && (plan?.participants || []).length > 0 && (
               <>
                 <Users className="h-4 w-4 text-muted-foreground" />
