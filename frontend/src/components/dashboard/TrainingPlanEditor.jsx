@@ -282,6 +282,27 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
                 <span className="text-xs text-muted-foreground shrink-0 w-14 text-center">章节 {chapterIndex + 1}</span>
                 <Input className="h-7 text-xs flex-1" placeholder="章节标题" value={chapter.title} onChange={(e) => updateChapter(chapterIndex, { title: e.target.value })} />
                 <Badge variant="outline" className="text-[10px] h-5">{chapter.problemIds.length} 题</Badge>
+                <Button size="icon" variant="ghost" className="shrink-0 h-7 w-7" title="导入题目 ZIP 到此章节"
+                  onClick={() => document.getElementById(`tp-chapter-zip-${chapterIndex}`)?.click()}>
+                  <Upload className="h-3.5 w-3.5" />
+                </Button>
+                <input type="file" id={`tp-chapter-zip-${chapterIndex}`} accept=".zip" className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file || !spaceId) return
+                    try {
+                      const result = await api.importProblems(spaceId, file)
+                      const ids = (result?.problems || []).map(p => Number(p.id)).filter(id => id > 0)
+                      if (ids.length > 0) {
+                        updateChapter(chapterIndex, {
+                          problemIds: [...new Set([...chapter.problemIds, ...ids])]
+                        })
+                      }
+                    } catch (err) {
+                      setSubmitError(err.message || 'ZIP 导入失败')
+                    }
+                    e.target.value = ''
+                  }} />
                 <Button size="icon" variant="ghost" onClick={() => removeChapter(chapterIndex)} className="shrink-0 h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
               </div>
 
