@@ -85,7 +85,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
           chapters: chapters.map((ch) => ({
             title: ch.title,
             problemIds: ch.problemIds || [],
-            problemSourceMode: 'manual'
+            
           }))
         }))
       } else {
@@ -290,7 +290,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
 
               {collapsedChapters.has(chapterIndex) ? null : (
               <>
-              {(!isEditMode || newChapterIndices.has(chapterIndex)) && (
+              {(
                 <div className="px-2 pb-2">
                   <div className="relative">
                     <Input className="h-7 text-xs" placeholder="搜索题号、标题或标签..."
