@@ -31,12 +31,23 @@ function toDueAtISO(value) {
   return date.toISOString()
 }
 
+function parseTags(rawTags) {
+  if (Array.isArray(rawTags)) return rawTags.filter(Boolean)
+  if (typeof rawTags === 'string') return rawTags.split(',').map(t => t.trim()).filter(Boolean)
+  return []
+}
+
+function tagsToString(tags) {
+  return Array.isArray(tags) ? tags.join(', ') : ''
+}
+
 function buildInitialForm(homework) {
   const rawItems = Array.isArray(homework?.items) ? homework.items : []
   return {
     title: String(homework?.title || ''), description: String(homework?.description || ''),
     dueAt: formatDatetimeLocal(homework?.dueAt), displayMode: String(homework?.displayMode || 'exam'),
     published: Boolean(homework?.published),
+    tags: parseTags(homework?.tags),
     items: rawItems.length > 0 ? rawItems.map((item) => ({ problemId: Number(item?.problemId) || null })) : [blankItem()]
   }
 }
@@ -52,6 +63,17 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
   const [problemSourceMode, setProblemSourceMode] = useState('manual')
   const [zipFile, setZipFile] = useState(null)
   const [searchPerItem, setSearchPerItem] = useState({})
+  const descRef = useRef(null)
+
+  const autoGrowTextarea = (el) => {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }
+
+  useEffect(() => {
+    if (descRef.current) autoGrowTextarea(descRef.current)
+  }, [form.description])
 
   useEffect(() => {
     if (!open) return
@@ -153,7 +175,7 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
       if (new Set(normalizedItems.map((item) => item.problemId)).size !== normalizedItems.length) { setSubmitError('作业中不能重复添加同一道题'); return }
     }
 
-    await onSubmit({ title, description: form.description.trim(), dueAt: toDueAtISO(form.dueAt), displayMode: form.displayMode || 'exam', published: form.published, items: normalizedItems, problemDrafts })
+    await onSubmit({ title, description: form.description.trim(), dueAt: toDueAtISO(form.dueAt), displayMode: form.displayMode || 'exam', published: form.published, tags: form.tags, items: normalizedItems, problemDrafts })
     onClose()
     } catch (err) { setSubmitError(err.message || '保存失败') }
     finally { setSubmitting(false) }
@@ -169,7 +191,23 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
           <Input placeholder="作业标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
-          <Textarea placeholder="作业说明" value={form.description} onChange={(e) => updateField('description', e.target.value)} className="min-h-[80px]" />
+          <textarea ref={descRef} placeholder="作业说明" value={form.description}
+            onChange={(e) => updateField('description', e.target.value)}
+            onInput={(e) => autoGrowTextarea(e.target)}
+            rows={1}
+            className="flex w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
+
+          <div>
+            <Input placeholder="标签（用逗号分隔）" value={tagsToString(form.tags)}
+              onChange={(e) => updateField('tags', parseTags(e.target.value))} />
+            {form.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {form.tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-3 flex-wrap items-end">
             <div>

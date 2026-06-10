@@ -22,14 +22,30 @@ function normalizeProblemIds(chapter) {
   return []
 }
 
+function parseTags(rawTags) {
+  if (Array.isArray(rawTags)) return rawTags.filter(Boolean)
+  if (typeof rawTags === 'string') return rawTags.split(',').map(t => t.trim()).filter(Boolean)
+  return []
+}
+
+function tagsToString(tags) {
+  return Array.isArray(tags) ? tags.join(', ') : ''
+}
+
 function buildInitialForm(plan) {
   const chapters = Array.isArray(plan?.chapters)
     ? plan.chapters.map((chapter, index) => ({
         title: String(chapter?.title || `第 ${index + 1} 章`), problemIds: normalizeProblemIds(chapter),
-        
+
       }))
     : [blankChapter(0)]
-  return { title: String(plan?.title || ''), published: Boolean(plan?.published ?? plan?.publishedAt), chapters }
+  return {
+    title: String(plan?.title || ''),
+    description: String(plan?.description || ''),
+    published: Boolean(plan?.published ?? plan?.publishedAt),
+    tags: parseTags(plan?.tags),
+    chapters
+  }
 }
 
 export default function TrainingPlanEditor({ open, mode = 'create', plan = null, spaceId, problemOptions = [], onClose, onSubmit }) {
@@ -38,6 +54,17 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [importingPlanZip, setImportingPlanZip] = useState(false)
+  const descRef = useRef(null)
+
+  const autoGrowTextarea = (el) => {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }
+
+  useEffect(() => {
+    if (descRef.current) autoGrowTextarea(descRef.current)
+  }, [form.description])
   const [importError, setImportError] = useState('')
 
   useEffect(() => {
@@ -82,10 +109,12 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
       if (chapters.length > 0) {
         setForm((c) => ({
           ...c,
+          description: result?.description ?? c.description,
+          tags: parseTags(result?.tags || c.tags),
           chapters: chapters.map((ch) => ({
             title: ch.title,
             problemIds: ch.problemIds || [],
-            
+
           }))
         }))
       } else {
@@ -123,7 +152,7 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
       })
     } catch (err) { setSubmitError(err.message || '章节题目数据不合法'); return }
 
-    try { setSubmitting(true); setSubmitError(''); await onSubmit({ title, published: form.published, chapters }); onClose() }
+    try { setSubmitting(true); setSubmitError(''); await onSubmit({ title, description: form.description, published: form.published, tags: form.tags, chapters }); onClose() }
     catch (err) { setSubmitError(err.message || '保存失败') }
     finally { setSubmitting(false) }
   }
@@ -217,6 +246,24 @@ export default function TrainingPlanEditor({ open, mode = 'create', plan = null,
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
           <Input placeholder="训练标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
+
+          <textarea ref={descRef} placeholder="训练说明" value={form.description}
+            onChange={(e) => updateField('description', e.target.value)}
+            onInput={(e) => autoGrowTextarea(e.target)}
+            rows={1}
+            className="flex w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
+
+          <div>
+            <Input placeholder="标签（用逗号分隔）" value={tagsToString(form.tags)}
+              onChange={(e) => updateField('tags', parseTags(e.target.value))} />
+            {form.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {form.tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-4 flex-wrap">
             <Label className="flex items-center gap-2 cursor-pointer">

@@ -28,6 +28,8 @@ export default function useDashboardData({
   const [spaceTab, setSpaceTab] = useState('problems')
   const [spaceManageTab, setSpaceManageTab] = useState('settings')
   const [systemTab, setSystemTab] = useState('settings')
+  const [learningTrainingTag, setLearningTrainingTag] = useState('')
+  const [learningHomeworkTag, setLearningHomeworkTag] = useState('')
   const [registrationEnabled, setRegistrationEnabled] = useState(false)
   const [spaceProblems, setSpaceProblems] = useState([])
   const [trainingPlans, setTrainingPlans] = useState([])
@@ -73,17 +75,39 @@ export default function useDashboardData({
     })
   }, [learningProblemSearch, spaceProblems])
 
+  const allTrainingTags = useMemo(() => {
+    const tagSet = new Set()
+    trainingPlans.forEach((plan) => {
+      if (Array.isArray(plan.tags)) plan.tags.forEach((t) => tagSet.add(t))
+    })
+    return [...tagSet].sort((a, b) => a.localeCompare(b))
+  }, [trainingPlans])
+
+  const allHomeworkTags = useMemo(() => {
+    const tagSet = new Set()
+    homeworks.forEach((hw) => {
+      if (Array.isArray(hw.tags)) hw.tags.forEach((t) => tagSet.add(t))
+    })
+    return [...tagSet].sort((a, b) => a.localeCompare(b))
+  }, [homeworks])
+
   const filteredLearningTrainingPlans = useMemo(() => {
     const keyword = learningTrainingSearch.trim().toLowerCase()
-    if (!keyword) return trainingPlans
-    return trainingPlans.filter((plan) => String(plan.title || '').toLowerCase().includes(keyword))
-  }, [learningTrainingSearch, trainingPlans])
+    return trainingPlans.filter((plan) => {
+      if (keyword && !String(plan.title || '').toLowerCase().includes(keyword)) return false
+      if (learningTrainingTag && !(Array.isArray(plan.tags) && plan.tags.includes(learningTrainingTag))) return false
+      return true
+    })
+  }, [learningTrainingSearch, learningTrainingTag, trainingPlans])
 
   const filteredLearningHomeworks = useMemo(() => {
     const keyword = learningHomeworkSearch.trim().toLowerCase()
-    if (!keyword) return homeworks
-    return homeworks.filter((homework) => String(homework.title || '').toLowerCase().includes(keyword))
-  }, [learningHomeworkSearch, homeworks])
+    return homeworks.filter((homework) => {
+      if (keyword && !String(homework.title || '').toLowerCase().includes(keyword)) return false
+      if (learningHomeworkTag && !(Array.isArray(homework.tags) && homework.tags.includes(learningHomeworkTag))) return false
+      return true
+    })
+  }, [learningHomeworkSearch, learningHomeworkTag, homeworks])
 
   const requestedSpaceId = useMemo(() => {
     const raw = new URLSearchParams(locationSearch).get('spaceId')
@@ -284,6 +308,12 @@ export default function useDashboardData({
     hasAnySpaceAdminRole,
     canManageSelectedSpace,
     filteredSpaceProblems,
+    allTrainingTags,
+    allHomeworkTags,
+    learningTrainingTag,
+    setLearningTrainingTag,
+    learningHomeworkTag,
+    setLearningHomeworkTag,
     filteredLearningProblems,
     filteredLearningTrainingPlans,
     filteredLearningHomeworks,

@@ -13,6 +13,9 @@ export default function LearningPanel({
   learningTrainingSearch, onLearningTrainingSearchChange, canManageSelectedSpace,
   onOpenCreateTrainingPlan, filteredLearningTrainingPlans, onOpenEditTrainingPlan,
   onOpenAssignTrainingParticipant, onExportTrainingPlan, onDeleteTrainingPlan, trainingActionMessage,
+  allTrainingTags, allHomeworkTags,
+  learningTrainingTag, onLearningTrainingTagChange,
+  learningHomeworkTag, onLearningHomeworkTagChange,
   learningHomeworkSearch, onLearningHomeworkSearchChange, onOpenCreateHomework,
   filteredLearningHomeworks, onOpenEditHomework, onOpenAssignHomeworkTarget,
   onExportHomework, onDeleteHomework, homeworkActionMessage
@@ -105,11 +108,24 @@ export default function LearningPanel({
       {/* Training Tab */}
       {spaceTab === 'training' && (
         <div>
-          <div className="flex flex-col sm:flex-row gap-3 mb-4 items-stretch sm:items-center">
+          <div className="flex flex-col sm:flex-row gap-3 mb-2 items-stretch sm:items-center">
             <Input placeholder="搜索训练计划标题" value={learningTrainingSearch}
               onChange={(e) => onLearningTrainingSearchChange(e.target.value)} className="flex-1" />
             {canManageSelectedSpace && <Button onClick={onOpenCreateTrainingPlan} className="shrink-0 w-full sm:w-auto">创建训练计划</Button>}
           </div>
+
+          {allTrainingTags.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {allTrainingTags.map((tag) => (
+                <Badge key={tag}
+                  variant={learningTrainingTag === tag ? 'default' : 'outline'}
+                  className="cursor-pointer text-xs select-none"
+                  onClick={() => onLearningTrainingTagChange(learningTrainingTag === tag ? '' : tag)}>
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
 
           {filteredLearningTrainingPlans.length === 0 && (
             <p className="text-muted-foreground text-center py-8 w-full">暂无匹配的训练计划。</p>
@@ -126,6 +142,9 @@ export default function LearningPanel({
                     ) : (
                       <Badge variant="secondary" className="text-[11px]">未发布</Badge>
                     )}
+                    {Array.isArray(plan.tags) && plan.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
+                    ))}
                     {plan.participantUsernames && plan.participantUsernames
                       .split(',').map(s => s.trim()).filter(Boolean)
                       .map((name) => (
@@ -160,11 +179,24 @@ export default function LearningPanel({
       {/* Homework Tab */}
       {spaceTab === 'homework' && (
         <div>
-          <div className="flex flex-col sm:flex-row gap-3 mb-4 items-stretch sm:items-center">
+          <div className="flex flex-col sm:flex-row gap-3 mb-2 items-stretch sm:items-center">
             <Input placeholder="搜索作业标题" value={learningHomeworkSearch}
               onChange={(e) => onLearningHomeworkSearchChange(e.target.value)} className="flex-1" />
             {canManageSelectedSpace && <Button onClick={onOpenCreateHomework} className="shrink-0 w-full sm:w-auto">创建作业</Button>}
           </div>
+
+          {allHomeworkTags.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {allHomeworkTags.map((tag) => (
+                <Badge key={tag}
+                  variant={learningHomeworkTag === tag ? 'default' : 'outline'}
+                  className="cursor-pointer text-xs select-none"
+                  onClick={() => onLearningHomeworkTagChange(learningHomeworkTag === tag ? '' : tag)}>
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
 
           {filteredLearningHomeworks.length === 0 && (
             <p className="text-muted-foreground text-center py-8 w-full">暂无匹配的作业。</p>
@@ -176,6 +208,9 @@ export default function LearningPanel({
                   <CardTitle className="text-base line-clamp-2">{homework.title}</CardTitle>
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     <Badge variant={homework.published ? 'success' : 'secondary'} className="text-[11px]">{homework.published ? '已发布' : '未发布'}</Badge>
+                    {Array.isArray(homework.tags) && homework.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
+                    ))}
                     {homework.dueAt && <Badge variant="outline" className="text-[11px]">截止：{homework.dueAt}</Badge>}
                     {homework.targetUsernames && homework.targetUsernames
                       .split(',').map(s => s.trim()).filter(Boolean)

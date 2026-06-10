@@ -10,9 +10,11 @@ import (
 )
 
 type trainingPlanPayload struct {
-	Title     string                `json:"title"`
-	Published bool                  `json:"published"`
-	Chapters  []trainingChapterBody `json:"chapters"`
+	Title       string                `json:"title"`
+	Description string                `json:"description"`
+	Published   bool                  `json:"published"`
+	Tags        []string              `json:"tags"`
+	Chapters    []trainingChapterBody `json:"chapters"`
 }
 
 type trainingChapterBody struct {
@@ -44,28 +46,32 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 	}
 
 	query := `
-	SELECT
-	  tp.id,
-	  tp.title,
-	  tp.published_at,
-	  tp.created_at,
-		  (SELECT GROUP_CONCAT(u.username, ", ") FROM training_participants tp2 JOIN users u ON u.id=tp2.user_id WHERE tp2.plan_id=tp.id) AS participant_usernames,
-	  EXISTS(
-	    SELECT 1
-	    FROM training_participants p
-	    WHERE p.plan_id=tp.id AND p.user_id=?
-	  ) AS joined
-	FROM training_plans tp
-	WHERE tp.space_id=?
-	ORDER BY tp.id DESC`
-	args := []interface{}{user.ID, spaceID}
-	if !canManage {
-			query = `
 		SELECT
 		  tp.id,
 		  tp.title,
+		  tp.description,
 		  tp.published_at,
 		  tp.created_at,
+		  tp.tags_json,
+		  (SELECT GROUP_CONCAT(u.username, ", ") FROM training_participants tp2 JOIN users u ON u.id=tp2.user_id WHERE tp2.plan_id=tp.id) AS participant_usernames,
+		  EXISTS(
+		    SELECT 1
+		    FROM training_participants p
+		    WHERE p.plan_id=tp.id AND p.user_id=?
+		  ) AS joined
+		FROM training_plans tp
+		WHERE tp.space_id=?
+		ORDER BY tp.id DESC`
+	args := []interface{}{user.ID, spaceID}
+	if !canManage {
+		query = `
+		SELECT
+		  tp.id,
+		  tp.title,
+		  tp.description,
+		  tp.published_at,
+		  tp.created_at,
+		  tp.tags_json,
 		  (SELECT GROUP_CONCAT(u.username, ", ") FROM training_participants tp2 JOIN users u ON u.id=tp2.user_id WHERE tp2.plan_id=tp.id) AS participant_usernames,
 		  EXISTS(
 		    SELECT 1
@@ -94,14 +100,18 @@ func (a *API) handleListTrainingPlans(c *fiber.Ctx) error {
 		var id int64
 		var title string
 		var joined int
+		var tagsJson sql.NullString
+		var description sql.NullString
 		var participantUsernames, publishedAt, createdAt sql.NullString
-		if err := rows.Scan(&id, &title, &publishedAt, &createdAt, &participantUsernames, &joined); err != nil {
+		if err := rows.Scan(&id, &title, &description, &publishedAt, &createdAt, &tagsJson, &participantUsernames, &joined); err != nil {
 			return err
 		}
 		plans = append(plans, fiber.Map{
 			"id":          id,
 			"title":       title,
+			"description": scanNullString(description),
 			"joined":      joined == 1,
+			"tags":        decodeProblemTags(scanNullString(tagsJson)),
 			"participantUsernames": scanNullString(participantUsernames),
 			"published":   publishedAt.Valid,
 			"publishedAt": scanNullString(publishedAt),
@@ -139,9 +149,13 @@ func (a *API) handleCreateTrainingPlan(c *fiber.Ctx) error {
 	if req.Published {
 		publishedAt = sql.NullString{Valid: true, String: time.Now().UTC().Format(time.RFC3339)}
 	}
+	tagsJSON, err := encodeProblemTags(req.Tags)
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid tags")
+	}
 	res, err := tx.Exec(`
-	INSERT INTO training_plans(space_id, title, published_at)
-	VALUES(?, ?, ?)`, spaceID, req.Title, nullToInterface(publishedAt))
+		INSERT INTO training_plans(space_id, title, description, tags_json, published_at)
+		VALUES(?, ?, ?, ?, ?)`, spaceID, req.Title, req.Description, tagsJSON, nullToInterface(publishedAt))
 	if err != nil {
 		return err
 	}
@@ -236,10 +250,14 @@ func (a *API) handleUpdateTrainingPlan(c *fiber.Ctx) error {
 	if req.Published {
 		publishedAt = sql.NullString{Valid: true, String: time.Now().UTC().Format(time.RFC3339)}
 	}
+	tagsJSON, err := encodeProblemTags(req.Tags)
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid tags")
+	}
 	res, err := tx.Exec(`
-	UPDATE training_plans
-	SET title=?, published_at=?
-	WHERE id=? AND space_id=?`, req.Title, nullToInterface(publishedAt), planID, spaceID)
+		UPDATE training_plans
+		SET title=?, description=?, tags_json=?, published_at=?
+		WHERE id=? AND space_id=?`, req.Title, tagsJSON, nullToInterface(publishedAt), planID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -258,7 +276,6 @@ func (a *API) handleUpdateTrainingPlan(c *fiber.Ctx) error {
 	}
 	return respondData(c, fiber.Map{"id": planID})
 }
-
 func (a *API) handleAddPlanParticipant(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
@@ -456,6 +473,7 @@ func (a *API) handleDeleteTrainingPlan(c *fiber.Ctx) error {
 
 type trainingPlanAccess struct {
 	Title       string
+	Description string
 	PublishedAt sql.NullString
 }
 
@@ -473,7 +491,7 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 	SELECT title,  published_at
 	FROM training_plans
 	WHERE id=? AND space_id=?`, planID, spaceID).
-			Scan(&access.Title, &publishedAt)
+			Scan(&access.Title, &access.Description, &publishedAt)
 	} else {
 		var isParticipant int
 		err = a.DB.QueryRow(`
@@ -487,7 +505,7 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 	  )
 	FROM training_plans tp
 	WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
-			Scan(&access.Title, &publishedAt, &isParticipant)
+			Scan(&access.Title, &access.Description, &publishedAt, &isParticipant)
 		if err == nil && isParticipant != 1 {
 			return trainingPlanAccess{}, fiber.NewError(fiber.StatusNotFound, "training plan not found in this space")
 		}

@@ -73,7 +73,7 @@ func marshalNoEscape(v interface{}) ([]byte, error) {
 }
 
 func buildProblemsZip(problems []problemExportEntry) ([]byte, error) {
-	return buildTrainingPlanZip(problems, nil)
+	return buildTrainingPlanZip(problems, nil, "", "", nil)
 }
 
 type trainingPlanChapterJSON struct {
@@ -82,7 +82,13 @@ type trainingPlanChapterJSON struct {
 	ProblemIDs []int   `json:"problemIds"`
 }
 
-func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlanChapterJSON) ([]byte, error) {
+type homeworkExportJSON struct {
+	Title       string   `json:"title"`
+	Description string   `json:"description,omitempty"`
+	Tags        []string `json:"tags"`
+}
+
+func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlanChapterJSON, planTitle string, planDesc string, planTags []string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 
@@ -98,19 +104,24 @@ func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlan
 		return nil, err
 	}
 
-	// Write trainingPlan.json with chapter structure
-	if len(chapters) > 0 {
-		planJSON, err := marshalNoEscape(map[string]interface{}{"chapters": chapters})
-		if err != nil {
-			return nil, err
-		}
-		tf, err := w.Create("trainingPlan.json")
-		if err != nil {
-			return nil, err
-		}
-		if _, err := tf.Write(planJSON); err != nil {
-			return nil, err
-		}
+	// Write trainingPlan.json with chapter structure and metadata
+	planData := map[string]interface{}{"chapters": chapters}
+	if planTitle != "" {
+		planData["title"] = planTitle
+	}
+	if len(planTags) > 0 {
+		planData["tags"] = planTags
+	}
+	planJSON, err := marshalNoEscape(planData)
+	if err != nil {
+		return nil, err
+	}
+	tf, err := w.Create("trainingPlan.json")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tf.Write(planJSON); err != nil {
+		return nil, err
 	}
 
 	imageFiles := collectProblemImageRefs(problems)
@@ -301,7 +312,14 @@ func (a *API) handleImportProblems(c *fiber.Ctx) error {
 	return respondData(c, fiber.Map{"problems": created})
 }
 
-func parseTrainingPlanJSON(zipData []byte) ([]trainingPlanChapterJSON, error) {
+type importedTrainingPlanMeta struct {
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Tags        []string                  `json:"tags"`
+	Chapters    []trainingPlanChapterJSON `json:"chapters"`
+}
+
+func parseTrainingPlanJSON(zipData []byte) (*importedTrainingPlanMeta, error) {
 	reader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
 		return nil, fmt.Errorf("invalid zip file: %w", err)
@@ -313,13 +331,11 @@ func parseTrainingPlanJSON(zipData []byte) ([]trainingPlanChapterJSON, error) {
 				return nil, fmt.Errorf("read trainingPlan.json: %w", err)
 			}
 			defer rc.Close()
-			var wrapper struct {
-				Chapters []trainingPlanChapterJSON `json:"chapters"`
-			}
-			if err := json.NewDecoder(rc).Decode(&wrapper); err != nil {
+			var meta importedTrainingPlanMeta
+			if err := json.NewDecoder(rc).Decode(&meta); err != nil {
 				return nil, fmt.Errorf("parse trainingPlan.json: %w", err)
 			}
-			return wrapper.Chapters, nil
+			return &meta, nil
 		}
 	}
 	return nil, nil // no trainingPlan.json is OK
@@ -382,12 +398,12 @@ func (a *API) handleImportTrainingPlan(c *fiber.Ctx) error {
 	}
 
 	// Step 3: Parse training plan structure
-	chapters, err := parseTrainingPlanJSON(zipData)
+	planMeta, err := parseTrainingPlanJSON(zipData)
 	if err != nil {
 		return respondError(c, fiber.StatusBadRequest, err.Error())
 	}
-	if chapters == nil {
-		// No trainingPlan.json — just return imported problems
+	if planMeta == nil || len(planMeta.Chapters) == 0 {
+		// No trainingPlan.json or no chapters — just return imported problems
 		return respondData(c, fiber.Map{"problems": createdIDs, "chapters": nil})
 	}
 
@@ -397,8 +413,8 @@ func (a *API) handleImportTrainingPlan(c *fiber.Ctx) error {
 		OrderNo    int     `json:"orderNo"`
 		ProblemIDs []int64 `json:"problemIds"`
 	}
-	mappedChapters := make([]chapterBody, 0, len(chapters))
-	for _, ch := range chapters {
+	mappedChapters := make([]chapterBody, 0, len(planMeta.Chapters))
+	for _, ch := range planMeta.Chapters {
 		cb := chapterBody{Title: ch.Title, OrderNo: ch.OrderNo, ProblemIDs: make([]int64, 0, len(ch.ProblemIDs))}
 		for _, idx := range ch.ProblemIDs {
 			if idx >= 0 && idx < len(createdIDs) {
@@ -409,10 +425,14 @@ func (a *API) handleImportTrainingPlan(c *fiber.Ctx) error {
 	}
 
 	return respondData(c, fiber.Map{
-		"problems": createdIDs,
-		"chapters": mappedChapters,
+		"problems":    createdIDs,
+		"chapters":    mappedChapters,
+		"tags":        planMeta.Tags,
+		"title":       planMeta.Title,
+		"description": planMeta.Description,
 	})
-}
+	}
+
 
 func (a *API) handleExportHomework(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
@@ -434,6 +454,15 @@ func (a *API) handleExportHomework(c *fiber.Ctx) error {
 	if !canManage {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
+
+	// Read homework metadata
+	var hwTitle, hwDesc string
+	var hwTagsJSON sql.NullString
+	if err := a.DB.QueryRow(`SELECT title, description, tags_json FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID).Scan(&hwTitle, &hwDesc, &hwTagsJSON); err != nil {
+		return err
+	}
+	hwTags := decodeProblemTags(scanNullString(hwTagsJSON))
+
 	items, err := a.loadHomeworkItems(homeworkID)
 	if err != nil {
 		return err
@@ -447,13 +476,58 @@ func (a *API) handleExportHomework(c *fiber.Ctx) error {
 		}
 		problems = append(problems, *entry)
 	}
-	zipBytes, err := buildProblemsZip(problems)
+
+	// Build the ZIP
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+
+	problemsJSON, err := marshalNoEscape(problems)
 	if err != nil {
 		return err
 	}
+	pf, err := w.Create("problems.json")
+	if err != nil {
+		return err
+	}
+	if _, err := pf.Write(problemsJSON); err != nil {
+		return err
+	}
+
+	hwExport := homeworkExportJSON{Title: hwTitle, Description: hwDesc, Tags: hwTags}
+	hwJSON, err := marshalNoEscape(hwExport)
+	if err != nil {
+		return err
+	}
+	hf, err := w.Create("homework.json")
+	if err != nil {
+		return err
+	}
+	if _, err := hf.Write(hwJSON); err != nil {
+		return err
+	}
+
+	imageFiles := collectProblemImageRefs(problems)
+	for _, filename := range imageFiles {
+		imgPath := filepath.Join(uploadDir, filename)
+		data, err := os.ReadFile(imgPath)
+		if err != nil {
+			continue
+		}
+		ff, err := w.Create("images/" + filename)
+		if err != nil {
+			return err
+		}
+		if _, err := ff.Write(data); err != nil {
+			return err
+		}
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+
 	c.Set("Content-Type", "application/zip")
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=homework_%d.zip", homeworkID))
-	return c.Send(zipBytes)
+	return c.Send(buf.Bytes())
 }
 
 func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
@@ -476,6 +550,15 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	if !canManage {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
+
+	// Read plan title and tags
+	var planTitle, planDesc string
+	var planTagsJSON sql.NullString
+	if err := a.DB.QueryRow(`SELECT title, description, tags_json FROM training_plans WHERE id=? AND space_id=?`, planID, spaceID).Scan(&planTitle, &planDesc, &planTagsJSON); err != nil {
+		return err
+	}
+	planTags := decodeProblemTags(scanNullString(planTagsJSON))
+
 	// Single query: join chapters, items, and problem details together
 	rows, err := a.DB.Query(`
 	SELECT tc.id, tc.title, tc.order_no,
@@ -555,7 +638,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 		})
 	}
 
-	zipBytes, err := buildTrainingPlanZip(problems, planChapters)
+	zipBytes, err := buildTrainingPlanZip(problems, planChapters, planTitle, planDesc, planTags)
 	if err != nil {
 		return err
 	}

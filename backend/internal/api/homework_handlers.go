@@ -16,6 +16,7 @@ type homeworkPayload struct {
 	DueAt         string            `json:"dueAt"`
 	DisplayMode   string            `json:"displayMode"`
 	Published     bool              `json:"published"`
+	Tags          []string          `json:"tags"`
 	Items         []homeworkItemReq `json:"items"`
 	ProblemDrafts []problemPayload  `json:"problemDrafts"`
 }
@@ -57,69 +58,71 @@ func (a *API) handleListHomeworks(c *fiber.Ctx) error {
 	}
 
 	query := `
-SELECT
-  h.id,
-  h.title,
-  h.description,
-  h.due_at,
-  h.display_mode,
-  h.published,
-  h.created_at,
-  (
-    SELECT COUNT(1)
-    FROM homework_items hi
-    WHERE hi.homework_id=h.id
-  ) AS item_count,
-  (
-    SELECT COUNT(1)
-    FROM homework_targets ht
-    WHERE ht.homework_id=h.id
-  ) AS target_count,
-  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
-  EXISTS(
-    SELECT 1
-    FROM homework_targets ht
-    WHERE ht.homework_id=h.id AND ht.user_id=?
-  ) AS assigned
-FROM homeworks h
-WHERE h.space_id=?
-ORDER BY h.id DESC`
+	SELECT
+	  h.id,
+	  h.title,
+	  h.description,
+	  h.due_at,
+	  h.display_mode,
+	  h.published,
+	  h.created_at,
+	  h.tags_json,
+	  (
+	    SELECT COUNT(1)
+	    FROM homework_items hi
+	    WHERE hi.homework_id=h.id
+	  ) AS item_count,
+	  (
+	    SELECT COUNT(1)
+	    FROM homework_targets ht
+	    WHERE ht.homework_id=h.id
+	  ) AS target_count,
+	  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
+	  EXISTS(
+	    SELECT 1
+	    FROM homework_targets ht
+	    WHERE ht.homework_id=h.id AND ht.user_id=?
+	  ) AS assigned
+	FROM homeworks h
+	WHERE h.space_id=?
+	ORDER BY h.id DESC`
 	args := []interface{}{user.ID, spaceID}
 	if !canManage {
 		query = `
-SELECT
-  h.id,
-  h.title,
-  h.description,
-  h.due_at,
-  h.display_mode,
-  h.published,
-  h.created_at,
-  (
-    SELECT COUNT(1)
-    FROM homework_items hi
-    WHERE hi.homework_id=h.id
-  ) AS item_count,
-  (
-    SELECT COUNT(1)
-    FROM homework_targets ht
-    WHERE ht.homework_id=h.id
-  ) AS target_count,
-  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
-  EXISTS(
-    SELECT 1
-    FROM homework_targets ht
-    WHERE ht.homework_id=h.id AND ht.user_id=?
-  ) AS assigned
-FROM homeworks h
-WHERE h.space_id=?
-  AND h.published=1
-  AND EXISTS(
-    SELECT 1
-    FROM homework_targets ht
-    WHERE ht.homework_id=h.id AND ht.user_id=?
-  )
-ORDER BY h.id DESC`
+	SELECT
+	  h.id,
+	  h.title,
+	  h.description,
+	  h.due_at,
+	  h.display_mode,
+	  h.published,
+	  h.created_at,
+	  h.tags_json,
+	  (
+	    SELECT COUNT(1)
+	    FROM homework_items hi
+	    WHERE hi.homework_id=h.id
+	  ) AS item_count,
+	  (
+	    SELECT COUNT(1)
+	    FROM homework_targets ht
+	    WHERE ht.homework_id=h.id
+	  ) AS target_count,
+	  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
+	  EXISTS(
+	    SELECT 1
+	    FROM homework_targets ht
+	    WHERE ht.homework_id=h.id AND ht.user_id=?
+	  ) AS assigned
+	FROM homeworks h
+	WHERE h.space_id=?
+	  AND h.published=1
+	  AND EXISTS(
+	    SELECT 1
+	    FROM homework_targets ht
+	    WHERE ht.homework_id=h.id AND ht.user_id=?
+	  )
+	ORDER BY h.id DESC`
 		args = []interface{}{user.ID, spaceID, user.ID}
 	}
 
@@ -132,9 +135,10 @@ ORDER BY h.id DESC`
 	for rows.Next() {
 		var id int64
 		var title, desc, displayMode string
+		var tagsJson sql.NullString
 		var dueAt, createdAt, targetUsernames sql.NullString
 		var published, itemCount, targetCount, assigned int
-		if err := rows.Scan(&id, &title, &desc, &dueAt, &displayMode, &published, &createdAt, &itemCount, &targetCount, &targetUsernames, &assigned); err != nil {
+		if err := rows.Scan(&id, &title, &desc, &dueAt, &displayMode, &published, &createdAt, &tagsJson, &itemCount, &targetCount, &targetUsernames, &assigned); err != nil {
 			return err
 		}
 		items = append(items, fiber.Map{
@@ -145,6 +149,7 @@ ORDER BY h.id DESC`
 			"displayMode": normalizeHomeworkDisplayMode(displayMode),
 			"published":   published == 1,
 			"createdAt":   scanNullString(createdAt),
+			"tags":        decodeProblemTags(scanNullString(tagsJson)),
 			"itemCount":   itemCount,
 			"targetCount":     targetCount,
 			"targetUsernames": scanNullString(targetUsernames),
@@ -186,9 +191,13 @@ func (a *API) handleCreateHomework(c *fiber.Ctx) error {
 	defer tx.Rollback()
 
 	dueAt := parseNullableTime(req.DueAt)
+	tagsJSON, err := encodeProblemTags(req.Tags)
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid tags")
+	}
 	res, err := tx.Exec(`
-INSERT INTO homeworks(space_id, title, description, due_at, display_mode, created_by, published)
-VALUES(?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Title, req.Description, nullToInterface(dueAt), req.DisplayMode, user.ID, boolToInt(req.Published))
+	INSERT INTO homeworks(space_id, title, description, due_at, display_mode, created_by, published, tags_json)
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Title, req.Description, nullToInterface(dueAt), req.DisplayMode, user.ID, boolToInt(req.Published), tagsJSON)
 	if err != nil {
 		return err
 	}
@@ -289,10 +298,14 @@ func (a *API) handleUpdateHomework(c *fiber.Ctx) error {
 	defer tx.Rollback()
 
 	dueAt := parseNullableTime(req.DueAt)
+	tagsJSON, err := encodeProblemTags(req.Tags)
+	if err != nil {
+		return respondError(c, fiber.StatusBadRequest, "invalid tags")
+	}
 	res, err := tx.Exec(`
-UPDATE homeworks
-SET title=?, description=?, due_at=?, display_mode=?, published=?
-WHERE id=? AND space_id=?`, req.Title, req.Description, nullToInterface(dueAt), req.DisplayMode, boolToInt(req.Published), homeworkID, spaceID)
+	UPDATE homeworks
+	SET title=?, description=?, due_at=?, display_mode=?, published=?, tags_json=?
+	WHERE id=? AND space_id=?`, req.Title, req.Description, nullToInterface(dueAt), req.DisplayMode, boolToInt(req.Published), tagsJSON, homeworkID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -311,7 +324,6 @@ WHERE id=? AND space_id=?`, req.Title, req.Description, nullToInterface(dueAt), 
 	}
 	return respondData(c, fiber.Map{"id": homeworkID})
 }
-
 func (a *API) handleDeleteHomework(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {

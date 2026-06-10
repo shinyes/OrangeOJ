@@ -289,6 +289,15 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err := addColumnIfNotExists(ctx, db, "training_plans", "is_public", "INTEGER NOT NULL DEFAULT 1"); err != nil {
 		return err
 	}
+	if err := addColumnIfNotExists(ctx, db, "training_plans", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
+		return err
+	}
+	if err := addColumnIfNotExists(ctx, db, "training_plans", "description", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := addColumnIfNotExists(ctx, db, "homeworks", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
+		return err
+	}
 	if err := addColumnIfNotExists(ctx, db, "submissions", "case_details_json", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
