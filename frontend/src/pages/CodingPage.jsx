@@ -15,7 +15,7 @@ import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, Pencil, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon, Users } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil, ChevronLeft, ChevronRight, ImageIcon, Users } from 'lucide-react'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -534,7 +534,7 @@ function CodingPageContent({
                 return (
                   <Link key={item.problemId} to={trainingNavTargetUrl(item.problemId)} className="no-underline">
                     <Button variant="outline" className={cls} title={`${item.title}`}>
-                      {item.completed ? <CheckCircle2 className="h-3 w-3" /> : itemIdx + 1}
+                      {itemIdx + 1}
                     </Button>
                   </Link>
                 )
