@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { MoreHorizontal, Search, CheckCircle2 } from 'lucide-react'
 import { api } from '../../api'
+import { differenceInDays } from 'date-fns'
 
 export default function LearningPanel({
   selectedSpace, spaces, spaceTab,
@@ -211,7 +212,12 @@ export default function LearningPanel({
                     {Array.isArray(practice.tags) && practice.tags.map((tag) => (
                       <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
                     ))}
-                    {practice.dueAt && <Badge variant="outline" className="text-[11px]">截止：{practice.dueAt}</Badge>}
+                    {practice.dueAt && (() => {
+                      const daysLeft = differenceInDays(new Date(practice.dueAt), new Date())
+                      if (daysLeft < 0) return <Badge className="bg-red-600 text-white text-[11px] hover:bg-red-700">已过期 {Math.abs(daysLeft)} 天</Badge>
+                      if (daysLeft === 0) return <Badge className="bg-orange-500 text-white text-[11px] hover:bg-orange-600">今天截止</Badge>
+                      return <Badge className="bg-blue-500 text-white text-[11px] hover:bg-blue-600">剩余 {daysLeft} 天</Badge>
+                    })()}
                     {practice.targetUsernames && practice.targetUsernames
                       .split(',').map(s => s.trim()).filter(Boolean)
                       .map((name) => (

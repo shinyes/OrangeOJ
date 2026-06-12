@@ -37,17 +37,8 @@ function normalizeDefaultLanguage(language) {
 }
 
 function pickStarter(body, language) {
-  if (!body?.starterCode) {
-    if (language === 'python') return 'print("hello")'
-    if (language === 'go') {
-      return 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}'
-    }
-    if (language === 'turtle') {
-      return 'import turtle\n\nt = turtle.Turtle()\nt.speed(3)\n\n# 在这里编写你的绘图代码\n# 示例：画一个正方形\nfor _ in range(4):\n    t.forward(100)\n    t.left(90)\n\nturtle.done()'
-    }
-    return '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;\n}'
-  }
-  return body.starterCode[language] || body.starterCode.cpp || ''
+  if (!body?.starterCode) return ''
+  return body.starterCode[language] || ''
 }
 
 function problemTypeText(type) {
