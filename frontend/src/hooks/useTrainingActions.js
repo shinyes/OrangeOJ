@@ -110,7 +110,7 @@ export default function useTrainingActions({
       const deleteProblems = associatedProblemCount > 0
         ? await confirmAction({
             title: '删除关联题目',
-            message: `是否同时从题库删除该训练关联的 ${associatedProblemCount} 道题目？\n\n会删除不再被其他作业或训练引用的关联题目，并连带清理提交记录。\n选择“仅删除训练”会保留题目。`,
+            message: `是否同时从题库删除该训练关联的 ${associatedProblemCount} 道题目？\n\n会删除不再被其他练习或训练引用的关联题目，并连带清理提交记录。\n选择“仅删除训练”会保留题目。`,
             confirmText: '同时删除题目',
             cancelText: '仅删除训练',
             confirmColor: 'error'
@@ -125,10 +125,10 @@ export default function useTrainingActions({
         const deletedProblemCount = Number(result?.deletedProblemCount || 0)
         const retainedProblemCount = Math.max(Number(result?.associatedProblemCount || associatedProblemCount) - deletedProblemCount, 0)
         if (deletedProblemCount > 0) {
-          const retainedText = retainedProblemCount > 0 ? `，${retainedProblemCount} 道仍被其他作业或训练引用，已保留` : ''
+          const retainedText = retainedProblemCount > 0 ? `，${retainedProblemCount} 道仍被其他练习或训练引用，已保留` : ''
           trainingState.setTrainingActionMessage(`训练计划删除成功，同时删除 ${deletedProblemCount} 道关联题目${retainedText}`)
         } else if (retainedProblemCount > 0) {
-          trainingState.setTrainingActionMessage(`训练计划删除成功，${retainedProblemCount} 道关联题目仍被其他作业或训练引用，已保留`)
+          trainingState.setTrainingActionMessage(`训练计划删除成功，${retainedProblemCount} 道关联题目仍被其他练习或训练引用，已保留`)
         } else {
           trainingState.setTrainingActionMessage('训练计划删除成功')
         }

@@ -61,6 +61,61 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err := migrateLegacyProblemTable(ctx, db); err != nil {
 		return err
 	}
+
+	// Rename legacy tables (homeworks→practices, etc.) before CREATE TABLE to avoid conflicts
+	legacyTableRenames := [][2]string{
+		{"homeworks", "practices"},
+		{"homework_items", "practice_items"},
+		{"homework_targets", "practice_targets"},
+		{"homework_submission_records", "practice_submission_records"},
+		{"homework_submission_record_items", "practice_submission_record_items"},
+		{"homework_drafts", "practice_drafts"},
+	}
+	for _, pair := range legacyTableRenames {
+		oldOK, err := tableExists(ctx, db, pair[0])
+		if err != nil {
+			return err
+		}
+		if !oldOK {
+			continue
+		}
+		newOK, err := tableExists(ctx, db, pair[1])
+		if err != nil {
+			return err
+		}
+		if newOK {
+			continue
+		}
+		if _, err := db.ExecContext(ctx, fmt.Sprintf("ALTER TABLE %s RENAME TO %s", pair[0], pair[1])); err != nil {
+			return fmt.Errorf("rename %s -> %s failed: %w", pair[0], pair[1], err)
+		}
+	}
+
+	// Rename legacy columns (homework_id→practice_id, etc.)
+	type colMigration struct {
+		table, oldCol, newCol string
+	}
+	legacyColumnRenames := []colMigration{
+		{"practice_items", "homework_id", "practice_id"},
+		{"practice_targets", "homework_id", "practice_id"},
+		{"practice_submission_records", "homework_id", "practice_id"},
+		{"practice_submission_records", "homework_item_count", "practice_item_count"},
+		{"practice_submission_records", "homework_total_score", "practice_total_score"},
+		{"practice_drafts", "homework_id", "practice_id"},
+	}
+	for _, cr := range legacyColumnRenames {
+		exists, err := columnExists(ctx, db, cr.table, cr.oldCol)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+		if _, err := db.ExecContext(ctx, fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", cr.table, cr.oldCol, cr.newCol)); err != nil {
+			return fmt.Errorf("rename column %s.%s -> %s failed: %w", cr.table, cr.oldCol, cr.newCol, err)
+		}
+	}
+
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,7 +195,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(plan_id) REFERENCES training_plans(id) ON DELETE CASCADE,
 			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS homeworks (
+		`CREATE TABLE IF NOT EXISTS practices (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			space_id INTEGER NOT NULL,
 			title TEXT NOT NULL,
@@ -153,35 +208,35 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
 			FOREIGN KEY(created_by) REFERENCES users(id)
 		);`,
-		`CREATE TABLE IF NOT EXISTS homework_items (
-			homework_id INTEGER NOT NULL,
+		`CREATE TABLE IF NOT EXISTS practice_items (
+			practice_id INTEGER NOT NULL,
 			problem_id INTEGER NOT NULL,
 			order_no INTEGER NOT NULL,
 			score INTEGER NOT NULL DEFAULT 100,
-			PRIMARY KEY(homework_id, problem_id),
-			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE,
+			PRIMARY KEY(practice_id, problem_id),
+			FOREIGN KEY(practice_id) REFERENCES practices(id) ON DELETE CASCADE,
 			FOREIGN KEY(problem_id) REFERENCES space_problems(id)
 		);`,
-		`CREATE TABLE IF NOT EXISTS homework_targets (
-			homework_id INTEGER NOT NULL,
+		`CREATE TABLE IF NOT EXISTS practice_targets (
+			practice_id INTEGER NOT NULL,
 			user_id INTEGER NOT NULL,
-			PRIMARY KEY(homework_id, user_id),
-			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE,
+			PRIMARY KEY(practice_id, user_id),
+			FOREIGN KEY(practice_id) REFERENCES practices(id) ON DELETE CASCADE,
 			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS homework_submission_records (
+		`CREATE TABLE IF NOT EXISTS practice_submission_records (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			homework_id INTEGER NOT NULL,
+			practice_id INTEGER NOT NULL,
 			space_id INTEGER NOT NULL,
 			user_id INTEGER NOT NULL,
-			homework_item_count INTEGER NOT NULL DEFAULT 0,
-			homework_total_score INTEGER NOT NULL DEFAULT 0,
+			practice_item_count INTEGER NOT NULL DEFAULT 0,
+			practice_total_score INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE,
+			FOREIGN KEY(practice_id) REFERENCES practices(id) ON DELETE CASCADE,
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
 			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS homework_submission_record_items (
+		`CREATE TABLE IF NOT EXISTS practice_submission_record_items (
 			record_id INTEGER NOT NULL,
 			problem_id INTEGER NOT NULL,
 			submission_id INTEGER NOT NULL,
@@ -190,7 +245,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			problem_title TEXT NOT NULL DEFAULT '',
 			problem_type TEXT NOT NULL DEFAULT '',
 			PRIMARY KEY(record_id, problem_id),
-			FOREIGN KEY(record_id) REFERENCES homework_submission_records(id) ON DELETE CASCADE,
+			FOREIGN KEY(record_id) REFERENCES practice_submission_records(id) ON DELETE CASCADE,
 			FOREIGN KEY(submission_id) REFERENCES submissions(id) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS submissions (
@@ -229,7 +284,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(submission_id) REFERENCES submissions(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_judge_jobs_status_priority ON judge_jobs(status, priority DESC, id ASC);`,
-		`CREATE INDEX IF NOT EXISTS idx_homework_submission_records_lookup ON homework_submission_records(homework_id, user_id, id DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_practice_submission_records_lookup ON practice_submission_records(practice_id, user_id, id DESC);`,
 		`CREATE TABLE IF NOT EXISTS user_problem_progress (
 			space_id INTEGER NOT NULL,
 			user_id INTEGER NOT NULL,
@@ -257,16 +312,16 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(tag_id) REFERENCES image_tags(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_image_tag_links_tag_id ON image_tag_links(tag_id);`,
-		`CREATE TABLE IF NOT EXISTS homework_drafts (
+		`CREATE TABLE IF NOT EXISTS practice_drafts (
 			user_id INTEGER NOT NULL,
 			space_id INTEGER NOT NULL,
-			homework_id INTEGER NOT NULL,
+			practice_id INTEGER NOT NULL,
 			draft_json TEXT NOT NULL,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY(user_id, space_id, homework_id),
+			PRIMARY KEY(user_id, space_id, practice_id),
 			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
-			FOREIGN KEY(homework_id) REFERENCES homeworks(id) ON DELETE CASCADE
+			FOREIGN KEY(practice_id) REFERENCES practices(id) ON DELETE CASCADE
 		);`,
 	}
 	for _, stmt := range stmts {
@@ -283,7 +338,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err := addColumnIfNotExists(ctx, db, "space_problems", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
 		return err
 	}
-	if err := addColumnIfNotExists(ctx, db, "homeworks", "display_mode", "TEXT NOT NULL DEFAULT 'exam'"); err != nil {
+	if err := addColumnIfNotExists(ctx, db, "practices", "display_mode", "TEXT NOT NULL DEFAULT 'exam'"); err != nil {
 		return err
 	}
 	if err := addColumnIfNotExists(ctx, db, "training_plans", "is_public", "INTEGER NOT NULL DEFAULT 1"); err != nil {
@@ -295,7 +350,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err := addColumnIfNotExists(ctx, db, "training_plans", "description", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	if err := addColumnIfNotExists(ctx, db, "homeworks", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
+	if err := addColumnIfNotExists(ctx, db, "practices", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
 		return err
 	}
 	if err := addColumnIfNotExists(ctx, db, "submissions", "case_details_json", "TEXT NOT NULL DEFAULT ''"); err != nil {
@@ -392,6 +447,27 @@ func tableExists(ctx context.Context, db *sql.DB, table string) (bool, error) {
 		return false, fmt.Errorf("check table %s failed: %w", table, err)
 	}
 	return true, nil
+}
+
+func columnExists(ctx context.Context, db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return false, fmt.Errorf("check column %s.%s failed: %w", table, column, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var defaultVal sql.NullString
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultVal, &pk); err != nil {
+			return false, fmt.Errorf("scan pragma table_info %s failed: %w", table, err)
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func tableRowCount(ctx context.Context, db *sql.DB, table string) (int64, error) {

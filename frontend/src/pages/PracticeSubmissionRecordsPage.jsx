@@ -53,19 +53,19 @@ function getRecordWrongCounts(record) {
   return { objectiveWrongCount, programmingWrongCount }
 }
 
-export default function HomeworkSubmissionRecordsPage() {
-  const { spaceId, homeworkId } = useParams()
+export default function PracticeSubmissionRecordsPage() {
+  const { spaceId, practiceId } = useParams()
   const [searchParams] = useSearchParams()
   const [space, setSpace] = useState(null)
-  const [homework, setHomework] = useState(null)
+  const [practice, setPractice] = useState(null)
   const [records, setRecords] = useState([])
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const defaultBackTo = `/spaces/${spaceId}/homeworks/${homeworkId}`
+  const defaultBackTo = `/spaces/${spaceId}/practices/${practiceId}`
   const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
-  const backLabel = searchParams.get('returnLabel') || '返回作业'
+  const backLabel = searchParams.get('returnLabel') || '返回练习'
 
   const filteredRecords = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase()
@@ -91,7 +91,7 @@ export default function HomeworkSubmissionRecordsPage() {
   }, [filteredRecords])
 
   const refreshRecords = async () => {
-    const result = await api.listHomeworkSubmissionRecords(spaceId, homeworkId, { all: true })
+    const result = await api.listPracticeSubmissionRecords(spaceId, practiceId, { all: true })
     setRecords(result?.records || [])
   }
 
@@ -102,31 +102,31 @@ export default function HomeworkSubmissionRecordsPage() {
         setError('')
         const spaceData = await api.getSpace(spaceId)
         if (!spaceData?.canManage) throw new Error('当前账号为普通成员，无空间管理权限')
-        const [homeworkData, recordData] = await Promise.all([
-          api.getHomework(spaceId, homeworkId),
-          api.listHomeworkSubmissionRecords(spaceId, homeworkId, { all: true })
+        const [practiceData, recordData] = await Promise.all([
+          api.getPractice(spaceId, practiceId),
+          api.listPracticeSubmissionRecords(spaceId, practiceId, { all: true })
         ])
         setSpace(spaceData)
-        setHomework(homeworkData)
+        setPractice(practiceData)
         setRecords(recordData?.records || [])
       } catch (err) {
-        setError(err.message || '作业提交记录加载失败')
+        setError(err.message || '练习提交记录加载失败')
       } finally {
         setLoading(false)
       }
     })()
-  }, [spaceId, homeworkId])
+  }, [spaceId, practiceId])
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">加载中...</div>
 
-  if (error && !homework) {
+  if (error && !practice) {
     return (
       <div className="min-h-screen bg-muted/30 p-4">
         <Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>
         <Card className="max-w-lg mx-auto mt-8">
           <CardContent className="p-6">
           <div className="flex flex-col gap-3 items-start">
-            <h2 className="text-lg font-bold">无法查看作业提交记录</h2>
+            <h2 className="text-lg font-bold">无法查看练习提交记录</h2>
             <p className="text-sm text-muted-foreground">当前页面仅空间管理员和系统管理员可访问。</p>
             <Button asChild><Link to={backTo}>{backLabel}</Link></Button>
           </div>
@@ -146,7 +146,7 @@ export default function HomeworkSubmissionRecordsPage() {
         <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
           <div className="flex-1 min-w-0 md:min-w-[220px]">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base font-bold">{homework?.title}</h1>
+              <h1 className="text-base font-bold">{practice?.title}</h1>
               <Badge variant="outline">全部提交记录</Badge>
             </div>
             <p className="text-xs text-muted-foreground">{space?.name || '当前空间'}</p>
@@ -197,16 +197,16 @@ export default function HomeworkSubmissionRecordsPage() {
                           <Badge variant="outline">提交时间：{formatDateTime(record.createdAt)}</Badge>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          <Badge variant="outline">题目 {record.answeredCount}/{record.homeworkItemCount}</Badge>
+                          <Badge variant="outline">题目 {record.answeredCount}/{record.practiceItemCount}</Badge>
                           <Badge variant="outline">待判题 {record.pendingCount}</Badge>
                           <Badge variant="outline">客观题错 {objectiveWrongCount} 道</Badge>
                           <Badge variant="outline">编程题错 {programmingWrongCount} 道</Badge>
                         </div>
                       </div>
                       <Button variant="outline" asChild className="shrink-0">
-                        <Link to={buildInternalPathWithQuery(`/spaces/${spaceId}/homeworks/${homeworkId}`, {
+                        <Link to={buildInternalPathWithQuery(`/spaces/${spaceId}/practices/${practiceId}`, {
                           recordId: record.id,
-                          returnTo: `/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`,
+                          returnTo: `/spaces/${spaceId}/practices/${practiceId}/submission-records`,
                           returnLabel: '返回全部记录'
                         })}>
                           查看作答

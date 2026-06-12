@@ -13,12 +13,12 @@ export default function LearningPanel({
   learningTrainingSearch, onLearningTrainingSearchChange, canManageSelectedSpace,
   onOpenCreateTrainingPlan, filteredLearningTrainingPlans, onOpenEditTrainingPlan,
   onOpenAssignTrainingParticipant, onExportTrainingPlan, onDeleteTrainingPlan, trainingActionMessage,
-  allTrainingTags, allHomeworkTags,
+  allTrainingTags, allPracticeTags,
   learningTrainingTag, onLearningTrainingTagChange,
-  learningHomeworkTag, onLearningHomeworkTagChange,
-  learningHomeworkSearch, onLearningHomeworkSearchChange, onOpenCreateHomework,
-  filteredLearningHomeworks, onOpenEditHomework, onOpenAssignHomeworkTarget,
-  onExportHomework, onDeleteHomework, homeworkActionMessage
+  learningPracticeTag, onLearningPracticeTagChange,
+  learningPracticeSearch, onLearningPracticeSearchChange, onOpenCreatePractice,
+  filteredLearningPractices, onOpenEditPractice, onOpenAssignPracticeTarget,
+  onExportPractice, onDeletePractice, practiceActionMessage
 }) {
   const navigate = useNavigate()
 
@@ -176,57 +176,57 @@ export default function LearningPanel({
         </div>
       )}
 
-      {/* Homework Tab */}
-      {spaceTab === 'homework' && (
+      {/* Practice Tab */}
+      {spaceTab === 'practice' && (
         <div>
           <div className="flex flex-col sm:flex-row gap-3 mb-2 items-stretch sm:items-center">
-            <Input placeholder="搜索作业标题" value={learningHomeworkSearch}
-              onChange={(e) => onLearningHomeworkSearchChange(e.target.value)} className="flex-1" />
-            {canManageSelectedSpace && <Button onClick={onOpenCreateHomework} className="shrink-0 w-full sm:w-auto">创建作业</Button>}
+            <Input placeholder="搜索练习标题" value={learningPracticeSearch}
+              onChange={(e) => onLearningPracticeSearchChange(e.target.value)} className="flex-1" />
+            {canManageSelectedSpace && <Button onClick={onOpenCreatePractice} className="shrink-0 w-full sm:w-auto">创建练习</Button>}
           </div>
 
-          {allHomeworkTags.length > 0 && (
+          {allPracticeTags.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-1.5">
-              {allHomeworkTags.map((tag) => (
+              {allPracticeTags.map((tag) => (
                 <Badge key={tag}
-                  variant={learningHomeworkTag === tag ? 'default' : 'outline'}
+                  variant={learningPracticeTag === tag ? 'default' : 'outline'}
                   className="cursor-pointer text-xs select-none"
-                  onClick={() => onLearningHomeworkTagChange(learningHomeworkTag === tag ? '' : tag)}>
+                  onClick={() => onLearningPracticeTagChange(learningPracticeTag === tag ? '' : tag)}>
                   {tag}
                 </Badge>
               ))}
             </div>
           )}
 
-          {filteredLearningHomeworks.length === 0 && (
-            <p className="text-muted-foreground text-center py-8 w-full">暂无匹配的作业。</p>
+          {filteredLearningPractices.length === 0 && (
+            <p className="text-muted-foreground text-center py-8 w-full">暂无匹配的练习。</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredLearningHomeworks.map((homework) => (
-              <Card key={homework.id} className="flex flex-col">
+            {filteredLearningPractices.map((practice) => (
+              <Card key={practice.id} className="flex flex-col">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base line-clamp-2">{homework.title}</CardTitle>
+                  <CardTitle className="text-base line-clamp-2">{practice.title}</CardTitle>
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    <Badge variant={homework.published ? 'success' : 'secondary'} className="text-[11px]">{homework.published ? '已发布' : '未发布'}</Badge>
-                    {Array.isArray(homework.tags) && homework.tags.map((tag) => (
+                    <Badge variant={practice.published ? 'success' : 'secondary'} className="text-[11px]">{practice.published ? '已发布' : '未发布'}</Badge>
+                    {Array.isArray(practice.tags) && practice.tags.map((tag) => (
                       <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
                     ))}
-                    {homework.dueAt && <Badge variant="outline" className="text-[11px]">截止：{homework.dueAt}</Badge>}
-                    {homework.targetUsernames && homework.targetUsernames
+                    {practice.dueAt && <Badge variant="outline" className="text-[11px]">截止：{practice.dueAt}</Badge>}
+                    {practice.targetUsernames && practice.targetUsernames
                       .split(',').map(s => s.trim()).filter(Boolean)
                       .map((name) => (
                         <Badge key={name} variant="info" className="text-[11px]">{name}</Badge>
                       ))}
-                    {!canManageSelectedSpace && homework.assigned && (
+                    {!canManageSelectedSpace && practice.assigned && (
                       <Badge variant="info" className="text-[11px]">已分配给我</Badge>
                     )}
                   </div>
                 </CardHeader>
                 <CardFooter className="mt-auto pt-2 flex flex-wrap gap-2">
-                  <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}`}>进入作业</Link></Button>
+                  <Button size="sm" asChild><Link to={`/spaces/${selectedSpace.id}/practices/${practice.id}`}>进入练习</Link></Button>
                   {canManageSelectedSpace && (
                     <Button size="sm" variant="outline" asChild>
-                      <Link to={`/spaces/${selectedSpace.id}/homeworks/${homework.id}/submission-records?returnTo=${encodeURIComponent(`/?spaceId=${selectedSpace.id}&tab=homework`)}&returnLabel=${encodeURIComponent('返回作业列表')}`}>提交记录</Link>
+                      <Link to={`/spaces/${selectedSpace.id}/practices/${practice.id}/submission-records?returnTo=${encodeURIComponent(`/?spaceId=${selectedSpace.id}&tab=practice`)}&returnLabel=${encodeURIComponent('返回练习列表')}`}>提交记录</Link>
                     </Button>
                   )}
                   {canManageSelectedSpace && (
@@ -235,11 +235,11 @@ export default function LearningPanel({
                         <Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onOpenAssignHomeworkTarget(homework.id)}>分配成员</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onOpenEditHomework(homework.id)}>编辑</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onExportHomework(homework.id)}>导出</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onOpenAssignPracticeTarget(practice.id)}>分配成员</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onOpenEditPractice(practice.id)}>编辑</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onExportPractice(practice.id)}>导出</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={() => onDeleteHomework(homework.id)}>删除</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => onDeletePractice(practice.id)}>删除</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}

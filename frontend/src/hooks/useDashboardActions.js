@@ -1,4 +1,4 @@
-import useHomeworkActions from './useHomeworkActions'
+import usePracticeActions from './usePracticeActions'
 import useMemberActions from './useMemberActions'
 import useProblemActions from './useProblemActions'
 import useSystemActions from './useSystemActions'
@@ -16,7 +16,7 @@ export default function useDashboardActions({
   normalizeLanguage,
   problemState,
   trainingState,
-  homeworkState,
+  practiceState,
   memberState,
   systemState,
   passwordState,
@@ -50,12 +50,12 @@ export default function useDashboardActions({
     confirmAction
   })
 
-  const homeworkActions = useHomeworkActions({
+  const practiceActions = usePracticeActions({
     selectedSpaceId,
     ensureCanManageSpace,
     setError,
     refreshSpaceData,
-    homeworkState,
+    practiceState,
     modalState,
     confirmAction
   })
@@ -87,7 +87,7 @@ export default function useDashboardActions({
   return {
     ...problemActions,
     ...trainingActions,
-    ...homeworkActions,
+    ...practiceActions,
     ...memberActions,
     ...systemActions
   }

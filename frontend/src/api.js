@@ -1,4 +1,4 @@
-﻿const defaultHeaders = {
+const defaultHeaders = {
   'Content-Type': 'application/json'
 }
 
@@ -31,16 +31,16 @@ const errorMessageMap = {
   'cannot reset system admin password': '不能重置系统管理员密码',
   'items must contain 1 to 200 entries': '批量注册每次最多200条',
   'problem not found in this space': '当前空间中不存在该题目',
-  'problem is still referenced': '该题目仍被作业或训练引用，无法删除',
-  'problem is still referenced by homework or training': '该题目仍被作业或训练引用，无法删除',
+  'problem is still referenced': '该题目仍被练习或训练引用，无法删除',
+  'problem is still referenced by practice or training': '该题目仍被练习或训练引用，无法删除',
   'invalid language': '默认编程语言不合法',
-  'invalid display mode': '作业显示模式不合法',
+  'invalid display mode': '练习显示模式不合法',
   'name required': '空间名称不能为空',
   'space name already exists': '空间名称已存在',
   'title required': '标题不能为空',
   'training plan not found in this space': '当前空间中不存在该训练计划',
-  'homework not found in this space': '当前空间中不存在该作业',
-  'submission record items required': '当前没有可记录的作业提交内容',
+  'practice not found in this space': '当前空间中不存在该练习',
+  'submission record items required': '当前没有可记录的练习提交内容',
   'unsupported language': '编程语言不受支持',
   'language and sourceCode are required': '请先选择语言并填写代码'
 }
@@ -135,19 +135,19 @@ export const api = {
   removeTrainingPlanParticipant: (spaceId, planId, userId) => apiFetch(`/api/spaces/${spaceId}/training-plans/${planId}/participants/${userId}`, { method: 'DELETE' }),
   importTrainingPlan: (spaceId, zipFile) => uploadFile(`/api/spaces/${spaceId}/training-plans/import`, zipFile),
 
-  listHomeworks: (spaceId) => apiFetch(`/api/spaces/${spaceId}/homeworks`),
-  createHomework: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks`, { method: 'POST', body }),
-  getHomework: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`),
-  listHomeworkSubmissionRecords: (spaceId, homeworkId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`, { all: options.all ? 1 : undefined })),
-  createHomeworkSubmissionRecord: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/submission-records`, { method: 'POST', body }),
-  updateHomework: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { method: 'PUT', body }),
-  deleteHomework: (spaceId, homeworkId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
-  searchHomeworkTargetCandidates: (spaceId, homeworkId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/homeworks/${homeworkId}/target-candidates`, { q: keyword })),
-  addHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets`, { method: 'POST', body: { userId } }),
-  removeHomeworkTarget: (spaceId, homeworkId, userId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/targets/${userId}`, { method: 'DELETE' }),
-  getHomeworkDraft: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`),
-  saveHomeworkDraft: (spaceId, homeworkId, body) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`, { method: 'PUT', body }),
-  deleteHomeworkDraft: (spaceId, homeworkId) => apiFetch(`/api/spaces/${spaceId}/homeworks/${homeworkId}/draft`, { method: 'DELETE' }),
+  listPractices: (spaceId) => apiFetch(`/api/spaces/${spaceId}/practices`),
+  createPractice: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/practices`, { method: 'POST', body }),
+  getPractice: (spaceId, practiceId) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}`),
+  listPracticeSubmissionRecords: (spaceId, practiceId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/practices/${practiceId}/submission-records`, { all: options.all ? 1 : undefined })),
+  createPracticeSubmissionRecord: (spaceId, practiceId, body) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/submission-records`, { method: 'POST', body }),
+  updatePractice: (spaceId, practiceId, body) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}`, { method: 'PUT', body }),
+  deletePractice: (spaceId, practiceId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/practices/${practiceId}`, { deleteProblems: options.deleteProblems ? 1 : undefined }), { method: 'DELETE' }),
+  searchPracticeTargetCandidates: (spaceId, practiceId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/practices/${practiceId}/target-candidates`, { q: keyword })),
+  addPracticeTarget: (spaceId, practiceId, userId) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/targets`, { method: 'POST', body: { userId } }),
+  removePracticeTarget: (spaceId, practiceId, userId) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/targets/${userId}`, { method: 'DELETE' }),
+  getPracticeDraft: (spaceId, practiceId) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/draft`),
+  savePracticeDraft: (spaceId, practiceId, body) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/draft`, { method: 'PUT', body }),
+  deletePracticeDraft: (spaceId, practiceId) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/draft`, { method: 'DELETE' }),
 
   objectiveSubmit: (spaceId, problemId, answer) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/objective-submit`, { method: 'POST', body: { answer } }),
   run: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/run`, { method: 'POST', body }),
@@ -171,7 +171,7 @@ export const api = {
   exportProblems: (spaceId, problemIds) => downloadFile(`/api/spaces/${spaceId}/problems/export?ids=${problemIds.join(',')}`),
   importProblems: (spaceId, zipFile) => uploadFile(`/api/spaces/${spaceId}/problems/import`, zipFile),
 
-  exportHomework: (spaceId, homeworkId) => downloadFile(`/api/spaces/${spaceId}/homeworks/${homeworkId}/export`),
+  exportPractice: (spaceId, practiceId) => downloadFile(`/api/spaces/${spaceId}/practices/${practiceId}/export`),
   exportTrainingPlan: (spaceId, planId) => downloadFile(`/api/spaces/${spaceId}/training-plans/${planId}/export`)
 }
 

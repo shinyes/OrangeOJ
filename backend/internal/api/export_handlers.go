@@ -82,7 +82,7 @@ type trainingPlanChapterJSON struct {
 	ProblemIDs []int   `json:"problemIds"`
 }
 
-type homeworkExportJSON struct {
+type practiceExportJSON struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description,omitempty"`
 	Tags        []string `json:"tags"`
@@ -434,12 +434,12 @@ func (a *API) handleImportTrainingPlan(c *fiber.Ctx) error {
 	}
 
 
-func (a *API) handleExportHomework(c *fiber.Ctx) error {
+func (a *API) handleExportPractice(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
@@ -455,15 +455,15 @@ func (a *API) handleExportHomework(c *fiber.Ctx) error {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
 
-	// Read homework metadata
+	// Read practice metadata
 	var hwTitle, hwDesc string
 	var hwTagsJSON sql.NullString
-	if err := a.DB.QueryRow(`SELECT title, description, tags_json FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID).Scan(&hwTitle, &hwDesc, &hwTagsJSON); err != nil {
+	if err := a.DB.QueryRow(`SELECT title, description, tags_json FROM practices WHERE id=? AND space_id=?`, practiceID, spaceID).Scan(&hwTitle, &hwDesc, &hwTagsJSON); err != nil {
 		return err
 	}
 	hwTags := decodeProblemTags(scanNullString(hwTagsJSON))
 
-	items, err := a.loadHomeworkItems(homeworkID)
+	items, err := a.loadPracticeItems(practiceID)
 	if err != nil {
 		return err
 	}
@@ -493,12 +493,12 @@ func (a *API) handleExportHomework(c *fiber.Ctx) error {
 		return err
 	}
 
-	hwExport := homeworkExportJSON{Title: hwTitle, Description: hwDesc, Tags: hwTags}
+	hwExport := practiceExportJSON{Title: hwTitle, Description: hwDesc, Tags: hwTags}
 	hwJSON, err := marshalNoEscape(hwExport)
 	if err != nil {
 		return err
 	}
-	hf, err := w.Create("homework.json")
+	hf, err := w.Create("practice.json")
 	if err != nil {
 		return err
 	}
@@ -526,7 +526,7 @@ func (a *API) handleExportHomework(c *fiber.Ctx) error {
 	}
 
 	c.Set("Content-Type", "application/zip")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=homework_%d.zip", homeworkID))
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=practice_%d.zip", practiceID))
 	return c.Send(buf.Bytes())
 }
 

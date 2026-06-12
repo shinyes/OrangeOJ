@@ -4,13 +4,13 @@ export default function useDashboardSearchState() {
   const [spaceProblemSearch, setSpaceProblemSearch] = useState('')
   const [learningProblemSearch, setLearningProblemSearch] = useState('')
   const [learningTrainingSearch, setLearningTrainingSearch] = useState('')
-  const [learningHomeworkSearch, setLearningHomeworkSearch] = useState('')
+  const [learningPracticeSearch, setLearningPracticeSearch] = useState('')
 
   const resetSearchState = useCallback(() => {
     setSpaceProblemSearch('')
     setLearningProblemSearch('')
     setLearningTrainingSearch('')
-    setLearningHomeworkSearch('')
+    setLearningPracticeSearch('')
   }, [])
 
   return {
@@ -20,8 +20,8 @@ export default function useDashboardSearchState() {
     setLearningProblemSearch,
     learningTrainingSearch,
     setLearningTrainingSearch,
-    learningHomeworkSearch,
-    setLearningHomeworkSearch,
+    learningPracticeSearch,
+    setLearningPracticeSearch,
     resetSearchState
   }
 }

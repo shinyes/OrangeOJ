@@ -10,37 +10,37 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type homeworkPayload struct {
+type practicePayload struct {
 	Title         string            `json:"title"`
 	Description   string            `json:"description"`
 	DueAt         string            `json:"dueAt"`
 	DisplayMode   string            `json:"displayMode"`
 	Published     bool              `json:"published"`
 	Tags          []string          `json:"tags"`
-	Items         []homeworkItemReq `json:"items"`
+	Items         []practiceItemReq `json:"items"`
 	ProblemDrafts []problemPayload  `json:"problemDrafts"`
 }
 
-type homeworkItemReq struct {
+type practiceItemReq struct {
 	ProblemID int64 `json:"problemId"`
 	OrderNo   int   `json:"orderNo"`
 	Score     int   `json:"score"`
 }
 
-type homeworkTargetPayload struct {
+type practiceTargetPayload struct {
 	UserID int64 `json:"userId"`
 }
 
-type homeworkSubmissionRecordPayload struct {
-	Items []homeworkSubmissionRecordItemReq `json:"items"`
+type practiceSubmissionRecordPayload struct {
+	Items []practiceSubmissionRecordItemReq `json:"items"`
 }
 
-type homeworkSubmissionRecordItemReq struct {
+type practiceSubmissionRecordItemReq struct {
 	ProblemID    int64 `json:"problemId"`
 	SubmissionID int64 `json:"submissionId"`
 }
 
-func (a *API) handleListHomeworks(c *fiber.Ctx) error {
+func (a *API) handleListPractices(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
 		return err
@@ -69,21 +69,21 @@ func (a *API) handleListHomeworks(c *fiber.Ctx) error {
 	  h.tags_json,
 	  (
 	    SELECT COUNT(1)
-	    FROM homework_items hi
-	    WHERE hi.homework_id=h.id
+	    FROM practice_items hi
+	    WHERE hi.practice_id=h.id
 	  ) AS item_count,
 	  (
 	    SELECT COUNT(1)
-	    FROM homework_targets ht
-	    WHERE ht.homework_id=h.id
+	    FROM practice_targets ht
+	    WHERE ht.practice_id=h.id
 	  ) AS target_count,
-	  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
+	  (SELECT GROUP_CONCAT(u.username, ", ") FROM practice_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.practice_id=h.id) AS target_usernames,
 	  EXISTS(
 	    SELECT 1
-	    FROM homework_targets ht
-	    WHERE ht.homework_id=h.id AND ht.user_id=?
+	    FROM practice_targets ht
+	    WHERE ht.practice_id=h.id AND ht.user_id=?
 	  ) AS assigned
-	FROM homeworks h
+	FROM practices h
 	WHERE h.space_id=?
 	ORDER BY h.id DESC`
 	args := []interface{}{user.ID, spaceID}
@@ -100,27 +100,27 @@ func (a *API) handleListHomeworks(c *fiber.Ctx) error {
 	  h.tags_json,
 	  (
 	    SELECT COUNT(1)
-	    FROM homework_items hi
-	    WHERE hi.homework_id=h.id
+	    FROM practice_items hi
+	    WHERE hi.practice_id=h.id
 	  ) AS item_count,
 	  (
 	    SELECT COUNT(1)
-	    FROM homework_targets ht
-	    WHERE ht.homework_id=h.id
+	    FROM practice_targets ht
+	    WHERE ht.practice_id=h.id
 	  ) AS target_count,
-	  (SELECT GROUP_CONCAT(u.username, ", ") FROM homework_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.homework_id=h.id) AS target_usernames,
+	  (SELECT GROUP_CONCAT(u.username, ", ") FROM practice_targets ht2 JOIN users u ON u.id=ht2.user_id WHERE ht2.practice_id=h.id) AS target_usernames,
 	  EXISTS(
 	    SELECT 1
-	    FROM homework_targets ht
-	    WHERE ht.homework_id=h.id AND ht.user_id=?
+	    FROM practice_targets ht
+	    WHERE ht.practice_id=h.id AND ht.user_id=?
 	  ) AS assigned
-	FROM homeworks h
+	FROM practices h
 	WHERE h.space_id=?
 	  AND h.published=1
 	  AND EXISTS(
 	    SELECT 1
-	    FROM homework_targets ht
-	    WHERE ht.homework_id=h.id AND ht.user_id=?
+	    FROM practice_targets ht
+	    WHERE ht.practice_id=h.id AND ht.user_id=?
 	  )
 	ORDER BY h.id DESC`
 		args = []interface{}{user.ID, spaceID, user.ID}
@@ -146,7 +146,7 @@ func (a *API) handleListHomeworks(c *fiber.Ctx) error {
 			"title":       title,
 			"description": desc,
 			"dueAt":       scanNullString(dueAt),
-			"displayMode": normalizeHomeworkDisplayMode(displayMode),
+			"displayMode": normalizePracticeDisplayMode(displayMode),
 			"published":   published == 1,
 			"createdAt":   scanNullString(createdAt),
 			"tags":        decodeProblemTags(scanNullString(tagsJson)),
@@ -159,7 +159,7 @@ func (a *API) handleListHomeworks(c *fiber.Ctx) error {
 	return respondData(c, items)
 }
 
-func (a *API) handleCreateHomework(c *fiber.Ctx) error {
+func (a *API) handleCreatePractice(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func (a *API) handleCreateHomework(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	var req homeworkPayload
+	var req practicePayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
@@ -176,7 +176,7 @@ func (a *API) handleCreateHomework(c *fiber.Ctx) error {
 	if req.Title == "" {
 		return respondError(c, fiber.StatusBadRequest, "title required")
 	}
-	req.DisplayMode = normalizeHomeworkDisplayMode(req.DisplayMode)
+	req.DisplayMode = normalizePracticeDisplayMode(req.DisplayMode)
 	if req.DisplayMode == "" {
 		return respondError(c, fiber.StatusBadRequest, "invalid display mode")
 	}
@@ -196,14 +196,14 @@ func (a *API) handleCreateHomework(c *fiber.Ctx) error {
 		return respondError(c, fiber.StatusBadRequest, "invalid tags")
 	}
 	res, err := tx.Exec(`
-	INSERT INTO homeworks(space_id, title, description, due_at, display_mode, created_by, published, tags_json)
+	INSERT INTO practices(space_id, title, description, due_at, display_mode, created_by, published, tags_json)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Title, req.Description, nullToInterface(dueAt), req.DisplayMode, user.ID, boolToInt(req.Published), tagsJSON)
 	if err != nil {
 		return err
 	}
-	homeworkID, _ := res.LastInsertId()
+	practiceID, _ := res.LastInsertId()
 	if len(req.ProblemDrafts) > 0 {
-		autoItems := make([]homeworkItemReq, 0, len(req.ProblemDrafts))
+		autoItems := make([]practiceItemReq, 0, len(req.ProblemDrafts))
 		for index := range req.ProblemDrafts {
 			if err := normalizeProblemPayload(&req.ProblemDrafts[index]); err != nil {
 				return respondError(c, fiber.StatusBadRequest, err.Error())
@@ -212,7 +212,7 @@ func (a *API) handleCreateHomework(c *fiber.Ctx) error {
 			if err != nil {
 				return err
 			}
-			autoItems = append(autoItems, homeworkItemReq{
+			autoItems = append(autoItems, practiceItemReq{
 				ProblemID: problemID,
 				OrderNo:   index + 1,
 				Score:     100,
@@ -220,16 +220,16 @@ func (a *API) handleCreateHomework(c *fiber.Ctx) error {
 		}
 		req.Items = autoItems
 	}
-	if err := upsertHomeworkItems(tx, homeworkID, spaceID, req.Items); err != nil {
+	if err := upsertPracticeItems(tx, practiceID, spaceID, req.Items); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	return respondData(c, fiber.Map{"id": homeworkID})
+	return respondData(c, fiber.Map{"id": practiceID})
 }
 
-func (a *API) handleGetHomework(c *fiber.Ctx) error {
+func (a *API) handleGetPractice(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
 		return err
@@ -238,27 +238,27 @@ func (a *API) handleGetHomework(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
 	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
-	access, err := a.loadHomeworkAccess(spaceID, homeworkID, user.ID, user.GlobalRole)
+	access, err := a.loadPracticeAccess(spaceID, practiceID, user.ID, user.GlobalRole)
 	if err != nil {
 		return err
 	}
-	items, err := a.loadHomeworkItems(homeworkID)
+	items, err := a.loadPracticeItems(practiceID)
 	if err != nil {
 		return err
 	}
-	targets, err := a.loadHomeworkTargets(homeworkID)
+	targets, err := a.loadPracticeTargets(practiceID)
 	if err != nil {
 		return err
 	}
 	return respondData(c, fiber.Map{
-		"id":          homeworkID,
+		"id":          practiceID,
 		"spaceId":     spaceID,
 		"title":       access.Title,
 		"description": access.Description,
@@ -270,16 +270,16 @@ func (a *API) handleGetHomework(c *fiber.Ctx) error {
 	})
 }
 
-func (a *API) handleUpdateHomework(c *fiber.Ctx) error {
+func (a *API) handleUpdatePractice(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
-	var req homeworkPayload
+	var req practicePayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
@@ -287,7 +287,7 @@ func (a *API) handleUpdateHomework(c *fiber.Ctx) error {
 	if req.Title == "" {
 		return respondError(c, fiber.StatusBadRequest, "title required")
 	}
-	req.DisplayMode = normalizeHomeworkDisplayMode(req.DisplayMode)
+	req.DisplayMode = normalizePracticeDisplayMode(req.DisplayMode)
 	if req.DisplayMode == "" {
 		return respondError(c, fiber.StatusBadRequest, "invalid display mode")
 	}
@@ -303,9 +303,9 @@ func (a *API) handleUpdateHomework(c *fiber.Ctx) error {
 		return respondError(c, fiber.StatusBadRequest, "invalid tags")
 	}
 	res, err := tx.Exec(`
-	UPDATE homeworks
+	UPDATE practices
 	SET title=?, description=?, due_at=?, display_mode=?, published=?, tags_json=?
-	WHERE id=? AND space_id=?`, req.Title, req.Description, nullToInterface(dueAt), req.DisplayMode, boolToInt(req.Published), tagsJSON, homeworkID, spaceID)
+	WHERE id=? AND space_id=?`, req.Title, req.Description, nullToInterface(dueAt), req.DisplayMode, boolToInt(req.Published), tagsJSON, practiceID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -314,22 +314,22 @@ func (a *API) handleUpdateHomework(c *fiber.Ctx) error {
 		return err
 	}
 	if affected == 0 {
-		return respondError(c, fiber.StatusNotFound, "homework not found in this space")
+		return respondError(c, fiber.StatusNotFound, "practice not found in this space")
 	}
-	if err := upsertHomeworkItems(tx, homeworkID, spaceID, req.Items); err != nil {
+	if err := upsertPracticeItems(tx, practiceID, spaceID, req.Items); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	return respondData(c, fiber.Map{"id": homeworkID})
+	return respondData(c, fiber.Map{"id": practiceID})
 }
-func (a *API) handleDeleteHomework(c *fiber.Ctx) error {
+func (a *API) handleDeletePractice(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
@@ -341,14 +341,14 @@ func (a *API) handleDeleteHomework(c *fiber.Ctx) error {
 	}
 	defer tx.Rollback()
 
-	problemIDs, err := collectHomeworkProblemIDsTx(tx, spaceID, homeworkID)
+	problemIDs, err := collectPracticeProblemIDsTx(tx, spaceID, practiceID)
 	if err != nil {
 		return err
 	}
-	if err := deleteHomeworkOwnedRowsTx(tx, homeworkID); err != nil {
+	if err := deletePracticeOwnedRowsTx(tx, practiceID); err != nil {
 		return err
 	}
-	res, err := tx.Exec(`DELETE FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID)
+	res, err := tx.Exec(`DELETE FROM practices WHERE id=? AND space_id=?`, practiceID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -357,7 +357,7 @@ func (a *API) handleDeleteHomework(c *fiber.Ctx) error {
 		return err
 	}
 	if affected == 0 {
-		return respondError(c, fiber.StatusNotFound, "homework not found in this space")
+		return respondError(c, fiber.StatusNotFound, "practice not found in this space")
 	}
 
 	deletedProblemCount := 0
@@ -379,16 +379,16 @@ func (a *API) handleDeleteHomework(c *fiber.Ctx) error {
 	})
 }
 
-func (a *API) handleAddHomeworkTarget(c *fiber.Ctx) error {
+func (a *API) handleAddPracticeTarget(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
-	var req homeworkTargetPayload
+	var req practiceTargetPayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
@@ -396,11 +396,11 @@ func (a *API) handleAddHomeworkTarget(c *fiber.Ctx) error {
 		return respondError(c, fiber.StatusBadRequest, "invalid userId")
 	}
 	res, err := a.DB.Exec(`
-INSERT INTO homework_targets(homework_id, user_id)
+INSERT INTO practice_targets(practice_id, user_id)
 SELECT id, ?
-FROM homeworks
+FROM practices
 WHERE id=? AND space_id=?
-ON CONFLICT(homework_id, user_id) DO NOTHING`, req.UserID, homeworkID, spaceID)
+ON CONFLICT(practice_id, user_id) DO NOTHING`, req.UserID, practiceID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -410,22 +410,22 @@ ON CONFLICT(homework_id, user_id) DO NOTHING`, req.UserID, homeworkID, spaceID)
 	}
 	if affected == 0 {
 		var exists int
-		if err := a.DB.QueryRow(`SELECT COUNT(1) FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID).Scan(&exists); err != nil {
+		if err := a.DB.QueryRow(`SELECT COUNT(1) FROM practices WHERE id=? AND space_id=?`, practiceID, spaceID).Scan(&exists); err != nil {
 			return err
 		}
 		if exists == 0 {
-			return respondError(c, fiber.StatusNotFound, "homework not found in this space")
+			return respondError(c, fiber.StatusNotFound, "practice not found in this space")
 		}
 	}
 	return respondData(c, fiber.Map{"ok": true})
 }
 
-func (a *API) handleDeleteHomeworkTarget(c *fiber.Ctx) error {
+func (a *API) handleDeletePracticeTarget(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
@@ -434,10 +434,10 @@ func (a *API) handleDeleteHomeworkTarget(c *fiber.Ctx) error {
 		return err
 	}
 	res, err := a.DB.Exec(`
-DELETE FROM homework_targets
-WHERE homework_id=? AND user_id=?
-  AND EXISTS(SELECT 1 FROM homeworks WHERE id=? AND space_id=?)`,
-		homeworkID, targetUserID, homeworkID, spaceID)
+DELETE FROM practice_targets
+WHERE practice_id=? AND user_id=?
+  AND EXISTS(SELECT 1 FROM practices WHERE id=? AND space_id=?)`,
+		practiceID, targetUserID, practiceID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -451,12 +451,12 @@ WHERE homework_id=? AND user_id=?
 	return respondData(c, fiber.Map{"ok": true})
 }
 
-func (a *API) handleSearchHomeworkTargetCandidates(c *fiber.Ctx) error {
+func (a *API) handleSearchPracticeTargetCandidates(c *fiber.Ctx) error {
 	spaceID, err := parseIDParam(c, "spaceId")
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
@@ -466,11 +466,11 @@ func (a *API) handleSearchHomeworkTargetCandidates(c *fiber.Ctx) error {
 	}
 
 	var exists int
-	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM homeworks WHERE id=? AND space_id=?`, homeworkID, spaceID).Scan(&exists); err != nil {
+	if err := a.DB.QueryRow(`SELECT COUNT(1) FROM practices WHERE id=? AND space_id=?`, practiceID, spaceID).Scan(&exists); err != nil {
 		return err
 	}
 	if exists == 0 {
-		return respondError(c, fiber.StatusNotFound, "homework not found in this space")
+		return respondError(c, fiber.StatusNotFound, "practice not found in this space")
 	}
 
 	likeKeyword := "%" + strings.ToLower(keyword) + "%"
@@ -481,8 +481,8 @@ JOIN users u ON u.id=sm.user_id
 WHERE sm.space_id=?
   AND NOT EXISTS (
     SELECT 1
-    FROM homework_targets ht
-    WHERE ht.homework_id=? AND ht.user_id=u.id
+    FROM practice_targets ht
+    WHERE ht.practice_id=? AND ht.user_id=u.id
   )
   AND (
     CAST(u.id AS TEXT) LIKE ?
@@ -495,7 +495,7 @@ ORDER BY
     ELSE 2
   END,
   u.id ASC
-LIMIT 20`, spaceID, homeworkID, likeKeyword, likeKeyword, keyword, keyword)
+LIMIT 20`, spaceID, practiceID, likeKeyword, likeKeyword, keyword, keyword)
 	if err != nil {
 		return err
 	}
@@ -518,7 +518,7 @@ LIMIT 20`, spaceID, homeworkID, likeKeyword, likeKeyword, keyword, keyword)
 	return respondData(c, items)
 }
 
-func (a *API) handleListHomeworkSubmissionRecords(c *fiber.Ctx) error {
+func (a *API) handleListPracticeSubmissionRecords(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
 		return err
@@ -527,11 +527,11 @@ func (a *API) handleListHomeworkSubmissionRecords(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
-	if _, err := a.loadHomeworkAccess(spaceID, homeworkID, user.ID, user.GlobalRole); err != nil {
+	if _, err := a.loadPracticeAccess(spaceID, practiceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
 
@@ -551,14 +551,14 @@ func (a *API) handleListHomeworkSubmissionRecords(c *fiber.Ctx) error {
 		}
 	}
 
-	records, err := a.loadHomeworkSubmissionRecords(homeworkID, spaceID, user.ID, includeAll)
+	records, err := a.loadPracticeSubmissionRecords(practiceID, spaceID, user.ID, includeAll)
 	if err != nil {
 		return err
 	}
 	return respondData(c, fiber.Map{"records": records})
 }
 
-func (a *API) handleCreateHomeworkSubmissionRecord(c *fiber.Ctx) error {
+func (a *API) handleCreatePracticeSubmissionRecord(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
 		return err
@@ -567,36 +567,36 @@ func (a *API) handleCreateHomeworkSubmissionRecord(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
-	if _, err := a.loadHomeworkAccess(spaceID, homeworkID, user.ID, user.GlobalRole); err != nil {
+	if _, err := a.loadPracticeAccess(spaceID, practiceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
 
-	var req homeworkSubmissionRecordPayload
+	var req practiceSubmissionRecordPayload
 	if err := c.BodyParser(&req); err != nil {
 		return respondError(c, fiber.StatusBadRequest, "invalid request")
 	}
 
-	homeworkItems, err := a.loadHomeworkItems(homeworkID)
+	practiceItems, err := a.loadPracticeItems(practiceID)
 	if err != nil {
 		return err
 	}
-	if len(homeworkItems) == 0 {
+	if len(practiceItems) == 0 {
 		return respondError(c, fiber.StatusBadRequest, "submission record items required")
 	}
 
-	itemMetaByProblemID := make(map[int64]fiber.Map, len(homeworkItems))
-	homeworkTotalScore := 0
-	for _, item := range homeworkItems {
+	itemMetaByProblemID := make(map[int64]fiber.Map, len(practiceItems))
+	practiceTotalScore := 0
+	for _, item := range practiceItems {
 		problemID := int64FromAny(item["problemId"])
 		itemMetaByProblemID[problemID] = item
-		homeworkTotalScore += intFromAny(item["score"])
+		practiceTotalScore += intFromAny(item["score"])
 	}
 
-	normalizedItems := make([]homeworkSubmissionRecordItemReq, 0, len(req.Items))
+	normalizedItems := make([]practiceSubmissionRecordItemReq, 0, len(req.Items))
 	seenProblemIDs := make(map[int64]struct{}, len(req.Items))
 	for _, item := range req.Items {
 		if item.ProblemID <= 0 || item.SubmissionID <= 0 {
@@ -634,8 +634,8 @@ WHERE id=? AND user_id=? AND space_id=? AND problem_id=?`, item.SubmissionID, us
 	defer tx.Rollback()
 
 	res, err := tx.Exec(`
-INSERT INTO homework_submission_records(homework_id, space_id, user_id, homework_item_count, homework_total_score)
-VALUES(?, ?, ?, ?, ?)`, homeworkID, spaceID, user.ID, len(homeworkItems), homeworkTotalScore)
+INSERT INTO practice_submission_records(practice_id, space_id, user_id, practice_item_count, practice_total_score)
+VALUES(?, ?, ?, ?, ?)`, practiceID, spaceID, user.ID, len(practiceItems), practiceTotalScore)
 	if err != nil {
 		return err
 	}
@@ -644,7 +644,7 @@ VALUES(?, ?, ?, ?, ?)`, homeworkID, spaceID, user.ID, len(homeworkItems), homewo
 	for _, item := range normalizedItems {
 		meta := itemMetaByProblemID[item.ProblemID]
 		if _, err := tx.Exec(`
-INSERT INTO homework_submission_record_items(record_id, problem_id, submission_id, order_no, item_score, problem_title, problem_type)
+INSERT INTO practice_submission_record_items(record_id, problem_id, submission_id, order_no, item_score, problem_title, problem_type)
 VALUES(?, ?, ?, ?, ?, ?, ?)`,
 			recordID,
 			item.ProblemID,
@@ -664,8 +664,8 @@ VALUES(?, ?, ?, ?, ?, ?, ?)`,
 	return respondData(c, fiber.Map{"id": recordID})
 }
 
-func upsertHomeworkItems(tx *sql.Tx, homeworkID, spaceID int64, items []homeworkItemReq) error {
-	if _, err := tx.Exec(`DELETE FROM homework_items WHERE homework_id=?`, homeworkID); err != nil {
+func upsertPracticeItems(tx *sql.Tx, practiceID, spaceID int64, items []practiceItemReq) error {
+	if _, err := tx.Exec(`DELETE FROM practice_items WHERE practice_id=?`, practiceID); err != nil {
 		return err
 	}
 	for idx, item := range items {
@@ -685,21 +685,21 @@ func upsertHomeworkItems(tx *sql.Tx, homeworkID, spaceID int64, items []homework
 			score = 100
 		}
 		if _, err := tx.Exec(`
-INSERT INTO homework_items(homework_id, problem_id, order_no, score)
-VALUES(?, ?, ?, ?)`, homeworkID, item.ProblemID, orderNo, score); err != nil {
+INSERT INTO practice_items(practice_id, problem_id, order_no, score)
+VALUES(?, ?, ?, ?)`, practiceID, item.ProblemID, orderNo, score); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (a *API) loadHomeworkItems(homeworkID int64) ([]fiber.Map, error) {
+func (a *API) loadPracticeItems(practiceID int64) ([]fiber.Map, error) {
 	rows, err := a.DB.Query(`
 SELECT hi.problem_id, hi.order_no, hi.score, rp.title, rp.type
-FROM homework_items hi
+FROM practice_items hi
 JOIN space_problems rp ON rp.id = hi.problem_id
-WHERE hi.homework_id=?
-ORDER BY hi.order_no ASC`, homeworkID)
+WHERE hi.practice_id=?
+ORDER BY hi.order_no ASC`, practiceID)
 	if err != nil {
 		return nil, err
 	}
@@ -717,12 +717,12 @@ ORDER BY hi.order_no ASC`, homeworkID)
 	return items, nil
 }
 
-func (a *API) loadHomeworkTargets(homeworkID int64) ([]fiber.Map, error) {
+func (a *API) loadPracticeTargets(practiceID int64) ([]fiber.Map, error) {
 	rows, err := a.DB.Query(`
 SELECT ht.user_id, u.username
-FROM homework_targets ht
+FROM practice_targets ht
 JOIN users u ON u.id = ht.user_id
-WHERE ht.homework_id=?`, homeworkID)
+WHERE ht.practice_id=?`, practiceID)
 	if err != nil {
 		return nil, err
 	}
@@ -739,22 +739,22 @@ WHERE ht.homework_id=?`, homeworkID)
 	return targets, nil
 }
 
-func (a *API) loadHomeworkSubmissionRecords(homeworkID, spaceID, userID int64, includeAll bool) ([]fiber.Map, error) {
+func (a *API) loadPracticeSubmissionRecords(practiceID, spaceID, userID int64, includeAll bool) ([]fiber.Map, error) {
 	type recordMeta struct {
 		id                 int64
 		userID             int64
 		username           string
-		homeworkItemCount  int
-		homeworkTotalScore int
+		practiceItemCount  int
+		practiceTotalScore int
 		createdAt          string
 	}
 
 	query := `
-SELECT hsr.id, hsr.user_id, u.username, hsr.homework_item_count, hsr.homework_total_score, hsr.created_at
-FROM homework_submission_records hsr
+SELECT hsr.id, hsr.user_id, u.username, hsr.practice_item_count, hsr.practice_total_score, hsr.created_at
+FROM practice_submission_records hsr
 JOIN users u ON u.id = hsr.user_id
-WHERE hsr.homework_id=? AND hsr.space_id=?`
-	args := []interface{}{homeworkID, spaceID}
+WHERE hsr.practice_id=? AND hsr.space_id=?`
+	args := []interface{}{practiceID, spaceID}
 	if !includeAll {
 		query += ` AND hsr.user_id=?`
 		args = append(args, userID)
@@ -772,7 +772,7 @@ LIMIT 30`
 	metas := make([]recordMeta, 0)
 	for rows.Next() {
 		var meta recordMeta
-		if err := rows.Scan(&meta.id, &meta.userID, &meta.username, &meta.homeworkItemCount, &meta.homeworkTotalScore, &meta.createdAt); err != nil {
+		if err := rows.Scan(&meta.id, &meta.userID, &meta.username, &meta.practiceItemCount, &meta.practiceTotalScore, &meta.createdAt); err != nil {
 			return nil, err
 		}
 		metas = append(metas, meta)
@@ -783,7 +783,7 @@ LIMIT 30`
 
 	records := make([]fiber.Map, 0, len(metas))
 	for _, meta := range metas {
-		items, err := a.loadHomeworkSubmissionRecordItems(meta.id)
+		items, err := a.loadPracticeSubmissionRecordItems(meta.id)
 		if err != nil {
 			return nil, err
 		}
@@ -814,9 +814,9 @@ LIMIT 30`
 		switch {
 		case pendingCount > 0:
 			statusText = "判题中"
-		case answeredCount < meta.homeworkItemCount:
+		case answeredCount < meta.practiceItemCount:
 			statusText = "部分提交"
-		case meta.homeworkItemCount > 0 && acceptedCount == meta.homeworkItemCount:
+		case meta.practiceItemCount > 0 && acceptedCount == meta.practiceItemCount:
 			statusText = "全部通过"
 		}
 
@@ -825,8 +825,8 @@ LIMIT 30`
 			"userId":             meta.userID,
 			"username":           meta.username,
 			"createdAt":          meta.createdAt,
-			"homeworkItemCount":  meta.homeworkItemCount,
-			"homeworkTotalScore": meta.homeworkTotalScore,
+			"practiceItemCount":  meta.practiceItemCount,
+			"practiceTotalScore": meta.practiceTotalScore,
 			"answeredCount":      answeredCount,
 			"objectiveCount":     objectiveCount,
 			"programmingCount":   programmingCount,
@@ -840,7 +840,7 @@ LIMIT 30`
 	return records, nil
 }
 
-func (a *API) loadHomeworkSubmissionRecordItems(recordID int64) ([]fiber.Map, error) {
+func (a *API) loadPracticeSubmissionRecordItems(recordID int64) ([]fiber.Map, error) {
 	rows, err := a.DB.Query(`
 SELECT
   hsri.problem_id,
@@ -857,7 +857,7 @@ SELECT
   s.score,
   s.created_at,
   s.finished_at
-FROM homework_submission_record_items hsri
+FROM practice_submission_record_items hsri
 JOIN submissions s ON s.id = hsri.submission_id
 WHERE hsri.record_id=?
 ORDER BY hsri.order_no ASC`, recordID)
@@ -924,7 +924,7 @@ func parseNullableTime(v string) sql.NullString {
 	return sql.NullString{}
 }
 
-type homeworkAccess struct {
+type practiceAccess struct {
 	Title       string
 	Description string
 	DueAt       sql.NullString
@@ -932,21 +932,21 @@ type homeworkAccess struct {
 	Published   bool
 }
 
-func (a *API) loadHomeworkAccess(spaceID, homeworkID, userID int64, globalRole string) (homeworkAccess, error) {
+func (a *API) loadPracticeAccess(spaceID, practiceID, userID int64, globalRole string) (practiceAccess, error) {
 	canManage, err := a.isSpaceAdmin(spaceID, userID, globalRole)
 	if err != nil {
-		return homeworkAccess{}, err
+		return practiceAccess{}, err
 	}
 
-	var access homeworkAccess
+	var access practiceAccess
 	var dueAt sql.NullString
 	var published int
 	var displayMode string
 	if canManage {
 		err = a.DB.QueryRow(`
 SELECT title, description, due_at, display_mode, published
-FROM homeworks
-WHERE id=? AND space_id=?`, homeworkID, spaceID).
+FROM practices
+WHERE id=? AND space_id=?`, practiceID, spaceID).
 			Scan(&access.Title, &access.Description, &dueAt, &displayMode, &published)
 	} else {
 		var assigned, hasTargets int
@@ -959,37 +959,37 @@ SELECT
   h.published,
   EXISTS(
     SELECT 1
-    FROM homework_targets ht
-    WHERE ht.homework_id=h.id AND ht.user_id=?
+    FROM practice_targets ht
+    WHERE ht.practice_id=h.id AND ht.user_id=?
   ) AS assigned,
   EXISTS(
     SELECT 1
-    FROM homework_targets ht
-    WHERE ht.homework_id=h.id
+    FROM practice_targets ht
+    WHERE ht.practice_id=h.id
   ) AS has_targets
-FROM homeworks h
-WHERE h.id=? AND h.space_id=?`, userID, homeworkID, spaceID).
+FROM practices h
+WHERE h.id=? AND h.space_id=?`, userID, practiceID, spaceID).
 			Scan(&access.Title, &access.Description, &dueAt, &displayMode, &published, &assigned, &hasTargets)
 		if err == nil && (published != 1 || (hasTargets == 1 && assigned != 1)) {
-			return homeworkAccess{}, fiber.NewError(fiber.StatusNotFound, "homework not found in this space")
+			return practiceAccess{}, fiber.NewError(fiber.StatusNotFound, "practice not found in this space")
 		}
 	}
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return homeworkAccess{}, fiber.NewError(fiber.StatusNotFound, "homework not found in this space")
+			return practiceAccess{}, fiber.NewError(fiber.StatusNotFound, "practice not found in this space")
 		}
-		return homeworkAccess{}, err
+		return practiceAccess{}, err
 	}
 	access.DueAt = dueAt
-	access.DisplayMode = normalizeHomeworkDisplayMode(displayMode)
+	access.DisplayMode = normalizePracticeDisplayMode(displayMode)
 	if access.DisplayMode == "" {
-		access.DisplayMode = normalizeHomeworkDisplayMode("")
+		access.DisplayMode = normalizePracticeDisplayMode("")
 	}
 	access.Published = published == 1
 	return access, nil
 }
 
-func normalizeHomeworkDisplayMode(raw string) string {
+func normalizePracticeDisplayMode(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "", "exam", "paper":
 		return "exam"
@@ -1026,7 +1026,7 @@ func int64FromAny(v interface{}) int64 {
 	}
 }
 
-func (a *API) handleGetHomeworkDraft(c *fiber.Ctx) error {
+func (a *API) handleGetPracticeDraft(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
 		return err
@@ -1035,11 +1035,11 @@ func (a *API) handleGetHomeworkDraft(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
-	if _, err := a.loadHomeworkAccess(spaceID, homeworkID, user.ID, user.GlobalRole); err != nil {
+	if _, err := a.loadPracticeAccess(spaceID, practiceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
 
@@ -1047,8 +1047,8 @@ func (a *API) handleGetHomeworkDraft(c *fiber.Ctx) error {
 	var updatedAt string
 	err = a.DB.QueryRow(`
 SELECT draft_json, updated_at
-FROM homework_drafts
-WHERE user_id=? AND space_id=? AND homework_id=?`, user.ID, spaceID, homeworkID).Scan(&draftJSON, &updatedAt)
+FROM practice_drafts
+WHERE user_id=? AND space_id=? AND practice_id=?`, user.ID, spaceID, practiceID).Scan(&draftJSON, &updatedAt)
 	if err == sql.ErrNoRows {
 		return respondData(c, nil)
 	}
@@ -1061,7 +1061,7 @@ WHERE user_id=? AND space_id=? AND homework_id=?`, user.ID, spaceID, homeworkID)
 	})
 }
 
-func (a *API) handleSaveHomeworkDraft(c *fiber.Ctx) error {
+func (a *API) handleSavePracticeDraft(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
 		return err
@@ -1070,11 +1070,11 @@ func (a *API) handleSaveHomeworkDraft(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
-	if _, err := a.loadHomeworkAccess(spaceID, homeworkID, user.ID, user.GlobalRole); err != nil {
+	if _, err := a.loadPracticeAccess(spaceID, practiceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
 
@@ -1086,18 +1086,18 @@ func (a *API) handleSaveHomeworkDraft(c *fiber.Ctx) error {
 	}
 
 	_, err = a.DB.Exec(`
-INSERT INTO homework_drafts(user_id, space_id, homework_id, draft_json, updated_at)
+INSERT INTO practice_drafts(user_id, space_id, practice_id, draft_json, updated_at)
 VALUES(?, ?, ?, ?, CURRENT_TIMESTAMP)
-ON CONFLICT(user_id, space_id, homework_id)
+ON CONFLICT(user_id, space_id, practice_id)
 DO UPDATE SET draft_json=excluded.draft_json, updated_at=CURRENT_TIMESTAMP`,
-		user.ID, spaceID, homeworkID, req.Draft)
+		user.ID, spaceID, practiceID, req.Draft)
 	if err != nil {
 		return err
 	}
 	return respondData(c, fiber.Map{"ok": true})
 }
 
-func (a *API) handleDeleteHomeworkDraft(c *fiber.Ctx) error {
+func (a *API) handleDeletePracticeDraft(c *fiber.Ctx) error {
 	user, err := getUser(c)
 	if err != nil {
 		return err
@@ -1106,14 +1106,14 @@ func (a *API) handleDeleteHomeworkDraft(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	homeworkID, err := parseIDParam(c, "homeworkId")
+	practiceID, err := parseIDParam(c, "practiceId")
 	if err != nil {
 		return err
 	}
 	_, err = a.DB.Exec(`
-DELETE FROM homework_drafts
-WHERE user_id=? AND space_id=? AND homework_id=?`,
-		user.ID, spaceID, homeworkID)
+DELETE FROM practice_drafts
+WHERE user_id=? AND space_id=? AND practice_id=?`,
+		user.ID, spaceID, practiceID)
 	if err != nil {
 		return err
 	}

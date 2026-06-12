@@ -6,24 +6,24 @@ import (
 	"testing"
 )
 
-type homeworkSubmissionRecordListData struct {
+type practiceSubmissionRecordListData struct {
 	Records []map[string]interface{} `json:"records"`
 }
 
-func TestHomeworkLifecycle(t *testing.T) {
+func TestPracticeLifecycle(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "homework_admin", "homeworkadmin123")
-	spaceID := mustCreateSpace(t, database, "Homework-Space")
+	spaceAdminID := seedUser(t, database, "practice_admin", "practiceadmin123")
+	spaceID := mustCreateSpace(t, database, "Practice-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 
-	problemID1 := mustCreateSpaceProblem(t, database, "Homework Problem 1")
-	problemID2 := mustCreateSpaceProblem(t, database, "Homework Problem 2")
+	problemID1 := mustCreateSpaceProblem(t, database, "Practice Problem 1")
+	problemID2 := mustCreateSpaceProblem(t, database, "Practice Problem 2")
 
-	cookie := mustLogin(t, app, "homework_admin", "homeworkadmin123")
-	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", cookie, map[string]interface{}{
-		"title":       "第一周作业",
-		"description": "基础语法作业",
+	cookie := mustLogin(t, app, "practice_admin", "practiceadmin123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices", cookie, map[string]interface{}{
+		"title":       "第一周练习",
+		"description": "基础语法练习",
 		"dueAt":       "2026-04-30T12:00:00Z",
 		"displayMode": "list",
 		"published":   true,
@@ -36,17 +36,17 @@ func TestHomeworkLifecycle(t *testing.T) {
 		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
 	}
 	createEnv := decodeEnvelope[map[string]int64](t, createResp)
-	homeworkID := createEnv.Data["id"]
-	if homeworkID <= 0 {
-		t.Fatalf("invalid homework id: %+v", createEnv.Data)
+	practiceID := createEnv.Data["id"]
+	if practiceID <= 0 {
+		t.Fatalf("invalid practice id: %+v", createEnv.Data)
 	}
 
-	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID), cookie, nil)
+	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID), cookie, nil)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected get 200, got %d", getResp.StatusCode)
 	}
 	getEnv := decodeEnvelope[map[string]interface{}](t, getResp)
-	if getEnv.Data["title"] != "第一周作业" {
+	if getEnv.Data["title"] != "第一周练习" {
 		t.Fatalf("unexpected title: %+v", getEnv.Data["title"])
 	}
 	if getEnv.Data["displayMode"] != "list" {
@@ -57,8 +57,8 @@ func TestHomeworkLifecycle(t *testing.T) {
 		t.Fatalf("unexpected items: %+v", getEnv.Data["items"])
 	}
 
-	updateResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID), cookie, map[string]interface{}{
-		"title":       "第一周作业（更新）",
+	updateResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID), cookie, map[string]interface{}{
+		"title":       "第一周练习（更新）",
 		"description": "只保留一道题",
 		"displayMode": "exam",
 		"published":   false,
@@ -71,12 +71,12 @@ func TestHomeworkLifecycle(t *testing.T) {
 	}
 	updateResp.Body.Close()
 
-	verifyResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID), cookie, nil)
+	verifyResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID), cookie, nil)
 	if verifyResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected verify 200, got %d", verifyResp.StatusCode)
 	}
 	verifyEnv := decodeEnvelope[map[string]interface{}](t, verifyResp)
-	if verifyEnv.Data["title"] != "第一周作业（更新）" {
+	if verifyEnv.Data["title"] != "第一周练习（更新）" {
 		t.Fatalf("unexpected updated title: %+v", verifyEnv.Data["title"])
 	}
 	if verifyEnv.Data["published"] != false {
@@ -86,42 +86,42 @@ func TestHomeworkLifecycle(t *testing.T) {
 		t.Fatalf("expected displayMode=exam, got %+v", verifyEnv.Data["displayMode"])
 	}
 
-	deleteResp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID), cookie, nil)
+	deleteResp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID), cookie, nil)
 	if deleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected delete 200, got %d", deleteResp.StatusCode)
 	}
 	deleteResp.Body.Close()
 
 	var count int
-	if err := database.QueryRow(`SELECT COUNT(1) FROM homeworks WHERE id=?`, homeworkID).Scan(&count); err != nil {
-		t.Fatalf("query homework count: %v", err)
+	if err := database.QueryRow(`SELECT COUNT(1) FROM practices WHERE id=?`, practiceID).Scan(&count); err != nil {
+		t.Fatalf("query practice count: %v", err)
 	}
 	if count != 0 {
-		t.Fatalf("expected homework deleted, count=%d", count)
+		t.Fatalf("expected practice deleted, count=%d", count)
 	}
 }
 
-func TestDeleteHomeworkCanDeleteAssociatedProblems(t *testing.T) {
+func TestDeletePracticeCanDeleteAssociatedProblems(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "homework_delete_problem_admin", "homeworkdeleteproblem123")
-	spaceID := mustCreateSpace(t, database, "Homework-Delete-Problem-Space")
+	spaceAdminID := seedUser(t, database, "practice_delete_problem_admin", "practicedeleteproblem123")
+	spaceID := mustCreateSpace(t, database, "Practice-Delete-Problem-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 
-	exclusiveProblemID := mustCreateSpaceProblem(t, database, "作业独占题目")
-	sharedProblemID := mustCreateSpaceProblem(t, database, "作业共享题目")
+	exclusiveProblemID := mustCreateSpaceProblem(t, database, "练习独占题目")
+	sharedProblemID := mustCreateSpaceProblem(t, database, "练习共享题目")
 
-	targetHomeworkRes, err := database.Exec(`
-INSERT INTO homeworks(space_id, title, description, created_by, published)
-VALUES(?, '待删除作业', '', ?, 1)`, spaceID, spaceAdminID)
+	targetPracticeRes, err := database.Exec(`
+INSERT INTO practices(space_id, title, description, created_by, published)
+VALUES(?, '待删除练习', '', ?, 1)`, spaceID, spaceAdminID)
 	if err != nil {
-		t.Fatalf("create target homework: %v", err)
+		t.Fatalf("create target practice: %v", err)
 	}
-	targetHomeworkID, _ := targetHomeworkRes.LastInsertId()
+	targetPracticeID, _ := targetPracticeRes.LastInsertId()
 	if _, err := database.Exec(`
-INSERT INTO homework_items(homework_id, problem_id, order_no, score)
-VALUES(?, ?, 1, 100), (?, ?, 2, 100)`, targetHomeworkID, exclusiveProblemID, targetHomeworkID, sharedProblemID); err != nil {
-		t.Fatalf("create target homework items: %v", err)
+INSERT INTO practice_items(practice_id, problem_id, order_no, score)
+VALUES(?, ?, 1, 100), (?, ?, 2, 100)`, targetPracticeID, exclusiveProblemID, targetPracticeID, sharedProblemID); err != nil {
+		t.Fatalf("create target practice items: %v", err)
 	}
 	submissionRes, err := database.Exec(`
 INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
@@ -138,33 +138,33 @@ VALUES(?, ?, ?, 'AC', 100, ?)`, spaceID, spaceAdminID, exclusiveProblemID, submi
 		t.Fatalf("create exclusive progress: %v", err)
 	}
 	recordRes, err := database.Exec(`
-INSERT INTO homework_submission_records(homework_id, space_id, user_id, homework_item_count, homework_total_score)
-VALUES(?, ?, ?, 2, 200)`, targetHomeworkID, spaceID, spaceAdminID)
+INSERT INTO practice_submission_records(practice_id, space_id, user_id, practice_item_count, practice_total_score)
+VALUES(?, ?, ?, 2, 200)`, targetPracticeID, spaceID, spaceAdminID)
 	if err != nil {
-		t.Fatalf("create homework submission record: %v", err)
+		t.Fatalf("create practice submission record: %v", err)
 	}
 	recordID, _ := recordRes.LastInsertId()
 	if _, err := database.Exec(`
-INSERT INTO homework_submission_record_items(record_id, problem_id, submission_id, order_no, item_score, problem_title, problem_type)
-VALUES(?, ?, ?, 1, 100, '作业独占题目', 'programming')`, recordID, exclusiveProblemID, submissionID); err != nil {
-		t.Fatalf("create homework submission record item: %v", err)
+INSERT INTO practice_submission_record_items(record_id, problem_id, submission_id, order_no, item_score, problem_title, problem_type)
+VALUES(?, ?, ?, 1, 100, '练习独占题目', 'programming')`, recordID, exclusiveProblemID, submissionID); err != nil {
+		t.Fatalf("create practice submission record item: %v", err)
 	}
 
-	otherHomeworkRes, err := database.Exec(`
-INSERT INTO homeworks(space_id, title, description, created_by, published)
-VALUES(?, '保留作业', '', ?, 1)`, spaceID, spaceAdminID)
+	otherPracticeRes, err := database.Exec(`
+INSERT INTO practices(space_id, title, description, created_by, published)
+VALUES(?, '保留练习', '', ?, 1)`, spaceID, spaceAdminID)
 	if err != nil {
-		t.Fatalf("create other homework: %v", err)
+		t.Fatalf("create other practice: %v", err)
 	}
-	otherHomeworkID, _ := otherHomeworkRes.LastInsertId()
+	otherPracticeID, _ := otherPracticeRes.LastInsertId()
 	if _, err := database.Exec(`
-INSERT INTO homework_items(homework_id, problem_id, order_no, score)
-VALUES(?, ?, 1, 100)`, otherHomeworkID, sharedProblemID); err != nil {
-		t.Fatalf("create other homework item: %v", err)
+INSERT INTO practice_items(practice_id, problem_id, order_no, score)
+VALUES(?, ?, 1, 100)`, otherPracticeID, sharedProblemID); err != nil {
+		t.Fatalf("create other practice item: %v", err)
 	}
 
-	cookie := mustLogin(t, app, "homework_delete_problem_admin", "homeworkdeleteproblem123")
-	deleteResp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(targetHomeworkID)+"?deleteProblems=1", cookie, nil)
+	cookie := mustLogin(t, app, "practice_delete_problem_admin", "practicedeleteproblem123")
+	deleteResp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(targetPracticeID)+"?deleteProblems=1", cookie, nil)
 	if deleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected delete 200, got %d", deleteResp.StatusCode)
 	}
@@ -206,24 +206,24 @@ VALUES(?, ?, 1, 100)`, otherHomeworkID, sharedProblemID); err != nil {
 	}
 
 	var recordItemCount int
-	if err := database.QueryRow(`SELECT COUNT(1) FROM homework_submission_record_items WHERE record_id=?`, recordID).Scan(&recordItemCount); err != nil {
-		t.Fatalf("count homework record items: %v", err)
+	if err := database.QueryRow(`SELECT COUNT(1) FROM practice_submission_record_items WHERE record_id=?`, recordID).Scan(&recordItemCount); err != nil {
+		t.Fatalf("count practice record items: %v", err)
 	}
 	if recordItemCount != 0 {
-		t.Fatalf("expected homework record items deleted, count=%d", recordItemCount)
+		t.Fatalf("expected practice record items deleted, count=%d", recordItemCount)
 	}
 }
 
-func TestCreateHomeworkWithProblemDrafts(t *testing.T) {
+func TestCreatePracticeWithProblemDrafts(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "homework_import_admin", "homeworkimport123")
-	spaceID := mustCreateSpace(t, database, "Homework-Import-Space")
+	spaceAdminID := seedUser(t, database, "practice_import_admin", "practiceimport123")
+	spaceID := mustCreateSpace(t, database, "Practice-Import-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 
-	cookie := mustLogin(t, app, "homework_import_admin", "homeworkimport123")
-	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", cookie, map[string]interface{}{
-		"title":       "导入建题作业",
+	cookie := mustLogin(t, app, "practice_import_admin", "practiceimport123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices", cookie, map[string]interface{}{
+		"title":       "导入建题练习",
 		"description": "通过题目 JSON 数组自动建题",
 		"displayMode": "list",
 		"published":   true,
@@ -254,12 +254,12 @@ func TestCreateHomeworkWithProblemDrafts(t *testing.T) {
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected import create 200, got %d", createResp.StatusCode)
 	}
-	homeworkID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
-	if homeworkID <= 0 {
-		t.Fatalf("invalid homework id: %d", homeworkID)
+	practiceID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
+	if practiceID <= 0 {
+		t.Fatalf("invalid practice id: %d", practiceID)
 	}
 
-	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID), cookie, nil)
+	getResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID), cookie, nil)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected get 200, got %d", getResp.StatusCode)
 	}
@@ -269,7 +269,7 @@ func TestCreateHomeworkWithProblemDrafts(t *testing.T) {
 	}
 	items, ok := getEnv.Data["items"].([]interface{})
 	if !ok || len(items) != 2 {
-		t.Fatalf("unexpected homework items: %+v", getEnv.Data["items"])
+		t.Fatalf("unexpected practice items: %+v", getEnv.Data["items"])
 	}
 
 	var problemCount int
@@ -293,22 +293,22 @@ func TestCreateHomeworkWithProblemDrafts(t *testing.T) {
 	}
 }
 
-func TestHomeworkVisibilityRules(t *testing.T) {
+func TestPracticeVisibilityRules(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "homework_visibility_admin", "homeworkvisibility123")
-	memberAssignedID := seedUser(t, database, "homework_member_assigned", "assignedmember123")
-	memberOtherID := seedUser(t, database, "homework_member_other", "othermember123")
-	spaceID := mustCreateSpace(t, database, "Homework-Visibility-Space")
+	spaceAdminID := seedUser(t, database, "practice_visibility_admin", "practicevisibility123")
+	memberAssignedID := seedUser(t, database, "practice_member_assigned", "assignedmember123")
+	memberOtherID := seedUser(t, database, "practice_member_other", "othermember123")
+	spaceID := mustCreateSpace(t, database, "Practice-Visibility-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 	mustAddMember(t, database, spaceID, memberAssignedID, "member")
 	mustAddMember(t, database, spaceID, memberOtherID, "member")
 
-	problemID := mustCreateSpaceProblem(t, database, "Homework Visibility Problem")
+	problemID := mustCreateSpaceProblem(t, database, "Practice Visibility Problem")
 
-	adminCookie := mustLogin(t, app, "homework_visibility_admin", "homeworkvisibility123")
-	createHomework := func(title string, published bool) int64 {
-		resp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", adminCookie, map[string]interface{}{
+	adminCookie := mustLogin(t, app, "practice_visibility_admin", "practicevisibility123")
+	createPractice := func(title string, published bool) int64 {
+		resp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices", adminCookie, map[string]interface{}{
 			"title":     title,
 			"published": published,
 			"items": []map[string]interface{}{
@@ -322,11 +322,11 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 		return env.Data["id"]
 	}
 
-	_ = createHomework("公开未定向作业", true)
-	publicTargetedID := createHomework("公开定向作业", true)
-	draftTargetedID := createHomework("草稿定向作业", false)
+	_ = createPractice("公开未定向练习", true)
+	publicTargetedID := createPractice("公开定向练习", true)
+	draftTargetedID := createPractice("草稿定向练习", false)
 
-	assignAssignedResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(publicTargetedID)+"/targets", adminCookie, map[string]int64{
+	assignAssignedResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(publicTargetedID)+"/targets", adminCookie, map[string]int64{
 		"userId": memberAssignedID,
 	})
 	if assignAssignedResp.StatusCode != http.StatusOK {
@@ -334,7 +334,7 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 	}
 	assignAssignedResp.Body.Close()
 
-	assignDraftResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(draftTargetedID)+"/targets", adminCookie, map[string]int64{
+	assignDraftResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(draftTargetedID)+"/targets", adminCookie, map[string]int64{
 		"userId": memberAssignedID,
 	})
 	if assignDraftResp.StatusCode != http.StatusOK {
@@ -342,83 +342,83 @@ func TestHomeworkVisibilityRules(t *testing.T) {
 	}
 	assignDraftResp.Body.Close()
 
-	adminListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks", adminCookie, nil)
+	adminListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices", adminCookie, nil)
 	if adminListResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected admin list 200, got %d", adminListResp.StatusCode)
 	}
-	adminHomeworks := decodeEnvelope[[]map[string]interface{}](t, adminListResp).Data
-	if len(adminHomeworks) != 3 {
-		t.Fatalf("expected admin to see 3 homeworks, got %d", len(adminHomeworks))
+	adminPractices := decodeEnvelope[[]map[string]interface{}](t, adminListResp).Data
+	if len(adminPractices) != 3 {
+		t.Fatalf("expected admin to see 3 practices, got %d", len(adminPractices))
 	}
 
-	memberAssignedCookie := mustLogin(t, app, "homework_member_assigned", "assignedmember123")
-	memberAssignedListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks", memberAssignedCookie, nil)
+	memberAssignedCookie := mustLogin(t, app, "practice_member_assigned", "assignedmember123")
+	memberAssignedListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices", memberAssignedCookie, nil)
 	if memberAssignedListResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected assigned member list 200, got %d", memberAssignedListResp.StatusCode)
 	}
-	memberAssignedHomeworks := decodeEnvelope[[]map[string]interface{}](t, memberAssignedListResp).Data
-	if len(memberAssignedHomeworks) != 1 {
-		t.Fatalf("expected assigned member to see 1 homework, got %d", len(memberAssignedHomeworks))
+	memberAssignedPractices := decodeEnvelope[[]map[string]interface{}](t, memberAssignedListResp).Data
+	if len(memberAssignedPractices) != 1 {
+		t.Fatalf("expected assigned member to see 1 practice, got %d", len(memberAssignedPractices))
 	}
 
 	assignedByID := map[int64]bool{}
-	for _, homework := range memberAssignedHomeworks {
-		id, _ := homework["id"].(float64)
-		assigned, _ := homework["assigned"].(bool)
+	for _, practice := range memberAssignedPractices {
+		id, _ := practice["id"].(float64)
+		assigned, _ := practice["assigned"].(bool)
 		assignedByID[int64(id)] = assigned
 	}
 	if assignedByID[publicTargetedID] != true {
-		t.Fatalf("expected targeted homework assigned=true, got %+v", assignedByID)
+		t.Fatalf("expected targeted practice assigned=true, got %+v", assignedByID)
 	}
 
-	memberOtherCookie := mustLogin(t, app, "homework_member_other", "othermember123")
-	memberOtherListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks", memberOtherCookie, nil)
+	memberOtherCookie := mustLogin(t, app, "practice_member_other", "othermember123")
+	memberOtherListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices", memberOtherCookie, nil)
 	if memberOtherListResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected other member list 200, got %d", memberOtherListResp.StatusCode)
 	}
-	memberOtherHomeworks := decodeEnvelope[[]map[string]interface{}](t, memberOtherListResp).Data
-	if len(memberOtherHomeworks) != 0 {
-		t.Fatalf("expected other member to see 0 homeworks, got %d", len(memberOtherHomeworks))
+	memberOtherPractices := decodeEnvelope[[]map[string]interface{}](t, memberOtherListResp).Data
+	if len(memberOtherPractices) != 0 {
+		t.Fatalf("expected other member to see 0 practices, got %d", len(memberOtherPractices))
 	}
 
-	targetedGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(publicTargetedID), memberAssignedCookie, nil)
+	targetedGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(publicTargetedID), memberAssignedCookie, nil)
 	if targetedGetResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected assigned targeted get 200, got %d", targetedGetResp.StatusCode)
 	}
 	targetedGetResp.Body.Close()
 
-	otherTargetedGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(publicTargetedID), memberOtherCookie, nil)
+	otherTargetedGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(publicTargetedID), memberOtherCookie, nil)
 	if otherTargetedGetResp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected untargeted member get 404, got %d", otherTargetedGetResp.StatusCode)
 	}
 	otherTargetedGetResp.Body.Close()
 
-	draftGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(draftTargetedID), memberAssignedCookie, nil)
+	draftGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(draftTargetedID), memberAssignedCookie, nil)
 	if draftGetResp.StatusCode != http.StatusNotFound {
-		t.Fatalf("expected draft homework get 404, got %d", draftGetResp.StatusCode)
+		t.Fatalf("expected draft practice get 404, got %d", draftGetResp.StatusCode)
 	}
 	draftGetResp.Body.Close()
 }
 
-func TestHomeworkTargetCandidatesSearchByUsername(t *testing.T) {
+func TestPracticeTargetCandidatesSearchByUsername(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "homework_target_admin", "targetadmin123")
-	memberID := seedUser(t, database, "homework_target_alice", "targetalice123")
-	assignedMemberID := seedUser(t, database, "homework_target_bob", "targetbob123")
-	otherSpaceUserID := seedUser(t, database, "homework_target_outside", "targetoutside123")
-	spaceID := mustCreateSpace(t, database, "Homework-Target-Candidate-Space")
+	spaceAdminID := seedUser(t, database, "practice_target_admin", "targetadmin123")
+	memberID := seedUser(t, database, "practice_target_alice", "targetalice123")
+	assignedMemberID := seedUser(t, database, "practice_target_bob", "targetbob123")
+	otherSpaceUserID := seedUser(t, database, "practice_target_outside", "targetoutside123")
+	spaceID := mustCreateSpace(t, database, "Practice-Target-Candidate-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 	mustAddMember(t, database, spaceID, memberID, "member")
 	mustAddMember(t, database, spaceID, assignedMemberID, "member")
-	problemID := mustCreateSpaceProblem(t, database, "Homework Target Candidate Problem")
+	problemID := mustCreateSpaceProblem(t, database, "Practice Target Candidate Problem")
 
-	otherSpaceID := mustCreateSpace(t, database, "Homework-Target-Other-Space")
+	otherSpaceID := mustCreateSpace(t, database, "Practice-Target-Other-Space")
 	mustAddMember(t, database, otherSpaceID, otherSpaceUserID, "member")
 
-	adminCookie := mustLogin(t, app, "homework_target_admin", "targetadmin123")
-	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", adminCookie, map[string]interface{}{
-		"title":       "Target Candidate Homework",
+	adminCookie := mustLogin(t, app, "practice_target_admin", "targetadmin123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices", adminCookie, map[string]interface{}{
+		"title":       "Target Candidate Practice",
 		"displayMode": "exam",
 		"published":   true,
 		"items": []map[string]interface{}{
@@ -432,9 +432,9 @@ func TestHomeworkTargetCandidatesSearchByUsername(t *testing.T) {
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
 	}
-	homeworkID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
+	practiceID := decodeEnvelope[map[string]int64](t, createResp).Data["id"]
 
-	assignResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/targets", adminCookie, map[string]int64{
+	assignResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/targets", adminCookie, map[string]int64{
 		"userId": assignedMemberID,
 	})
 	if assignResp.StatusCode != http.StatusOK {
@@ -442,7 +442,7 @@ func TestHomeworkTargetCandidatesSearchByUsername(t *testing.T) {
 	}
 	assignResp.Body.Close()
 
-	searchResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/target-candidates?q=homework_target", adminCookie, nil)
+	searchResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/target-candidates?q=practice_target", adminCookie, nil)
 	if searchResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected search 200, got %d", searchResp.StatusCode)
 	}
@@ -463,12 +463,12 @@ func TestHomeworkTargetCandidatesSearchByUsername(t *testing.T) {
 	}
 }
 
-func TestHomeworkSubmissionRecordLifecycle(t *testing.T) {
+func TestPracticeSubmissionRecordLifecycle(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "homework_record_admin", "recordadmin123")
-	memberID := seedUser(t, database, "homework_record_member", "recordmember123")
-	spaceID := mustCreateSpace(t, database, "Homework-Record-Space")
+	spaceAdminID := seedUser(t, database, "practice_record_admin", "recordadmin123")
+	memberID := seedUser(t, database, "practice_record_member", "recordmember123")
+	spaceID := mustCreateSpace(t, database, "Practice-Record-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 	mustAddMember(t, database, spaceID, memberID, "member")
 
@@ -488,19 +488,19 @@ VALUES(?, 'programming', 'Programming Problem', 'statement', '{}', '{}', 1)`, sp
 	}
 	programmingProblemID, _ := programmingRes.LastInsertId()
 
-	adminCookie := mustLogin(t, app, "homework_record_admin", "recordadmin123")
-	createHomeworkResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", adminCookie, map[string]interface{}{
-		"title":     "记录作业",
+	adminCookie := mustLogin(t, app, "practice_record_admin", "recordadmin123")
+	createPracticeResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices", adminCookie, map[string]interface{}{
+		"title":     "记录练习",
 		"published": true,
 		"items": []map[string]interface{}{
 			{"problemId": objectiveProblemID, "orderNo": 1, "score": 40},
 			{"problemId": programmingProblemID, "orderNo": 2, "score": 60},
 		},
 	})
-	if createHomeworkResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected create homework 200, got %d", createHomeworkResp.StatusCode)
+	if createPracticeResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create practice 200, got %d", createPracticeResp.StatusCode)
 	}
-	homeworkID := decodeEnvelope[map[string]int64](t, createHomeworkResp).Data["id"]
+	practiceID := decodeEnvelope[map[string]int64](t, createPracticeResp).Data["id"]
 
 	objectiveSubmissionRes, err := database.Exec(`
 INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
@@ -522,8 +522,8 @@ VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){}', '', 'submit', 'queued', 'P
 	}
 	programmingSubmissionID, _ := programmingSubmissionRes.LastInsertId()
 
-	memberCookie := mustLogin(t, app, "homework_record_member", "recordmember123")
-	createRecordResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/submission-records", memberCookie, map[string]interface{}{
+	memberCookie := mustLogin(t, app, "practice_record_member", "recordmember123")
+	createRecordResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/submission-records", memberCookie, map[string]interface{}{
 		"items": []map[string]int64{
 			{"problemId": objectiveProblemID, "submissionId": objectiveSubmissionID},
 			{"problemId": programmingProblemID, "submissionId": programmingSubmissionID},
@@ -537,11 +537,11 @@ VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){}', '', 'submit', 'queued', 'P
 		t.Fatalf("invalid record id: %d", recordID)
 	}
 
-	listResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/submission-records", memberCookie, nil)
+	listResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/submission-records", memberCookie, nil)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected list records 200, got %d", listResp.StatusCode)
 	}
-	listEnv := decodeEnvelope[homeworkSubmissionRecordListData](t, listResp)
+	listEnv := decodeEnvelope[practiceSubmissionRecordListData](t, listResp)
 	if len(listEnv.Data.Records) != 1 {
 		t.Fatalf("expected 1 record, got %d", len(listEnv.Data.Records))
 	}
@@ -559,8 +559,8 @@ VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){}', '', 'submit', 'queued', 'P
 	if record["resolvedScore"] != float64(40) {
 		t.Fatalf("unexpected resolvedScore: %+v", record["resolvedScore"])
 	}
-	if record["homeworkTotalScore"] != float64(100) {
-		t.Fatalf("unexpected homeworkTotalScore: %+v", record["homeworkTotalScore"])
+	if record["practiceTotalScore"] != float64(100) {
+		t.Fatalf("unexpected practiceTotalScore: %+v", record["practiceTotalScore"])
 	}
 
 	items, ok := record["items"].([]interface{})
@@ -586,36 +586,36 @@ VALUES(?, ?, ?, 'programming', 'cpp', 'int main(){}', '', 'submit', 'queued', 'P
 	}
 }
 
-func TestHomeworkSubmissionRecordList_AllowsAdminsToViewAll(t *testing.T) {
+func TestPracticeSubmissionRecordList_AllowsAdminsToViewAll(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "homework_all_admin", "homeworkalladmin123")
-	memberAID := seedUser(t, database, "homework_all_member_a", "homeworkallmembera123")
-	memberBID := seedUser(t, database, "homework_all_member_b", "homeworkallmemberb123")
-	spaceID := mustCreateSpace(t, database, "Homework-All-Record-Space")
+	spaceAdminID := seedUser(t, database, "practice_all_admin", "practicealladmin123")
+	memberAID := seedUser(t, database, "practice_all_member_a", "practiceallmembera123")
+	memberBID := seedUser(t, database, "practice_all_member_b", "practiceallmemberb123")
+	spaceID := mustCreateSpace(t, database, "Practice-All-Record-Space")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
 	mustAddMember(t, database, spaceID, memberAID, "member")
 	mustAddMember(t, database, spaceID, memberBID, "member")
 
 	problemRes, err := database.Exec(`
 INSERT INTO space_problems(space_id, type, title, statement_md, body_json, answer_json, created_by)
-VALUES(?, 'single_choice', 'Homework All Objective', 'statement', '{"options":["A","B"]}', '{"answer":"A"}', 1)`, spaceID)
+VALUES(?, 'single_choice', 'Practice All Objective', 'statement', '{"options":["A","B"]}', '{"answer":"A"}', 1)`, spaceID)
 	if err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
 	problemID, _ := problemRes.LastInsertId()
-	spaceAdminCookie := mustLogin(t, app, "homework_all_admin", "homeworkalladmin123")
-	createHomeworkResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks", spaceAdminCookie, map[string]interface{}{
-		"title":     "管理员查看全部作业记录",
+	spaceAdminCookie := mustLogin(t, app, "practice_all_admin", "practicealladmin123")
+	createPracticeResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices", spaceAdminCookie, map[string]interface{}{
+		"title":     "管理员查看全部练习记录",
 		"published": true,
 		"items": []map[string]interface{}{
 			{"problemId": problemID, "orderNo": 1, "score": 100},
 		},
 	})
-	if createHomeworkResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected create homework 200, got %d", createHomeworkResp.StatusCode)
+	if createPracticeResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create practice 200, got %d", createPracticeResp.StatusCode)
 	}
-	homeworkID := decodeEnvelope[map[string]int64](t, createHomeworkResp).Data["id"]
+	practiceID := decodeEnvelope[map[string]int64](t, createPracticeResp).Data["id"]
 
 	submissionARes, err := database.Exec(`
 INSERT INTO submissions(user_id, space_id, problem_id, question_type, language, source_code, input_data, submit_type, status, verdict, score, stdout, stderr, finished_at)
@@ -637,8 +637,8 @@ VALUES(?, ?, ?, 'single_choice', '', '', 'B', 'objective', 'done', 'WA', 0, '', 
 	}
 	submissionBID, _ := submissionBRes.LastInsertId()
 
-	memberACookie := mustLogin(t, app, "homework_all_member_a", "homeworkallmembera123")
-	createRecordAResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/submission-records", memberACookie, map[string]interface{}{
+	memberACookie := mustLogin(t, app, "practice_all_member_a", "practiceallmembera123")
+	createRecordAResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/submission-records", memberACookie, map[string]interface{}{
 		"items": []map[string]int64{
 			{"problemId": problemID, "submissionId": submissionAID},
 		},
@@ -647,8 +647,8 @@ VALUES(?, ?, ?, 'single_choice', '', '', 'B', 'objective', 'done', 'WA', 0, '', 
 		t.Fatalf("expected create member A record 200, got %d", createRecordAResp.StatusCode)
 	}
 
-	memberBCookie := mustLogin(t, app, "homework_all_member_b", "homeworkallmemberb123")
-	createRecordBResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/submission-records", memberBCookie, map[string]interface{}{
+	memberBCookie := mustLogin(t, app, "practice_all_member_b", "practiceallmemberb123")
+	createRecordBResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/submission-records", memberBCookie, map[string]interface{}{
 		"items": []map[string]int64{
 			{"problemId": problemID, "submissionId": submissionBID},
 		},
@@ -657,26 +657,26 @@ VALUES(?, ?, ?, 'single_choice', '', '', 'B', 'objective', 'done', 'WA', 0, '', 
 		t.Fatalf("expected create member B record 200, got %d", createRecordBResp.StatusCode)
 	}
 
-	memberListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/submission-records?all=1", memberACookie, nil)
+	memberListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/submission-records?all=1", memberACookie, nil)
 	if memberListResp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected member list 403, got %d", memberListResp.StatusCode)
 	}
 
-	adminListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/submission-records?all=1", spaceAdminCookie, nil)
+	adminListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/submission-records?all=1", spaceAdminCookie, nil)
 	if adminListResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected admin list 200, got %d", adminListResp.StatusCode)
 	}
-	adminRecords := decodeEnvelope[homeworkSubmissionRecordListData](t, adminListResp).Data.Records
+	adminRecords := decodeEnvelope[practiceSubmissionRecordListData](t, adminListResp).Data.Records
 	if len(adminRecords) != 2 {
 		t.Fatalf("expected admin to see 2 records, got %d", len(adminRecords))
 	}
 
 	systemAdminCookie := mustLogin(t, app, "admin", "admin123456")
-	systemAdminListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/homeworks/"+itoa(homeworkID)+"/submission-records?all=1", systemAdminCookie, nil)
+	systemAdminListResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+itoa(spaceID)+"/practices/"+itoa(practiceID)+"/submission-records?all=1", systemAdminCookie, nil)
 	if systemAdminListResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected system admin list 200, got %d", systemAdminListResp.StatusCode)
 	}
-	systemAdminRecords := decodeEnvelope[homeworkSubmissionRecordListData](t, systemAdminListResp).Data.Records
+	systemAdminRecords := decodeEnvelope[practiceSubmissionRecordListData](t, systemAdminListResp).Data.Records
 	if len(systemAdminRecords) != 2 {
 		t.Fatalf("expected system admin to see 2 records, got %d", len(systemAdminRecords))
 	}

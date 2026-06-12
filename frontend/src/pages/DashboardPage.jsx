@@ -46,7 +46,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const [error, setError] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [trainingActionMessage, setTrainingActionMessage] = useState('')
-  const [homeworkActionMessage, setHomeworkActionMessage] = useState('')
+  const [practiceActionMessage, setPracticeActionMessage] = useState('')
   const searchState = useDashboardSearchState()
   const memberState = useDashboardMemberState()
   const passwordState = useChangePasswordState()
@@ -65,7 +65,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     setRegistrationEnabled,
     spaceProblems,
     trainingPlans,
-    homeworks,
+    practices,
     spaceMembers,
     memberCandidates,
     setMemberCandidates,
@@ -74,15 +74,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     hasAnySpaceAdminRole,
     canManageSelectedSpace,
     allTrainingTags,
-    allHomeworkTags,
+    allPracticeTags,
     learningTrainingTag,
     setLearningTrainingTag,
-    learningHomeworkTag,
-    setLearningHomeworkTag,
+    learningPracticeTag,
+    setLearningPracticeTag,
     filteredSpaceProblems,
     filteredLearningProblems,
     filteredLearningTrainingPlans,
-    filteredLearningHomeworks,
+    filteredLearningPractices,
     refreshSpaces,
     refreshSpaceData,
     refreshSpaceMemberData
@@ -96,7 +96,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     spaceProblemSearch: searchState.spaceProblemSearch,
     learningProblemSearch: searchState.learningProblemSearch,
     learningTrainingSearch: searchState.learningTrainingSearch,
-    learningHomeworkSearch: searchState.learningHomeworkSearch,
+    learningPracticeSearch: searchState.learningPracticeSearch,
     memberCandidateInput: memberState.memberCandidateInput
   })
   const modalState = useDashboardModalState({
@@ -117,7 +117,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     memberState.resetMemberState()
     setMemberCandidates([])
     setTrainingActionMessage('')
-    setHomeworkActionMessage('')
+    setPracticeActionMessage('')
     searchState.resetSearchState()
     if (!new URLSearchParams(location.search).get('mtab')) {
       setSpaceManageTab('settings')
@@ -158,13 +158,13 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     saveEditedTrainingPlan,
     deleteTrainingPlan,
     handleAddTrainingParticipant,
-    openCreateHomeworkModal,
-    createHomework,
-    openEditHomework,
-    saveEditedHomework,
-    deleteHomework,
-    openAssignHomeworkTargetModal,
-    handleAddHomeworkTarget,
+    openCreatePracticeModal,
+    createPractice,
+    openEditPractice,
+    saveEditedPractice,
+    deletePractice,
+    openAssignPracticeTargetModal,
+    handleAddPracticeTarget,
     handleAddMembers,
     handleResetSpaceMemberPassword,
     handleRemoveSpaceMember,
@@ -201,16 +201,16 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       setTrainingParticipantUserId: modalState.setTrainingParticipantUserId,
       setTrainingParticipantSubmitting: modalState.setTrainingParticipantSubmitting
     },
-    homeworkState: {
-      homeworks,
-      setHomeworkActionMessage,
-      editingHomework: modalState.editingHomework,
-      setEditingHomework: modalState.setEditingHomework,
-      assigningHomework: modalState.assigningHomework,
-      setAssigningHomework: modalState.setAssigningHomework,
-      homeworkTargetUserId: modalState.homeworkTargetUserId,
-      setHomeworkTargetUserId: modalState.setHomeworkTargetUserId,
-      setHomeworkTargetSubmitting: modalState.setHomeworkTargetSubmitting
+    practiceState: {
+      practices,
+      setPracticeActionMessage,
+      editingPractice: modalState.editingPractice,
+      setEditingPractice: modalState.setEditingPractice,
+      assigningPractice: modalState.assigningPractice,
+      setAssigningPractice: modalState.setAssigningPractice,
+      practiceTargetUserId: modalState.practiceTargetUserId,
+      setPracticeTargetUserId: modalState.setPracticeTargetUserId,
+      setPracticeTargetSubmitting: modalState.setPracticeTargetSubmitting
     },
     memberState: {
       ...memberState,
@@ -275,11 +275,11 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       learningTrainingSearch={searchState.learningTrainingSearch}
       onLearningTrainingSearchChange={searchState.setLearningTrainingSearch}
       allTrainingTags={allTrainingTags}
-      allHomeworkTags={allHomeworkTags}
+      allPracticeTags={allPracticeTags}
       learningTrainingTag={learningTrainingTag}
       onLearningTrainingTagChange={setLearningTrainingTag}
-      learningHomeworkTag={learningHomeworkTag}
-      onLearningHomeworkTagChange={setLearningHomeworkTag}
+      learningPracticeTag={learningPracticeTag}
+      onLearningPracticeTagChange={setLearningPracticeTag}
       canManageSelectedSpace={canManageSelectedSpace}
       onOpenCreateTrainingPlan={openCreateTrainingPlanModal}
       filteredLearningTrainingPlans={filteredLearningTrainingPlans}
@@ -288,15 +288,15 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       onExportTrainingPlan={(planId) => api.exportTrainingPlan(selectedSpaceId, planId)}
       onDeleteTrainingPlan={deleteTrainingPlan}
       trainingActionMessage={trainingActionMessage}
-      learningHomeworkSearch={searchState.learningHomeworkSearch}
-      onLearningHomeworkSearchChange={searchState.setLearningHomeworkSearch}
-      onOpenCreateHomework={openCreateHomeworkModal}
-      filteredLearningHomeworks={filteredLearningHomeworks}
-      onOpenEditHomework={openEditHomework}
-      onOpenAssignHomeworkTarget={openAssignHomeworkTargetModal}
-      onExportHomework={(homeworkId) => api.exportHomework(selectedSpaceId, homeworkId)}
-      onDeleteHomework={deleteHomework}
-      homeworkActionMessage={homeworkActionMessage}
+      learningPracticeSearch={searchState.learningPracticeSearch}
+      onLearningPracticeSearchChange={searchState.setLearningPracticeSearch}
+      onOpenCreatePractice={openCreatePracticeModal}
+      filteredLearningPractices={filteredLearningPractices}
+      onOpenEditPractice={openEditPractice}
+      onOpenAssignPracticeTarget={openAssignPracticeTargetModal}
+      onExportPractice={(practiceId) => api.exportPractice(selectedSpaceId, practiceId)}
+      onDeletePractice={deletePractice}
+      practiceActionMessage={practiceActionMessage}
     />
   )
 
@@ -469,7 +469,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                   <Tabs value={spaceTab} onValueChange={(v) => { setSpaceTab(v); navigate({ search: `?tab=${v}` }, { replace: true }) }}>
                     <TabsList className="h-9">
                       <TabsTrigger value="problems" className="text-xs px-3">题库</TabsTrigger>
-                      <TabsTrigger value="homework" className="text-xs px-3">作业</TabsTrigger>
+                      <TabsTrigger value="practice" className="text-xs px-3">练习</TabsTrigger>
                       <TabsTrigger value="training" className="text-xs px-3">训练</TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -573,9 +573,9 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
           onCreateTrainingPlan={createTrainingPlan}
           onSaveEditedTrainingPlan={saveEditedTrainingPlan}
           onAddTrainingParticipant={handleAddTrainingParticipant}
-          onCreateHomework={createHomework}
-          onSaveEditedHomework={saveEditedHomework}
-          onAddHomeworkTarget={handleAddHomeworkTarget}
+          onCreatePractice={createPractice}
+          onSaveEditedPractice={saveEditedPractice}
+          onAddPracticeTarget={handleAddPracticeTarget}
           onAdminResetPassword={handleAdminResetPassword}
           onBatchRegister={handleBatchRegister}
           selectedSpaceId={selectedSpaceId}

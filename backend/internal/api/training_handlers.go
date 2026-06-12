@@ -257,7 +257,7 @@ func (a *API) handleUpdateTrainingPlan(c *fiber.Ctx) error {
 	res, err := tx.Exec(`
 		UPDATE training_plans
 		SET title=?, description=?, tags_json=?, published_at=?
-		WHERE id=? AND space_id=?`, req.Title, tagsJSON, nullToInterface(publishedAt), planID, spaceID)
+		WHERE id=? AND space_id=?`, req.Title, req.Description, tagsJSON, nullToInterface(publishedAt), planID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -488,7 +488,7 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 
 	if canManage {
 		err = a.DB.QueryRow(`
-	SELECT title,  published_at
+		SELECT title, description, published_at
 	FROM training_plans
 	WHERE id=? AND space_id=?`, planID, spaceID).
 			Scan(&access.Title, &access.Description, &publishedAt)
@@ -497,6 +497,7 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 		err = a.DB.QueryRow(`
 	SELECT
 	  tp.title,
+	  tp.description,
 	  tp.published_at,
 	  EXISTS(
 	    SELECT 1

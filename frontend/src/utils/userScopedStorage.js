@@ -21,6 +21,6 @@ export function codeDraftStorageKey(user, spaceId, problemId, language) {
   return `${getUserStoragePrefix(user)}:code:${scope}:problem:${problemId}:language:${language}`
 }
 
-export function homeworkDraftStorageKey(user, spaceId, homeworkId) {
-  return `${getUserStoragePrefix(user)}:homework:${spaceId}:${homeworkId}:draft`
+export function practiceDraftStorageKey(user, spaceId, practiceId) {
+  return `${getUserStoragePrefix(user)}:practice:${spaceId}:${practiceId}:draft`
 }

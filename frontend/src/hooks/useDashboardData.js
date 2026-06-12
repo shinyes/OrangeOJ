@@ -19,7 +19,7 @@ export default function useDashboardData({
   spaceProblemSearch,
   learningProblemSearch,
   learningTrainingSearch,
-  learningHomeworkSearch,
+  learningPracticeSearch,
   memberCandidateInput
 }) {
   const selectedSpaceKey = useMemo(() => selectedSpaceStorageKey(user), [user?.id, user?.userId, user?.username])
@@ -29,11 +29,11 @@ export default function useDashboardData({
   const [spaceManageTab, setSpaceManageTab] = useState('settings')
   const [systemTab, setSystemTab] = useState('settings')
   const [learningTrainingTag, setLearningTrainingTag] = useState('')
-  const [learningHomeworkTag, setLearningHomeworkTag] = useState('')
+  const [learningPracticeTag, setLearningPracticeTag] = useState('')
   const [registrationEnabled, setRegistrationEnabled] = useState(false)
   const [spaceProblems, setSpaceProblems] = useState([])
   const [trainingPlans, setTrainingPlans] = useState([])
-  const [homeworks, setHomeworks] = useState([])
+  const [practices, setPractices] = useState([])
   const [spaceMembers, setSpaceMembers] = useState([])
   const [memberCandidates, setMemberCandidates] = useState([])
   const [memberSearchLoading, setMemberSearchLoading] = useState(false)
@@ -83,13 +83,13 @@ export default function useDashboardData({
     return [...tagSet].sort((a, b) => a.localeCompare(b))
   }, [trainingPlans])
 
-  const allHomeworkTags = useMemo(() => {
+  const allPracticeTags = useMemo(() => {
     const tagSet = new Set()
-    homeworks.forEach((hw) => {
+    practices.forEach((hw) => {
       if (Array.isArray(hw.tags)) hw.tags.forEach((t) => tagSet.add(t))
     })
     return [...tagSet].sort((a, b) => a.localeCompare(b))
-  }, [homeworks])
+  }, [practices])
 
   const filteredLearningTrainingPlans = useMemo(() => {
     const keyword = learningTrainingSearch.trim().toLowerCase()
@@ -100,14 +100,14 @@ export default function useDashboardData({
     })
   }, [learningTrainingSearch, learningTrainingTag, trainingPlans])
 
-  const filteredLearningHomeworks = useMemo(() => {
-    const keyword = learningHomeworkSearch.trim().toLowerCase()
-    return homeworks.filter((homework) => {
-      if (keyword && !String(homework.title || '').toLowerCase().includes(keyword)) return false
-      if (learningHomeworkTag && !(Array.isArray(homework.tags) && homework.tags.includes(learningHomeworkTag))) return false
+  const filteredLearningPractices = useMemo(() => {
+    const keyword = learningPracticeSearch.trim().toLowerCase()
+    return practices.filter((practice) => {
+      if (keyword && !String(practice.title || '').toLowerCase().includes(keyword)) return false
+      if (learningPracticeTag && !(Array.isArray(practice.tags) && practice.tags.includes(learningPracticeTag))) return false
       return true
     })
-  }, [learningHomeworkSearch, learningHomeworkTag, homeworks])
+  }, [learningPracticeSearch, learningPracticeTag, practices])
 
   const requestedSpaceId = useMemo(() => {
     const raw = new URLSearchParams(locationSearch).get('spaceId')
@@ -117,7 +117,7 @@ export default function useDashboardData({
 
   const requestedSpaceTab = useMemo(() => {
     const raw = new URLSearchParams(locationSearch).get('tab')
-    return ['problems', 'training', 'homework'].includes(raw) ? raw : ''
+    return ['problems', 'training', 'practice'].includes(raw) ? raw : ''
   }, [locationSearch])
 
   const requestedSpaceManageTab = useMemo(() => {
@@ -154,17 +154,17 @@ export default function useDashboardData({
     if (!spaceId) {
       setSpaceProblems([])
       setTrainingPlans([])
-      setHomeworks([])
+      setPractices([])
       return
     }
     const [problems, plans, hw] = await Promise.all([
       api.listSpaceProblems(spaceId),
       api.listTrainingPlans(spaceId),
-      api.listHomeworks(spaceId)
+      api.listPractices(spaceId)
     ])
     setSpaceProblems(problems || [])
     setTrainingPlans(plans || [])
-    setHomeworks(hw || [])
+    setPractices(hw || [])
   }, [])
 
   const refreshSpaceMemberData = useCallback(async (spaceId) => {
@@ -299,7 +299,7 @@ export default function useDashboardData({
     setRegistrationEnabled,
     spaceProblems,
     trainingPlans,
-    homeworks,
+    practices,
     spaceMembers,
     memberCandidates,
     setMemberCandidates,
@@ -309,14 +309,14 @@ export default function useDashboardData({
     canManageSelectedSpace,
     filteredSpaceProblems,
     allTrainingTags,
-    allHomeworkTags,
+    allPracticeTags,
     learningTrainingTag,
     setLearningTrainingTag,
-    learningHomeworkTag,
-    setLearningHomeworkTag,
+    learningPracticeTag,
+    setLearningPracticeTag,
     filteredLearningProblems,
     filteredLearningTrainingPlans,
-    filteredLearningHomeworks,
+    filteredLearningPractices,
     refreshSpaces,
     refreshSpaceData,
     refreshSpaceMemberData,

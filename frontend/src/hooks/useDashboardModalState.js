@@ -14,10 +14,10 @@ export default function useDashboardModalState({ selectedSpace, selectedSpaceId,
   const [assigningTrainingPlan, setAssigningTrainingPlan] = useState(null)
   const [trainingParticipantUserId, setTrainingParticipantUserId] = useState('')
   const [trainingParticipantSubmitting, setTrainingParticipantSubmitting] = useState(false)
-  const [editingHomework, setEditingHomework] = useState(null)
-  const [assigningHomework, setAssigningHomework] = useState(null)
-  const [homeworkTargetUserId, setHomeworkTargetUserId] = useState('')
-  const [homeworkTargetSubmitting, setHomeworkTargetSubmitting] = useState(false)
+  const [editingPractice, setEditingPractice] = useState(null)
+  const [assigningPractice, setAssigningPractice] = useState(null)
+  const [practiceTargetUserId, setPracticeTargetUserId] = useState('')
+  const [practiceTargetSubmitting, setPracticeTargetSubmitting] = useState(false)
   const [batchInput, setBatchInput] = useState('')
   const [batchSpaceId, setBatchSpaceId] = useState('')
   const [batchSubmitting, setBatchSubmitting] = useState(false)
@@ -44,13 +44,13 @@ export default function useDashboardModalState({ selectedSpace, selectedSpaceId,
       setTrainingParticipantUserId('')
       setTrainingParticipantSubmitting(false)
     }
-    if (activeConfigModal === 'create-homework' || activeConfigModal === 'edit-homework') {
-      setEditingHomework(null)
+    if (activeConfigModal === 'create-practice' || activeConfigModal === 'edit-practice') {
+      setEditingPractice(null)
     }
-    if (activeConfigModal === 'assign-homework-target') {
-      setAssigningHomework(null)
-      setHomeworkTargetUserId('')
-      setHomeworkTargetSubmitting(false)
+    if (activeConfigModal === 'assign-practice-target') {
+      setAssigningPractice(null)
+      setPracticeTargetUserId('')
+      setPracticeTargetSubmitting(false)
     }
     setActiveConfigModal('')
   }
@@ -66,10 +66,10 @@ export default function useDashboardModalState({ selectedSpace, selectedSpaceId,
     setAssigningTrainingPlan(null)
     setTrainingParticipantUserId('')
     setTrainingParticipantSubmitting(false)
-    setEditingHomework(null)
-    setAssigningHomework(null)
-    setHomeworkTargetUserId('')
-    setHomeworkTargetSubmitting(false)
+    setEditingPractice(null)
+    setAssigningPractice(null)
+    setPracticeTargetUserId('')
+    setPracticeTargetSubmitting(false)
     setActiveConfigModal('')
   }, [selectedSpaceId, canManageSelectedSpace, selectedSpace, normalizeLanguage])
 
@@ -100,14 +100,14 @@ export default function useDashboardModalState({ selectedSpace, selectedSpaceId,
     setTrainingParticipantUserId,
     trainingParticipantSubmitting,
     setTrainingParticipantSubmitting,
-    editingHomework,
-    setEditingHomework,
-    assigningHomework,
-    setAssigningHomework,
-    homeworkTargetUserId,
-    setHomeworkTargetUserId,
-    homeworkTargetSubmitting,
-    setHomeworkTargetSubmitting,
+    editingPractice,
+    setEditingPractice,
+    assigningPractice,
+    setAssigningPractice,
+    practiceTargetUserId,
+    setPracticeTargetUserId,
+    practiceTargetSubmitting,
+    setPracticeTargetSubmitting,
     batchInput,
     setBatchInput,
     batchSpaceId,

@@ -2,12 +2,12 @@ package api
 
 import "database/sql"
 
-func collectHomeworkProblemIDsTx(tx *sql.Tx, spaceID, homeworkID int64) ([]int64, error) {
+func collectPracticeProblemIDsTx(tx *sql.Tx, spaceID, practiceID int64) ([]int64, error) {
 	rows, err := tx.Query(`
 SELECT DISTINCT hi.problem_id
-FROM homework_items hi
-JOIN homeworks h ON h.id = hi.homework_id
-WHERE h.id=? AND h.space_id=?`, homeworkID, spaceID)
+FROM practice_items hi
+JOIN practices h ON h.id = hi.practice_id
+WHERE h.id=? AND h.space_id=?`, practiceID, spaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +62,8 @@ func deleteUnreferencedSpaceProblemsTx(tx *sql.Tx, spaceID int64, problemIDs []i
 SELECT
   (
     SELECT COUNT(1)
-    FROM homework_items hi
-    JOIN homeworks h ON h.id = hi.homework_id
+    FROM practice_items hi
+    JOIN practices h ON h.id = hi.practice_id
     WHERE hi.problem_id=? AND h.space_id=?
   ) + (
     SELECT COUNT(1)
@@ -98,7 +98,7 @@ SELECT
 
 func deleteProblemSubmissionRefsTx(tx *sql.Tx, spaceID, problemID int64) error {
 	if _, err := tx.Exec(`
-DELETE FROM homework_submission_record_items
+DELETE FROM practice_submission_record_items
 WHERE problem_id=?
   AND submission_id IN (
     SELECT id
@@ -116,23 +116,23 @@ WHERE problem_id=?
 	return nil
 }
 
-func deleteHomeworkOwnedRowsTx(tx *sql.Tx, homeworkID int64) error {
+func deletePracticeOwnedRowsTx(tx *sql.Tx, practiceID int64) error {
 	if _, err := tx.Exec(`
-DELETE FROM homework_submission_record_items
+DELETE FROM practice_submission_record_items
 WHERE record_id IN (
   SELECT id
-  FROM homework_submission_records
-  WHERE homework_id=?
-)`, homeworkID); err != nil {
+  FROM practice_submission_records
+  WHERE practice_id=?
+)`, practiceID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(`DELETE FROM homework_submission_records WHERE homework_id=?`, homeworkID); err != nil {
+	if _, err := tx.Exec(`DELETE FROM practice_submission_records WHERE practice_id=?`, practiceID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(`DELETE FROM homework_targets WHERE homework_id=?`, homeworkID); err != nil {
+	if _, err := tx.Exec(`DELETE FROM practice_targets WHERE practice_id=?`, practiceID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(`DELETE FROM homework_items WHERE homework_id=?`, homeworkID); err != nil {
+	if _, err := tx.Exec(`DELETE FROM practice_items WHERE practice_id=?`, practiceID); err != nil {
 		return err
 	}
 	return nil

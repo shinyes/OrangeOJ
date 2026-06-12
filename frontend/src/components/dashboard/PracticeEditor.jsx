@@ -41,20 +41,20 @@ function tagsToString(tags) {
   return Array.isArray(tags) ? tags.join(', ') : ''
 }
 
-function buildInitialForm(homework) {
-  const rawItems = Array.isArray(homework?.items) ? homework.items : []
+function buildInitialForm(practice) {
+  const rawItems = Array.isArray(practice?.items) ? practice.items : []
   return {
-    title: String(homework?.title || ''), description: String(homework?.description || ''),
-    dueAt: formatDatetimeLocal(homework?.dueAt), displayMode: String(homework?.displayMode || 'exam'),
-    published: Boolean(homework?.published),
-    tags: parseTags(homework?.tags),
+    title: String(practice?.title || ''), description: String(practice?.description || ''),
+    dueAt: formatDatetimeLocal(practice?.dueAt), displayMode: String(practice?.displayMode || 'exam'),
+    published: Boolean(practice?.published),
+    tags: parseTags(practice?.tags),
     items: rawItems.length > 0 ? rawItems.map((item) => ({ problemId: Number(item?.problemId) || null })) : [blankItem()]
   }
 }
 
-export default function HomeworkEditor({ open, mode = 'create', homework = null, spaceId, problemOptions = [], onClose, onSubmit }) {
+export default function PracticeEditor({ open, mode = 'create', practice = null, spaceId, problemOptions = [], onClose, onSubmit }) {
   const isEditMode = mode === 'edit'
-  const [form, setForm] = useState(() => buildInitialForm(homework))
+  const [form, setForm] = useState(() => buildInitialForm(practice))
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const itemRefs = useRef({})
@@ -77,9 +77,9 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
 
   useEffect(() => {
     if (!open) return
-    setForm(buildInitialForm(homework)); setSubmitting(false); setSubmitError('')
+    setForm(buildInitialForm(practice)); setSubmitting(false); setSubmitError('')
     setDragState({ active: false, index: null }); setDragOverIndex(null); setProblemSourceMode('manual'); setZipFile(null); setSearchPerItem({})
-  }, [open, homework, mode])
+  }, [open, practice, mode])
 
   const handleImportZip = (e) => {
     const file = e.target.files?.[0]
@@ -156,7 +156,7 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
 
   const handleSubmit = async () => {
     const title = form.title.trim()
-    if (!title) { setSubmitError('作业标题不能为空'); return }
+    if (!title) { setSubmitError('练习标题不能为空'); return }
 
     let problemDrafts = []
     let normalizedItems
@@ -171,8 +171,8 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
       normalizedItems = problems.map((p, index) => ({ problemId: Number(p.id), orderNo: index + 1, score: 100 }))
     } else {
       normalizedItems = form.items.map((item, index) => ({ problemId: Number(item.problemId), orderNo: index + 1, score: 100 }))
-      if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) { setSubmitError('请为每一道作业题选择有效题目'); return }
-      if (new Set(normalizedItems.map((item) => item.problemId)).size !== normalizedItems.length) { setSubmitError('作业中不能重复添加同一道题'); return }
+      if (normalizedItems.some((item) => !Number.isInteger(item.problemId) || item.problemId <= 0)) { setSubmitError('请为每一道练习题选择有效题目'); return }
+      if (new Set(normalizedItems.map((item) => item.problemId)).size !== normalizedItems.length) { setSubmitError('练习中不能重复添加同一道题'); return }
     }
 
     await onSubmit({ title, description: form.description.trim(), dueAt: toDueAtISO(form.dueAt), displayMode: form.displayMode || 'exam', published: form.published, tags: form.tags, items: normalizedItems, problemDrafts })
@@ -184,14 +184,14 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader><DialogTitle>{isEditMode ? '编辑作业' : '创建作业'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEditMode ? '编辑练习' : '创建练习'}</DialogTitle></DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="flex flex-col gap-4 pt-2 pr-4">
           {submitError && <ToastMessage message={submitError} severity="error" onShown={() => setSubmitError('')} />}
 
-          <Input placeholder="作业标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
-          <textarea ref={descRef} placeholder="作业说明" value={form.description}
+          <Input placeholder="练习标题" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
+          <textarea ref={descRef} placeholder="练习说明" value={form.description}
             onChange={(e) => updateField('description', e.target.value)}
             onInput={(e) => autoGrowTextarea(e.target)}
             rows={1}
@@ -255,14 +255,14 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
               {zipFile && (
                 <div className="mt-2">
                   <p className="text-sm font-medium">已选择文件：{zipFile.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">点击"创建作业"时将自动导入题目。</p>
+                  <p className="text-xs text-muted-foreground mt-1">点击"创建练习"时将自动导入题目。</p>
                 </div>
               )}
             </div>
           ) : (
             <>
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-medium">作业题目</h4>
+                <h4 className="text-sm font-medium">练习题目</h4>
                 <Button size="sm" variant="outline" onClick={addItem}><Plus className="h-4 w-4 mr-1" />添加题目</Button>
               </div>
 
@@ -334,7 +334,7 @@ export default function HomeworkEditor({ open, mode = 'create', homework = null,
         <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
           <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? '保存中...' : (isEditMode ? '保存修改' : '创建作业')}
+            {submitting ? '保存中...' : (isEditMode ? '保存修改' : '创建练习')}
           </Button>
         </DialogFooter>
       </DialogContent>

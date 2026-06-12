@@ -6,9 +6,9 @@ import RegisterPage from './pages/RegisterPage'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const CodingPage = lazy(() => import('./pages/CodingPage'))
-const HomeworkPage = lazy(() => import('./pages/HomeworkPage'))
-const HomeworkProgrammingPage = lazy(() => import('./pages/HomeworkProgrammingPage'))
-const HomeworkSubmissionRecordsPage = lazy(() => import('./pages/HomeworkSubmissionRecordsPage'))
+const PracticePage = lazy(() => import('./pages/PracticePage'))
+const PracticeProgrammingPage = lazy(() => import('./pages/PracticeProgrammingPage'))
+const PracticeSubmissionRecordsPage = lazy(() => import('./pages/PracticeSubmissionRecordsPage'))
 const TrainingProgressPage = lazy(() => import('./pages/TrainingProgressPage'))
 
 function PageFallback() {
@@ -75,16 +75,16 @@ export default function App() {
         element={renderProtectedPage(<TrainingProgressPage user={user} onLogout={handleLogout} />)}
       />
       <Route
-        path="/spaces/:spaceId/homeworks/:homeworkId"
-        element={renderProtectedPage(<HomeworkPage user={user} onLogout={handleLogout} />)}
+        path="/spaces/:spaceId/practices/:practiceId"
+        element={renderProtectedPage(<PracticePage user={user} onLogout={handleLogout} />)}
       />
       <Route
-        path="/spaces/:spaceId/homeworks/:homeworkId/problems/:problemId"
-        element={renderProtectedPage(<HomeworkProgrammingPage user={user} onLogout={handleLogout} />)}
+        path="/spaces/:spaceId/practices/:practiceId/problems/:problemId"
+        element={renderProtectedPage(<PracticeProgrammingPage user={user} onLogout={handleLogout} />)}
       />
       <Route
-        path="/spaces/:spaceId/homeworks/:homeworkId/submission-records"
-        element={renderProtectedPage(<HomeworkSubmissionRecordsPage user={user} onLogout={handleLogout} />)}
+        path="/spaces/:spaceId/practices/:practiceId/submission-records"
+        element={renderProtectedPage(<PracticeSubmissionRecordsPage user={user} onLogout={handleLogout} />)}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

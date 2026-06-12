@@ -16,7 +16,7 @@ import { X, History, Copy, Play, Save, ImageIcon } from 'lucide-react'
 import MarkdownContent from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
-import { homeworkDraftStorageKey } from '../utils/userScopedStorage'
+import { practiceDraftStorageKey } from '../utils/userScopedStorage'
 
 const editorLang = { cpp: 'cpp', python: 'python', go: 'go', turtle: 'python' }
 
@@ -100,12 +100,12 @@ function getSubmissionCaseSummary(submission) {
   return { totalCaseCount, passedCaseCount, failedCaseCount }
 }
 
-export default function HomeworkProgrammingPage() {
+export default function PracticeProgrammingPage() {
   const { user } = useAuth()
-  const { spaceId, homeworkId, problemId } = useParams()
+  const { spaceId, practiceId, problemId } = useParams()
   const [searchParams] = useSearchParams()
   const [space, setSpace] = useState(null)
-  const [homework, setHomework] = useState(null)
+  const [practice, setPractice] = useState(null)
   const [problem, setProblem] = useState(null)
   const [draft, setDraft] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -130,10 +130,10 @@ const turtleTimerRef = useRef(null)
   const [submissionDetailTab, setSubmissionDetailTab] = useState('code')
 
   const numericProblemId = Number(problemId)
-  const draftStorageKey = homeworkDraftStorageKey(user, spaceId, homeworkId)
-  const defaultBackTo = `/spaces/${spaceId}/homeworks/${homeworkId}`
+  const draftStorageKey = practiceDraftStorageKey(user, spaceId, practiceId)
+  const defaultBackTo = `/spaces/${spaceId}/practices/${practiceId}`
   const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
-  const backLabel = searchParams.get('returnLabel') || '返回作业'
+  const backLabel = searchParams.get('returnLabel') || '返回练习'
   const reviewSubmissionId = Number(searchParams.get('submissionId') || 0)
   const isReviewMode = Number.isInteger(reviewSubmissionId) && reviewSubmissionId > 0
   const selectedSubmissionCaseDetails = selectedSubmission?.caseDetails || []
@@ -218,7 +218,7 @@ const turtleTimerRef = useRef(null)
         programming: { ...stored.programming, [numericProblemId]: nextDraft }
       }
       localStorage.setItem(draftStorageKey, JSON.stringify(merged))
-      api.saveHomeworkDraft(spaceId, homeworkId, { draft: JSON.stringify(merged) }).catch(() => {})
+      api.savePracticeDraft(spaceId, practiceId, { draft: JSON.stringify(merged) }).catch(() => {})
       return nextDraft
     })
     if (message) setActionMessage(message)
@@ -235,13 +235,13 @@ const turtleTimerRef = useRef(null)
     ;(async () => {
       try {
         setLoading(true); setError(''); setActionMessage('')
-        const [spaceData, homeworkData, problemData] = await Promise.all([
+        const [spaceData, practiceData, problemData] = await Promise.all([
           api.getSpace(spaceId),
-          api.getHomework(spaceId, homeworkId),
+          api.getPractice(spaceId, practiceId),
           api.getProblem(spaceId, problemId)
         ])
-        const homeworkHasProblem = (homeworkData?.items || []).some((item) => Number(item.problemId) === numericProblemId)
-        if (!homeworkHasProblem) throw new Error('当前作业不包含这道编程题')
+        const practiceHasProblem = (practiceData?.items || []).some((item) => Number(item.problemId) === numericProblemId)
+        if (!practiceHasProblem) throw new Error('当前练习不包含这道编程题')
         if (problemData?.type !== 'programming') throw new Error('当前题目不是编程题')
 
         let nextDraft = null
@@ -277,7 +277,7 @@ const turtleTimerRef = useRef(null)
           const submissionResult = await api.listSubmissions(spaceId, problemId, { all: true }).catch(() => ({ submissions: [] }))
           let storedDraft = loadStoredDraft(draftStorageKey)
           try {
-            const cloudDraft = await api.getHomeworkDraft(spaceId, homeworkId)
+            const cloudDraft = await api.getPracticeDraft(spaceId, practiceId)
             if (cloudDraft?.draft) {
               const cloudParsed = JSON.parse(cloudDraft.draft)
               const cloudTime = cloudParsed?.lastSavedAt || cloudDraft?.updatedAt || ''
@@ -301,7 +301,7 @@ const turtleTimerRef = useRef(null)
         }
 
         setSpace(spaceData)
-        setHomework(homeworkData)
+        setPractice(practiceData)
         setProblem(problemData)
         setDraft(nextDraft)
         setSubmissions(nextSubmissions)
@@ -313,7 +313,7 @@ const turtleTimerRef = useRef(null)
         setLoading(false)
       }
     })()
-  }, [spaceId, homeworkId, problemId, reviewSubmissionId, draftStorageKey, user?.id, user?.userId, user?.username])
+  }, [spaceId, practiceId, problemId, reviewSubmissionId, draftStorageKey, user?.id, user?.userId, user?.username])
 
   const updateDraft = (patch) => {
     if (isReviewMode) return
@@ -405,9 +405,9 @@ const turtleTimerRef = useRef(null)
         <div className="flex items-center min-h-8 md:min-h-10 px-2 md:px-4 py-1 gap-1 md:gap-2 flex-wrap">
           <div className="flex-1 min-w-0 flex items-center gap-1 md:gap-2">
             <h1 className="text-xs md:text-sm font-semibold truncate shrink-0">{problem.title}</h1>
-            {homework?.dueAt && (
+            {practice?.dueAt && (
               <span className="text-[10px] md:text-xs text-muted-foreground truncate min-w-0">
-                {homework?.title ? `${homework.title} | ` : ''}剩余时间：{formatCountdown(homework.dueAt, now)} | 截止：{formatDateTime(homework.dueAt)}
+                {practice?.title ? `${practice.title} | ` : ''}剩余时间：{formatCountdown(practice.dueAt, now)} | 截止：{formatDateTime(practice.dueAt)}
               </span>
             )}
           </div>

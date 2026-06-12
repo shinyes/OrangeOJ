@@ -445,7 +445,7 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	defer tx.Rollback()
 
 	// Problem submission history should not block deletion. Clean dependent
-	// progress and submissions first, while keeping homework/training links as
+	// progress and submissions first, while keeping practice/training links as
 	// hard blockers on the problem itself.
 	if err := deleteProblemSubmissionRefsTx(tx, spaceID, problemID); err != nil {
 		return err
@@ -454,7 +454,7 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	res, err := tx.Exec(`DELETE FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID)
 	if err != nil {
 		if isForeignKeyErr(err) {
-			return respondError(c, fiber.StatusConflict, "problem is still referenced by homework or training")
+			return respondError(c, fiber.StatusConflict, "problem is still referenced by practice or training")
 		}
 		return err
 	}
@@ -467,7 +467,7 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	}
 	if err := tx.Commit(); err != nil {
 		if isForeignKeyErr(err) {
-			return respondError(c, fiber.StatusConflict, "problem is still referenced by homework or training")
+			return respondError(c, fiber.StatusConflict, "problem is still referenced by practice or training")
 		}
 		return err
 	}
@@ -554,7 +554,7 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeSt
 		if err != nil {
 			return err
 		}
-		// Allow regular users to see answer for objective questions (for homework review)
+		// Allow regular users to see answer for objective questions (for practice review)
 		includeAnswer = canManage || typeStr != "programming"
 	}
 

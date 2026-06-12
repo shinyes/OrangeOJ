@@ -344,28 +344,28 @@ VALUES(?, ?, ?, 'AC', 100, ?)`,
 	}
 }
 
-func TestDeleteSpaceProblemStillBlockedByHomeworkReference(t *testing.T) {
+func TestDeleteSpaceProblemStillBlockedByPracticeReference(t *testing.T) {
 	app, database := newTestApp(t, false)
 
-	spaceAdminID := seedUser(t, database, "space_problem_delete_homework_admin", "spaceproblemhomework123")
-	spaceID := mustCreateSpace(t, database, "Space-Problem-Delete-Homework")
+	spaceAdminID := seedUser(t, database, "space_problem_delete_practice_admin", "spaceproblempractice123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Delete-Practice")
 	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
-	problemID := mustCreateSpaceProblem(t, database, "仍被作业引用的题目")
+	problemID := mustCreateSpaceProblem(t, database, "仍被练习引用的题目")
 
-	homeworkRes, err := database.Exec(`
-INSERT INTO homeworks(space_id, title, description, created_by, published)
-VALUES(?, '删除阻塞作业', '', ?, 1)`, spaceID, spaceAdminID)
+	practiceRes, err := database.Exec(`
+INSERT INTO practices(space_id, title, description, created_by, published)
+VALUES(?, '删除阻塞练习', '', ?, 1)`, spaceID, spaceAdminID)
 	if err != nil {
-		t.Fatalf("create homework: %v", err)
+		t.Fatalf("create practice: %v", err)
 	}
-	homeworkID, _ := homeworkRes.LastInsertId()
+	practiceID, _ := practiceRes.LastInsertId()
 	if _, err := database.Exec(`
-INSERT INTO homework_items(homework_id, problem_id, order_no, score)
-VALUES(?, ?, 1, 100)`, homeworkID, problemID); err != nil {
-		t.Fatalf("create homework item: %v", err)
+INSERT INTO practice_items(practice_id, problem_id, order_no, score)
+VALUES(?, ?, 1, 100)`, practiceID, problemID); err != nil {
+		t.Fatalf("create practice item: %v", err)
 	}
 
-	cookie := mustLogin(t, app, "space_problem_delete_homework_admin", "spaceproblemhomework123")
+	cookie := mustLogin(t, app, "space_problem_delete_practice_admin", "spaceproblempractice123")
 	resp := doJSONRequest(t, app, http.MethodDelete, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusConflict {

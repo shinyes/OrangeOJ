@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Badge } from '../ui/badge'
 import { Label } from '../ui/label'
 import { X } from 'lucide-react'
-import HomeworkEditor from './HomeworkEditor'
+import PracticeEditor from './PracticeEditor'
 import ProblemEditor from './ProblemEditor'
 import TrainingPlanEditor from './TrainingPlanEditor'
 import { api } from '../../api'
@@ -71,44 +71,44 @@ export default function DashboardDialogs({
   modalState, onClose, spaceProblems, spaces,
   onCreateSpace, onUpdateSpaceSettings, onCreateSpaceProblem,
   onSaveEditedSpaceProblem, onCreateTrainingPlan, onSaveEditedTrainingPlan,
-  onAddTrainingParticipant, onCreateHomework, onSaveEditedHomework,
-  onAddHomeworkTarget, onAdminResetPassword, onBatchRegister, selectedSpaceId
+  onAddTrainingParticipant, onCreatePractice, onSaveEditedPractice,
+  onAddPracticeTarget, onAdminResetPassword, onBatchRegister, selectedSpaceId
 }) {
   const activeModal = modalState.activeConfigModal
-  const [homeworkTargetInput, setHomeworkTargetInput] = useState('')
-  const [homeworkTargetCandidates, setHomeworkTargetCandidates] = useState([])
-  const [selectedHomeworkTargetUsers, setSelectedHomeworkTargetUsers] = useState([])
-  const [homeworkTargetSearchLoading, setHomeworkTargetSearchLoading] = useState(false)
-  const [homeworkCurrentTargets, setHomeworkCurrentTargets] = useState([])
+  const [practiceTargetInput, setPracticeTargetInput] = useState('')
+  const [practiceTargetCandidates, setPracticeTargetCandidates] = useState([])
+  const [selectedPracticeTargetUsers, setSelectedPracticeTargetUsers] = useState([])
+  const [practiceTargetSearchLoading, setPracticeTargetSearchLoading] = useState(false)
+  const [practiceCurrentTargets, setPracticeCurrentTargets] = useState([])
   const [trainingTargetInput, setTrainingTargetInput] = useState('')
   const [trainingTargetCandidates, setTrainingTargetCandidates] = useState([])
   const [selectedTrainingTargetUsers, setSelectedTrainingTargetUsers] = useState([])
   const [trainingTargetSearchLoading, setTrainingTargetSearchLoading] = useState(false)
   const [trainingCurrentParticipants, setTrainingCurrentParticipants] = useState([])
   const [targetsRefreshKey, setTargetsRefreshKey] = useState(0)
-  const assigningHomeworkId = modalState.assigningHomework?.id || null
+  const assigningPracticeId = modalState.assigningPractice?.id || null
   const assigningTrainingPlanId = modalState.assigningTrainingPlan?.id || null
 
   useEffect(() => {
-    setHomeworkTargetInput('')
-    setHomeworkTargetCandidates([])
-    setSelectedHomeworkTargetUsers([])
-    setHomeworkTargetSearchLoading(false)
-    setHomeworkCurrentTargets([])
+    setPracticeTargetInput('')
+    setPracticeTargetCandidates([])
+    setSelectedPracticeTargetUsers([])
+    setPracticeTargetSearchLoading(false)
+    setPracticeCurrentTargets([])
     setTrainingTargetInput('')
     setTrainingTargetCandidates([])
     setSelectedTrainingTargetUsers([])
     setTrainingTargetSearchLoading(false)
     setTargetsRefreshKey(0)
-  }, [activeModal, assigningHomeworkId, assigningTrainingPlanId])
+  }, [activeModal, assigningPracticeId, assigningTrainingPlanId])
 
   useEffect(() => {
-    if (activeModal === 'assign-homework-target' && assigningHomeworkId && selectedSpaceId) {
-      api.getHomework(selectedSpaceId, assigningHomeworkId).then(hw => {
-        setHomeworkCurrentTargets(hw?.targets || [])
+    if (activeModal === 'assign-practice-target' && assigningPracticeId && selectedSpaceId) {
+      api.getPractice(selectedSpaceId, assigningPracticeId).then(hw => {
+        setPracticeCurrentTargets(hw?.targets || [])
       }).catch(() => {})
     }
-  }, [activeModal, assigningHomeworkId, selectedSpaceId, targetsRefreshKey])
+  }, [activeModal, assigningPracticeId, selectedSpaceId, targetsRefreshKey])
 
   useEffect(() => {
     if (activeModal === 'assign-training-participant' && assigningTrainingPlanId && selectedSpaceId) {
@@ -120,10 +120,10 @@ export default function DashboardDialogs({
     }
   }, [activeModal, assigningTrainingPlanId, selectedSpaceId, targetsRefreshKey])
 
-  const handleRemoveHomeworkTarget = async (userId) => {
+  const handleRemovePracticeTarget = async (userId) => {
     try {
-      await api.removeHomeworkTarget(selectedSpaceId, assigningHomeworkId, userId)
-      setHomeworkCurrentTargets(prev => prev.filter(t => t.userId !== userId))
+      await api.removePracticeTarget(selectedSpaceId, assigningPracticeId, userId)
+      setPracticeCurrentTargets(prev => prev.filter(t => t.userId !== userId))
     } catch { /* ignore */ }
   }
 
@@ -135,25 +135,25 @@ export default function DashboardDialogs({
   }
 
   useEffect(() => {
-    if (activeModal !== 'assign-homework-target' || !selectedSpaceId || !assigningHomeworkId) {
-      setHomeworkTargetCandidates([])
-      setHomeworkTargetSearchLoading(false)
+    if (activeModal !== 'assign-practice-target' || !selectedSpaceId || !assigningPracticeId) {
+      setPracticeTargetCandidates([])
+      setPracticeTargetSearchLoading(false)
       return undefined
     }
-    const keyword = homeworkTargetInput.trim()
-    if (!keyword) { setHomeworkTargetCandidates([]); setHomeworkTargetSearchLoading(false); return undefined }
+    const keyword = practiceTargetInput.trim()
+    if (!keyword) { setPracticeTargetCandidates([]); setPracticeTargetSearchLoading(false); return undefined }
     let active = true
     const timer = window.setTimeout(async () => {
       try {
-        setHomeworkTargetSearchLoading(true)
-        const list = await api.searchHomeworkTargetCandidates(selectedSpaceId, assigningHomeworkId, keyword)
+        setPracticeTargetSearchLoading(true)
+        const list = await api.searchPracticeTargetCandidates(selectedSpaceId, assigningPracticeId, keyword)
         if (!active) return
-        setHomeworkTargetCandidates(list || [])
-      } catch { if (!active) return; setHomeworkTargetCandidates([]) }
-      finally { if (active) setHomeworkTargetSearchLoading(false) }
+        setPracticeTargetCandidates(list || [])
+      } catch { if (!active) return; setPracticeTargetCandidates([]) }
+      finally { if (active) setPracticeTargetSearchLoading(false) }
     }, 250)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [activeModal, selectedSpaceId, assigningHomeworkId, homeworkTargetInput])
+  }, [activeModal, selectedSpaceId, assigningPracticeId, practiceTargetInput])
 
   useEffect(() => {
     if (activeModal !== 'assign-training-participant' || !selectedSpaceId || !assigningTrainingPlanId) {
@@ -206,13 +206,13 @@ export default function DashboardDialogs({
     return <TrainingPlanEditor open mode="edit" spaceId={selectedSpaceId} plan={modalState.editingTrainingPlan} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedTrainingPlan} />
   }
 
-  if (activeModal === 'create-homework') {
-    return <HomeworkEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreateHomework} />
+  if (activeModal === 'create-practice') {
+    return <PracticeEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreatePractice} />
   }
 
-  if (activeModal === 'edit-homework') {
-    if (!modalState.editingHomework) return null
-    return <HomeworkEditor open mode="edit" spaceId={selectedSpaceId} homework={modalState.editingHomework} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedHomework} />
+  if (activeModal === 'edit-practice') {
+    if (!modalState.editingPractice) return null
+    return <PracticeEditor open mode="edit" spaceId={selectedSpaceId} practice={modalState.editingPractice} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedPractice} />
   }
 
   if (activeModal === 'create-space') {
@@ -310,36 +310,36 @@ export default function DashboardDialogs({
     )
   }
 
-  if (activeModal === 'assign-homework-target') {
-    const title = modalState.assigningHomework ? `分配作业成员：${modalState.assigningHomework.title}` : '分配作业成员'
+  if (activeModal === 'assign-practice-target') {
+    const title = modalState.assigningPractice ? `分配练习成员：${modalState.assigningPractice.title}` : '分配练习成员'
     return (
       <Dialog open onOpenChange={() => onClose()}>
         <DialogContent>
           <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
           <div className="flex flex-col gap-4">
             <MemberComboBox
-              candidates={homeworkTargetCandidates}
-              selectedUsers={selectedHomeworkTargetUsers}
-              inputValue={homeworkTargetInput}
-              loading={homeworkTargetSearchLoading}
-              onInputChange={setHomeworkTargetInput}
-              onSelectionChange={setSelectedHomeworkTargetUsers}
+              candidates={practiceTargetCandidates}
+              selectedUsers={selectedPracticeTargetUsers}
+              inputValue={practiceTargetInput}
+              loading={practiceTargetSearchLoading}
+              onInputChange={setPracticeTargetInput}
+              onSelectionChange={setSelectedPracticeTargetUsers}
             />
             <div className="flex gap-3">
-              <Button disabled={modalState.homeworkTargetSubmitting || selectedHomeworkTargetUsers.length === 0}
-                onClick={async () => { await onAddHomeworkTarget(selectedHomeworkTargetUsers); setTargetsRefreshKey(k => k + 1) }}>
-                {modalState.homeworkTargetSubmitting ? '分配中...' : `确认分配${selectedHomeworkTargetUsers.length > 0 ? `（${selectedHomeworkTargetUsers.length}）` : ''}`}
+              <Button disabled={modalState.practiceTargetSubmitting || selectedPracticeTargetUsers.length === 0}
+                onClick={async () => { await onAddPracticeTarget(selectedPracticeTargetUsers); setTargetsRefreshKey(k => k + 1) }}>
+                {modalState.practiceTargetSubmitting ? '分配中...' : `确认分配${selectedPracticeTargetUsers.length > 0 ? `（${selectedPracticeTargetUsers.length}）` : ''}`}
               </Button>
               <Button variant="outline" onClick={onClose}>取消</Button>
             </div>
-            {homeworkCurrentTargets.length > 0 && (
+            {practiceCurrentTargets.length > 0 && (
               <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">已分配 {homeworkCurrentTargets.length} 名成员</Label>
+                <Label className="text-xs text-muted-foreground mb-2 block">已分配 {practiceCurrentTargets.length} 名成员</Label>
                 <div className="flex flex-wrap gap-1">
-                  {homeworkCurrentTargets.map((t) => (
+                  {practiceCurrentTargets.map((t) => (
                     <Badge key={t.userId} variant="secondary" className="gap-1">
                       #{t.userId} {t.username}
-                      <X className="h-3 w-3 cursor-pointer hover:text-destructive-foreground" onClick={() => handleRemoveHomeworkTarget(t.userId)} />
+                      <X className="h-3 w-3 cursor-pointer hover:text-destructive-foreground" onClick={() => handleRemovePracticeTarget(t.userId)} />
                     </Badge>
                   ))}
                 </div>
