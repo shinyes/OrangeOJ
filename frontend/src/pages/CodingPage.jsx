@@ -110,6 +110,9 @@ export default function CodingPage() {
   const [spaceMyRole, setSpaceMyRole] = useState('')
   const [showProblemEditor, setShowProblemEditor] = useState(false)
   const [savingProblem, setSavingProblem] = useState(false)
+  const [cloudSaveStatus, setCloudSaveStatus] = useState('') // '' | 'saving' | 'saved' | 'error'
+  const lastSavedCodeRef = useRef('')
+  const cloudDraftLoadedRef = useRef(false)
 
   const planId = searchParams.get('planId') ? Number(searchParams.get('planId')) : null
   const [trainingPlan, setTrainingPlan] = useState(null)
@@ -196,9 +199,27 @@ export default function CodingPage() {
         setProblem(data)
         setSpaceMyRole(space?.myRole || '')
         if (data.type === 'programming') {
-          const key = codeDraftStorageKey(user, spaceId, problemId, defaultLanguage)
+          const defaultLang = defaultLanguage
+          const key = codeDraftStorageKey(user, spaceId, problemId, defaultLang)
           const cached = localStorage.getItem(key)
-          setCode(cached || pickStarter(data.bodyJson, defaultLanguage))
+          let initialCode = pickStarter(data.bodyJson, defaultLang)
+          // Prefer cloud draft, then local cache
+          try {
+            const cloudDraft = await api.getProblemDraft(spaceId, problemId)
+            if (cloudDraft) {
+              const cloud = JSON.parse(cloudDraft.draft)
+              if (cloud && cloud.sourceCode !== undefined && cloud.language === defaultLang) {
+                initialCode = cloud.sourceCode
+              }
+            } else if (cached) {
+              initialCode = cached
+            }
+          } catch (e) {
+            if (cached) initialCode = cached
+          }
+          setCode(initialCode)
+          lastSavedCodeRef.current = initialCode
+          cloudDraftLoadedRef.current = true
         }
         if (planId) setTrainingPlan(results[2] || null)
         if (spaceId) {
@@ -217,10 +238,57 @@ export default function CodingPage() {
 
   useEffect(() => {
     if (!problem || problem.type !== 'programming') return
+    // Save current code to cloud before switching language
+    if (cloudDraftLoadedRef.current) {
+      api.saveProblemDraft(spaceId, problemId, { draft: JSON.stringify({ sourceCode: code, language }) }).catch(() => {})
+    }
+    // Load draft for new language
     const key = codeDraftStorageKey(user, spaceId, problemId, language)
     const cached = localStorage.getItem(key)
-    setCode(cached || pickStarter(problem.bodyJson, language))
-  }, [language, problem, spaceId, problemId, user?.id, user?.userId, user?.username])
+    let newCode = cached || pickStarter(problem.bodyJson, language)
+    // Also check cloud draft for this language
+    ;(async () => {
+      try {
+        const cloudDraft = await api.getProblemDraft(spaceId, problemId)
+        if (cloudDraft) {
+          const cloud = JSON.parse(cloudDraft.draft)
+          if (cloud && cloud.sourceCode !== undefined && cloud.language === language) {
+            newCode = cloud.sourceCode
+          }
+        }
+      } catch (e) { /* silent */ }
+      setCode(newCode)
+      lastSavedCodeRef.current = newCode
+    })()
+  }, [language]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save to cloud every 5 seconds
+  const codeRef = useRef('')
+  codeRef.current = code
+  const langRef = useRef('cpp')
+  langRef.current = language
+  useEffect(() => {
+    if (!problem || problem.type !== 'programming') return
+    const timer = setInterval(async () => {
+      const currentCode = codeRef.current
+      const currentLang = langRef.current
+      if (currentCode === lastSavedCodeRef.current) return
+      setCloudSaveStatus('saving')
+      try {
+        await api.saveProblemDraft(spaceId, problemId, { draft: JSON.stringify({ sourceCode: currentCode, language: currentLang }) })
+        lastSavedCodeRef.current = currentCode
+        setCloudSaveStatus('saved')
+        // Also sync to localStorage
+        const key = codeDraftStorageKey(user, spaceId, problemId, currentLang)
+        localStorage.setItem(key, currentCode)
+        setTimeout(() => setCloudSaveStatus((s) => s === 'saved' ? '' : s), 2000)
+      } catch (e) {
+        setCloudSaveStatus('error')
+        setTimeout(() => setCloudSaveStatus((s) => s === 'error' ? '' : s), 3000)
+      }
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [problem, spaceId, problemId, user])
 
   const handleRunClick = () => {
     setShowCustomInputDialog(true)
@@ -813,6 +881,18 @@ function CodingPageContent({
                     <Save className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />保存
                   </Button>
                 </>
+              )}
+              {cloudSaveStatus && (
+                <span className={cn(
+                  "text-[10px] whitespace-nowrap leading-none",
+                  cloudSaveStatus === 'saving' && 'text-amber-500',
+                  cloudSaveStatus === 'saved' && 'text-emerald-600',
+                  cloudSaveStatus === 'error' && 'text-red-600',
+                )}>
+                  {cloudSaveStatus === 'saving' && '⏳ 保存中...'}
+                  {cloudSaveStatus === 'saved' && '💾 已存'}
+                  {cloudSaveStatus === 'error' && '⚠️ 保存失败'}
+                </span>
               )}
               <div className="flex-1" />
               <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => setShowSubmissionHistory(true)}>

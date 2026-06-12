@@ -323,6 +323,17 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
 			FOREIGN KEY(practice_id) REFERENCES practices(id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS problem_drafts (
+			user_id    INTEGER NOT NULL,
+			space_id   INTEGER NOT NULL,
+			problem_id INTEGER NOT NULL,
+			draft_json TEXT NOT NULL,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY(user_id, space_id, problem_id),
+			FOREIGN KEY(user_id)    REFERENCES users(id)          ON DELETE CASCADE,
+			FOREIGN KEY(space_id)   REFERENCES spaces(id)         ON DELETE CASCADE,
+			FOREIGN KEY(problem_id) REFERENCES space_problems(id) ON DELETE CASCADE
+		);`,
 	}
 	for _, stmt := range stmts {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {

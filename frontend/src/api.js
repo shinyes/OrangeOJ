@@ -148,6 +148,9 @@ export const api = {
   getPracticeDraft: (spaceId, practiceId) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/draft`),
   savePracticeDraft: (spaceId, practiceId, body) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/draft`, { method: 'PUT', body }),
   deletePracticeDraft: (spaceId, practiceId) => apiFetch(`/api/spaces/${spaceId}/practices/${practiceId}/draft`, { method: 'DELETE' }),
+  getProblemDraft: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/draft`),
+  saveProblemDraft: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/draft`, { method: "PUT", body }),
+  deleteProblemDraft: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/draft`, { method: "DELETE" }),
 
   objectiveSubmit: (spaceId, problemId, answer) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/objective-submit`, { method: 'POST', body: { answer } }),
   run: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/run`, { method: 'POST', body }),
