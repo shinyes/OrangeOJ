@@ -480,6 +480,7 @@ export default function CodingPage() {
         solveReturnTo={solveReturnTo}
         solveReturnLabel={solveReturnLabel}
         trainingPlan={trainingPlan}
+        cloudSaveStatus={cloudSaveStatus}
       />
     </>
   )
@@ -487,7 +488,7 @@ export default function CodingPage() {
 
 function CodingPageContent({
   problem, body, backTo, backLabel, canEditProblem, showProblemEditor, setShowProblemEditor,
-  error, setError, language, setLanguage, code, setCode,
+  error, setError, language, setLanguage, code, setCode, cloudSaveStatus,
   customInput, setCustomInput, showCustomInputDialog, setShowCustomInputDialog,
   tempCustomInput, setTempCustomInput, consoleText, setConsoleText, consoleVariant, setConsoleVariant,
   running, submissions, showSubmissionHistory, setShowSubmissionHistory,
