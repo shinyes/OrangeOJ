@@ -211,6 +211,8 @@ func (a *API) handleGetTrainingPlan(c *fiber.Ctx) error {
 		"id":           planID,
 		"spaceId":      spaceID,
 		"title":        access.Title,
+		"description":  access.Description,
+		"tags":         decodeProblemTags(access.Tags),
 		"published":    access.PublishedAt.Valid,
 		"publishedAt":  scanNullString(access.PublishedAt),
 		"chapters":     chapters,
@@ -474,6 +476,7 @@ func (a *API) handleDeleteTrainingPlan(c *fiber.Ctx) error {
 type trainingPlanAccess struct {
 	Title       string
 	Description string
+	Tags        string
 	PublishedAt sql.NullString
 }
 
@@ -488,16 +491,17 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 
 	if canManage {
 		err = a.DB.QueryRow(`
-		SELECT title, description, published_at
+		SELECT title, description, tags_json, published_at
 	FROM training_plans
 	WHERE id=? AND space_id=?`, planID, spaceID).
-			Scan(&access.Title, &access.Description, &publishedAt)
+			Scan(&access.Title, &access.Description, &access.Tags, &publishedAt)
 	} else {
 		var isParticipant int
 		err = a.DB.QueryRow(`
 	SELECT
 	  tp.title,
 	  tp.description,
+	  tp.tags_json,
 	  tp.published_at,
 	  EXISTS(
 	    SELECT 1
@@ -506,7 +510,7 @@ func (a *API) loadTrainingPlanAccess(spaceID, planID, userID int64, globalRole s
 	  )
 	FROM training_plans tp
 	WHERE tp.id=? AND tp.space_id=?`, userID, planID, spaceID).
-			Scan(&access.Title, &access.Description, &publishedAt, &isParticipant)
+			Scan(&access.Title, &access.Description, &access.Tags, &publishedAt, &isParticipant)
 		if err == nil && isParticipant != 1 {
 			return trainingPlanAccess{}, fiber.NewError(fiber.StatusNotFound, "training plan not found in this space")
 		}

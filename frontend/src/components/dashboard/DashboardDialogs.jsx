@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
@@ -6,63 +6,89 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Badge } from '../ui/badge'
 import { Label } from '../ui/label'
-import { X } from 'lucide-react'
+import { Checkbox } from '../ui/checkbox'
+import { X, Search } from 'lucide-react'
 import PracticeEditor from './PracticeEditor'
 import ProblemEditor from './ProblemEditor'
 import TrainingPlanEditor from './TrainingPlanEditor'
 import { api } from '../../api'
 
 function MemberComboBox({ candidates, selectedUsers, inputValue, loading, onInputChange, onSelectionChange }) {
-  const getUserLabel = (user) => {
-    if (!user) return ''
-    const parts = [`#${user.id || user.userId}`, user.username]
-    if (user.globalRole === 'system_admin') parts.push('系统管理员')
-    if (user.role === 'space_admin') parts.push('空间管理员')
-    else if (user.role) parts.push('成员')
-    return parts.filter(Boolean).join(' · ')
+  const [focused, setFocused] = useState(false)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    const handleClick = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setFocused(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const userLabel = (user) =>
+    [`#${user.id || user.userId}`, user.username,
+      { system_admin: '系统管理员', space_admin: '空间管理员', member: '成员' }[user.role] || ''
+    ].filter(Boolean).join(' · ')
+
+  const toggle = (user) => {
+    onSelectionChange(
+      selectedUsers.some((u) => u.id === user.id)
+        ? selectedUsers.filter((u) => u.id !== user.id)
+        : [...selectedUsers, user]
+    )
+    onInputChange('')
   }
 
-  const handleSelect = (user) => {
-    if (selectedUsers.some((u) => u.id === user.id)) {
-      onSelectionChange(selectedUsers.filter((u) => u.id !== user.id))
-    } else {
-      onSelectionChange([...selectedUsers, user])
+  const firstCandidate = candidates.find((u) => !selectedUsers.some((s) => s.id === u.id))
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && firstCandidate) {
+      e.preventDefault()
+      toggle(firstCandidate)
     }
   }
 
+  const showDropdown = focused && (!!inputValue.trim() || candidates.length > 0 || loading)
+
   return (
-    <div className="space-y-2">
-      <Input
-        placeholder="搜索用户 ID 或用户名"
-        value={inputValue}
-        onChange={(e) => onInputChange(e.target.value)}
-      />
-      {loading && <p className="text-xs text-muted-foreground">搜索中...</p>}
-      {selectedUsers.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {selectedUsers.map((user) => (
-            <Badge key={user.id || user.userId} variant="secondary" className="gap-1 cursor-pointer"
-              onClick={() => handleSelect(user)}>
-              {getUserLabel(user)}
-              <X className="h-3 w-3" />
-            </Badge>
-          ))}
-        </div>
-      )}
-      {candidates.length > 0 && (
-        <div className="border rounded-lg max-h-48 overflow-y-auto">
-          {candidates.map((user) => (
-            <div key={user.id || user.userId}
-              className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
-              onClick={() => handleSelect(user)}>
-              {getUserLabel(user)}
-            </div>
-          ))}
-        </div>
-      )}
-      {!loading && !inputValue.trim() && candidates.length === 0 && (
-        <p className="text-xs text-muted-foreground">输入用户 ID 或用户名开始搜索</p>
-      )}
+    <div ref={wrapRef} className="relative">
+      <div className="flex flex-wrap gap-1 mb-1.5">
+        {selectedUsers.map((user) => (
+          <Badge key={user.id} variant="secondary" className="gap-1 shrink-0 cursor-default">
+            <span className="truncate max-w-[120px]">{user.username}</span>
+            <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => toggle(user)} />
+          </Badge>
+        ))}
+      </div>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="搜索用户 ID 或用户名..."
+          value={inputValue}
+          onChange={(e) => onInputChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onKeyDown={handleKeyDown}
+          className="pl-8" />
+        {showDropdown && (
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 border rounded-lg bg-popover shadow-lg max-h-52 overflow-y-auto">
+            {loading && <p className="text-center text-sm text-muted-foreground py-6">搜索中...</p>}
+            {!loading && !candidates.length && (
+              <p className="text-center text-sm text-muted-foreground py-6">
+                {inputValue.trim() ? '未找到匹配用户' : '输入用户 ID 或用户名开始搜索'}
+              </p>
+            )}
+            {candidates.map((user) => {
+              const checked = selectedUsers.some((u) => u.id === user.id)
+              return (
+                <div key={user.id}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent ${!checked && user.id === firstCandidate?.id ? 'bg-accent/50' : ''}`}
+                  onClick={() => toggle(user)}>
+                  <Checkbox checked={checked} />
+                  <span className={checked ? '' : 'text-muted-foreground'}>{userLabel(user)}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -72,7 +98,8 @@ export default function DashboardDialogs({
   onCreateSpace, onUpdateSpaceSettings, onCreateSpaceProblem,
   onSaveEditedSpaceProblem, onCreateTrainingPlan, onSaveEditedTrainingPlan,
   onAddTrainingParticipant, onCreatePractice, onSaveEditedPractice,
-  onAddPracticeTarget, onAdminResetPassword, onBatchRegister, selectedSpaceId
+  onAddPracticeTarget, onAdminResetPassword, onBatchRegister, selectedSpaceId,
+  practices, trainingPlans
 }) {
   const activeModal = modalState.activeConfigModal
   const [practiceTargetInput, setPracticeTargetInput] = useState('')
@@ -88,6 +115,18 @@ export default function DashboardDialogs({
   const [targetsRefreshKey, setTargetsRefreshKey] = useState(0)
   const assigningPracticeId = modalState.assigningPractice?.id || null
   const assigningTrainingPlanId = modalState.assigningTrainingPlan?.id || null
+
+  const practiceTagSuggestions = useMemo(() => {
+    const set = new Set()
+    ;(practices || []).forEach((p) => { if (Array.isArray(p.tags)) p.tags.forEach((t) => set.add(t)) })
+    return [...set]
+  }, [practices])
+
+  const trainingTagSuggestions = useMemo(() => {
+    const set = new Set()
+    ;(trainingPlans || []).forEach((p) => { if (Array.isArray(p.tags)) p.tags.forEach((t) => set.add(t)) })
+    return [...set]
+  }, [trainingPlans])
 
   useEffect(() => {
     setPracticeTargetInput('')
@@ -198,21 +237,21 @@ export default function DashboardDialogs({
   }
 
   if (activeModal === 'create-training-plan') {
-    return <TrainingPlanEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreateTrainingPlan} />
+    return <TrainingPlanEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} tagSuggestions={trainingTagSuggestions} onClose={onClose} onSubmit={onCreateTrainingPlan} />
   }
 
   if (activeModal === 'edit-training-plan') {
     if (!modalState.editingTrainingPlan) return null
-    return <TrainingPlanEditor open mode="edit" spaceId={selectedSpaceId} plan={modalState.editingTrainingPlan} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedTrainingPlan} />
+    return <TrainingPlanEditor open mode="edit" spaceId={selectedSpaceId} plan={modalState.editingTrainingPlan} problemOptions={spaceProblems} tagSuggestions={trainingTagSuggestions} onClose={onClose} onSubmit={onSaveEditedTrainingPlan} />
   }
 
   if (activeModal === 'create-practice') {
-    return <PracticeEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} onClose={onClose} onSubmit={onCreatePractice} />
+    return <PracticeEditor open mode="create" spaceId={selectedSpaceId} problemOptions={spaceProblems} tagSuggestions={practiceTagSuggestions} onClose={onClose} onSubmit={onCreatePractice} />
   }
 
   if (activeModal === 'edit-practice') {
     if (!modalState.editingPractice) return null
-    return <PracticeEditor open mode="edit" spaceId={selectedSpaceId} practice={modalState.editingPractice} problemOptions={spaceProblems} onClose={onClose} onSubmit={onSaveEditedPractice} />
+    return <PracticeEditor open mode="edit" spaceId={selectedSpaceId} practice={modalState.editingPractice} problemOptions={spaceProblems} tagSuggestions={practiceTagSuggestions} onClose={onClose} onSubmit={onSaveEditedPractice} />
   }
 
   if (activeModal === 'create-space') {

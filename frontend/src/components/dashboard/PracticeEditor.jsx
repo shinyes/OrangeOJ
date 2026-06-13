@@ -10,6 +10,7 @@ import { DatePicker } from '../ui/date-picker'
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { Badge } from '../ui/badge'
+import TagInput from '../ui/tag-input'
 import { Label } from '../ui/label'
 import { Upload } from 'lucide-react'
 import { api } from '../../api'
@@ -37,10 +38,6 @@ function parseTags(rawTags) {
   return []
 }
 
-function tagsToString(tags) {
-  return Array.isArray(tags) ? tags.join(', ') : ''
-}
-
 function buildInitialForm(practice) {
   const rawItems = Array.isArray(practice?.items) ? practice.items : []
   return {
@@ -52,7 +49,7 @@ function buildInitialForm(practice) {
   }
 }
 
-export default function PracticeEditor({ open, mode = 'create', practice = null, spaceId, problemOptions = [], onClose, onSubmit }) {
+export default function PracticeEditor({ open, mode = 'create', practice = null, spaceId, problemOptions = [], tagSuggestions = [], onClose, onSubmit }) {
   const isEditMode = mode === 'edit'
   const [form, setForm] = useState(() => buildInitialForm(practice))
   const [submitting, setSubmitting] = useState(false)
@@ -198,15 +195,8 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
             className="flex w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none" />
 
           <div>
-            <Input placeholder="标签（用逗号分隔）" value={tagsToString(form.tags)}
-              onChange={(e) => updateField('tags', parseTags(e.target.value))} />
-            {form.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1.5">
-                {form.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
-                ))}
-              </div>
-            )}
+            <label className="text-xs mb-1 block text-muted-foreground">标签</label>
+            <TagInput tags={form.tags} onChange={(v) => updateField('tags', v)} suggestions={tagSuggestions} />
           </div>
 
           <div className="flex gap-3 flex-wrap items-end">

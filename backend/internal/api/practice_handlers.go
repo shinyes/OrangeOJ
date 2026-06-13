@@ -262,6 +262,7 @@ func (a *API) handleGetPractice(c *fiber.Ctx) error {
 		"spaceId":     spaceID,
 		"title":       access.Title,
 		"description": access.Description,
+		"tags":        decodeProblemTags(access.Tags),
 		"dueAt":       scanNullString(access.DueAt),
 		"displayMode": access.DisplayMode,
 		"published":   access.Published,
@@ -927,6 +928,7 @@ func parseNullableTime(v string) sql.NullString {
 type practiceAccess struct {
 	Title       string
 	Description string
+	Tags        string
 	DueAt       sql.NullString
 	DisplayMode string
 	Published   bool
@@ -944,16 +946,17 @@ func (a *API) loadPracticeAccess(spaceID, practiceID, userID int64, globalRole s
 	var displayMode string
 	if canManage {
 		err = a.DB.QueryRow(`
-SELECT title, description, due_at, display_mode, published
+SELECT title, description, tags_json, due_at, display_mode, published
 FROM practices
 WHERE id=? AND space_id=?`, practiceID, spaceID).
-			Scan(&access.Title, &access.Description, &dueAt, &displayMode, &published)
+			Scan(&access.Title, &access.Description, &access.Tags, &dueAt, &displayMode, &published)
 	} else {
 		var assigned, hasTargets int
 		err = a.DB.QueryRow(`
 SELECT
   h.title,
   h.description,
+  h.tags_json,
   h.due_at,
   h.display_mode,
   h.published,
