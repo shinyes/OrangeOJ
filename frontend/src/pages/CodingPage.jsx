@@ -925,7 +925,8 @@ function CodingPageContent({
                   folding: false,
                   lineDecorationsWidth: 8,
                   renderSideBySide: false,
-                  diffWordWrap: 'off'
+                  diffWordWrap: 'off',
+                  mouseWheelZoom: true
                 }}
               />
             </div>

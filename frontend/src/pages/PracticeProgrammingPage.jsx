@@ -571,7 +571,8 @@ const turtleTimerRef = useRef(null)
                   lineDecorationsWidth: 8,
                   renderSideBySide: false,
                   diffWordWrap: 'off',
-                  readOnly: isReviewMode
+                  readOnly: isReviewMode,
+                  mouseWheelZoom: true
                 }}
               />
             </div>
