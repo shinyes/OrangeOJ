@@ -926,7 +926,8 @@ function CodingPageContent({
                   lineDecorationsWidth: 8,
                   renderSideBySide: false,
                   diffWordWrap: 'off',
-                  mouseWheelZoom: true
+                  mouseWheelZoom: true,
+                  stickyScroll: { enabled: false }
                 }}
               />
             </div>

@@ -572,7 +572,8 @@ const turtleTimerRef = useRef(null)
                   renderSideBySide: false,
                   diffWordWrap: 'off',
                   readOnly: isReviewMode,
-                  mouseWheelZoom: true
+                  mouseWheelZoom: true,
+                  stickyScroll: { enabled: false }
                 }}
               />
             </div>
