@@ -120,6 +120,8 @@ export default function CodingPage() {
   const body = useMemo(() => problem?.bodyJson || {}, [problem])
   const backTo = safeInternalPath(searchParams.get('returnTo'))
   const backLabel = searchParams.get('returnLabel') || '返回首页'
+  // Capture the original returnTo on first render; don't let in-training navigation overwrite it
+  const initialReturnToRef = useRef(searchParams.get('returnTo'))
   const solveReturnTo = planId ? `/spaces/${spaceId}/training-plans/${planId}` : backTo || '/'
   const solveReturnLabel = encodeURIComponent('返回训练')
   const canEditProblem = user?.globalRole === 'system_admin' || spaceMyRole === 'space_admin'
@@ -479,6 +481,7 @@ export default function CodingPage() {
         nextTrainingProblem={nextTrainingProblem}
         solveReturnTo={solveReturnTo}
         solveReturnLabel={solveReturnLabel}
+        initialReturnTo={initialReturnToRef.current}
         trainingPlan={trainingPlan}
         cloudSaveStatus={cloudSaveStatus}
       />
@@ -497,7 +500,7 @@ function CodingPageContent({
   objectiveAnswer, setObjectiveAnswer,
   handleRunClick, handleTestClick, saveDraft, handleCodeSubmit, handleObjectiveSubmit, copyToClipboard, user,
   planId, spaceId, problemId, trainingProblems, currentTrainingIndex, prevTrainingProblem, nextTrainingProblem,
-  solveReturnTo, solveReturnLabel, trainingPlan, isTransitioning }) {
+  solveReturnTo, solveReturnLabel, initialReturnTo, trainingPlan, isTransitioning }) {
   const samples = body.samples || []
   const showTrainingNav = planId != null && trainingProblems.length > 0
 
@@ -508,8 +511,11 @@ function CodingPageContent({
   const selectedSubmissionExpectedOutput = selectedSubmissionCase?.expectedOutput ?? selectedSubmission?.expectedOutput ?? ''
   const selectedSubmissionError = selectedSubmissionCase?.error ?? selectedSubmission?.error ?? ''
 
-  const trainingNavTargetUrl = (targetProblemId) =>
-    `/spaces/${spaceId}/problems/${targetProblemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(solveReturnTo)}&returnLabel=${solveReturnLabel}`
+  const trainingNavTargetUrl = (targetProblemId) => {
+    // Preserve the original returnTo so × always goes back to the correct tab
+    const trainingReturnTo = initialReturnTo || solveReturnTo
+    return `/spaces/${spaceId}/problems/${targetProblemId}/solve?planId=${planId}&returnTo=${encodeURIComponent(trainingReturnTo)}&returnLabel=${solveReturnLabel}`
+  }
 
   // ---- Turtle mode ----
   const isTurtleMode = language === 'turtle'
