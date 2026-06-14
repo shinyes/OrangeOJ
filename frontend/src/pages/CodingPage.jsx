@@ -246,6 +246,11 @@ export default function CodingPage() {
     })()
   }, [spaceId, problemId, planId, user?.id, user?.userId, user?.username])
 
+  // Reset objective answer when switching problems
+  useEffect(() => {
+    setObjectiveAnswer('')
+  }, [problemId])
+
   useEffect(() => {
     if (!problem || problem.type !== 'programming') return
     // Save current code to cloud before switching language
