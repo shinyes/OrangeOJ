@@ -897,7 +897,7 @@ function CodingPageContent({
                 </>
               )}
               <div className="flex-1" />
-              <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => setShowSubmissionHistory(true)}>
+              <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => { setSelectedSubmission(null); setSelectedSubmissionCaseIndex(0); setSubmissionDetailTab('code'); setShowSubmissionHistory(true) }}>
                 <History className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />
                 <span className="hidden sm:inline">测评记录</span> {submissions.length > 0 && `(${submissions.length})`}
               </Button>
@@ -968,7 +968,7 @@ function CodingPageContent({
       </Dialog>
 
       {/* Submission History Dialog */}
-      <Dialog open={showSubmissionHistory} onOpenChange={setShowSubmissionHistory}>
+      <Dialog open={showSubmissionHistory} onOpenChange={(open) => { if (open) { setSelectedSubmission(null); setSelectedSubmissionCaseIndex(0); setSubmissionDetailTab('code') } setShowSubmissionHistory(open) }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>测评记录</DialogTitle></DialogHeader>
 
