@@ -670,6 +670,13 @@ function CodingPageContent({
                   <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
                 </Button>
               )}
+              {planId && canEditProblem && (
+                <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" asChild>
+                  <Link to={`/spaces/${spaceId}/training-plans/${planId}/progress?returnTo=${encodeURIComponent(`/spaces/${spaceId}/problems/${problemId}/solve?planId=${planId}`)}&returnLabel=${encodeURIComponent('返回做题')}`}>
+                    <Users className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />进度
+                  </Link>
+                </Button>
+              )}
               <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>
                 <Link to={backTo}><X className="h-3.5 w-3.5 md:h-4 md:w-4" /></Link>
               </Button>
