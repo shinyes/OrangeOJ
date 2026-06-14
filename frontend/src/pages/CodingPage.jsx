@@ -580,10 +580,27 @@ function CodingPageContent({
   }
 
   // ---- Training navigation helpers ----
-  // Auto-collapse completed chapters
+  // Auto-collapse completed chapters except current one
   const [expandedChapters, setExpandedChapters] = useState({})
+
+  // Find which chapter the current problem belongs to
+  const currentChapterIndex = useMemo(() => {
+    if (!problemId || !trainingPlan?.chapters) return -1
+    for (let i = 0; i < trainingPlan.chapters.length; i++) {
+      const found = (trainingPlan.chapters[i].items || []).some(
+        item => Number(item.problemId) === Number(problemId)
+      )
+      if (found) return i
+    }
+    return -1
+  }, [problemId, trainingPlan])
+
   const getChapterExpanded = (chIdx, items) => {
+    // Always expand the current chapter
+    if (chIdx === currentChapterIndex) return true
+    // Use stored preference if set
     if (expandedChapters[chIdx] !== undefined) return expandedChapters[chIdx]
+    // Default: expand if not all done
     const allDone = items.length > 0 && items.every(it => it.completed)
     return !allDone
   }
