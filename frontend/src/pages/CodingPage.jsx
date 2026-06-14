@@ -896,18 +896,6 @@ function CodingPageContent({
                   </Button>
                 </>
               )}
-              {cloudSaveStatus && (
-                <span className={cn(
-                  "text-[10px] whitespace-nowrap leading-none",
-                  cloudSaveStatus === 'saving' && 'text-amber-500',
-                  cloudSaveStatus === 'saved' && 'text-emerald-600',
-                  cloudSaveStatus === 'error' && 'text-red-600',
-                )}>
-                  {cloudSaveStatus === 'saving' && '⏳ 保存中...'}
-                  {cloudSaveStatus === 'saved' && '💾 已存'}
-                  {cloudSaveStatus === 'error' && '⚠️ 保存失败'}
-                </span>
-              )}
               <div className="flex-1" />
               <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => setShowSubmissionHistory(true)}>
                 <History className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />
