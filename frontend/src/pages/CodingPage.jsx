@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../api'
@@ -144,6 +144,14 @@ export default function CodingPage() {
 
   const prevTrainingProblem = currentTrainingIndex > 0 ? trainingProblems[currentTrainingIndex - 1] : null
   const nextTrainingProblem = currentTrainingIndex >= 0 && currentTrainingIndex < trainingProblems.length - 1 ? trainingProblems[currentTrainingIndex + 1] : null
+
+  const refreshTrainingPlan = useCallback(async () => {
+    if (!planId) return
+    try {
+      const plan = await api.getTrainingPlan(spaceId, planId)
+      setTrainingPlan(plan)
+    } catch { /* non-blocking */ }
+  }, [planId, spaceId])
 
   const handleProblemEdit = async (problemData) => {
     setSavingProblem(true)
@@ -360,6 +368,8 @@ export default function CodingPage() {
         const historyResult = await api.listSubmissions(spaceId, problemId, { all: true })
         setSubmissions(historyResult?.submissions || [])
       }
+      // Refresh training plan completed status after a test/submission
+      if (planId) refreshTrainingPlan()
     } catch (err) {
       setError(err.message)
       setConsoleVariant('error')
@@ -387,6 +397,7 @@ export default function CodingPage() {
       } else {
         toast.error('回答错误，再想想看', { duration: 1000 })
       }
+      if (planId) refreshTrainingPlan()
     } catch (err) {
       setError(err.message)
     } finally {
