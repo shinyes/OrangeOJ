@@ -41,6 +41,7 @@
     color: hsl(var(--foreground));
     scrollbar-gutter: stable;
     overflow-y: auto;
+    font-size: 17px;
   }
 
   body {
