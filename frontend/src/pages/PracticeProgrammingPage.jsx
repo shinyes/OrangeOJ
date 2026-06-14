@@ -320,10 +320,19 @@ const turtleTimerRef = useRef(null)
     persistProgrammingDraft((current) => ({ ...current, ...patch, touched: true }))
   }
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (isReviewMode) return
     const savedAt = new Date().toISOString()
-    persistProgrammingDraft((current) => ({ ...current, lastSavedAt: savedAt }), '代码草稿已保存到云端')
+    try {
+      // Submit to judge system — this counts as submitting the problem in the practice context
+      const result = await api.submit(spaceId, numericProblemId, { language: draft.language, sourceCode: draft.code, inputData: draft.customInput || '' })
+      const submissionId = Number(result?.submissionId || 0)
+      persistProgrammingDraft((current) => ({ ...current, lastSavedAt: savedAt, touched: true, submissionId }), '代码已提交到判题系统')
+      await refreshSubmissionHistory()
+    } catch (err) {
+      setError(err.message || '提交判题失败，已保存草稿')
+      persistProgrammingDraft((current) => ({ ...current, lastSavedAt: savedAt, touched: true }), '草稿已保存到云端，但提交判题失败')
+    }
   }
 
   const pollSubmission = async (submissionId, mode) => {

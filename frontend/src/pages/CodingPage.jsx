@@ -304,7 +304,9 @@ export default function CodingPage() {
   const saveDraft = () => {
     const key = codeDraftStorageKey(user, spaceId, problemId, language)
     localStorage.setItem(key, code)
-    setConsoleText((prev) => `${prev}\n[${nowTimeText()}] 草稿已保存到本地`)
+    api.saveProblemDraft(spaceId, problemId, { draft: JSON.stringify({ sourceCode: code, language }) }).catch(() => {})
+    lastSavedCodeRef.current = code
+    setConsoleText((prev) => `${prev}\n[${nowTimeText()}] 草稿已保存到云端`)
   }
 
   const pollSubmission = async (submissionId, mode) => {
