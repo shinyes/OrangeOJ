@@ -972,7 +972,7 @@ SELECT
   ) AS has_targets
 FROM practices h
 WHERE h.id=? AND h.space_id=?`, userID, practiceID, spaceID).
-			Scan(&access.Title, &access.Description, &dueAt, &displayMode, &published, &assigned, &hasTargets)
+			Scan(&access.Title, &access.Description, &access.Tags, &dueAt, &displayMode, &published, &assigned, &hasTargets)
 		if err == nil && (published != 1 || (hasTargets == 1 && assigned != 1)) {
 			return practiceAccess{}, fiber.NewError(fiber.StatusNotFound, "practice not found in this space")
 		}

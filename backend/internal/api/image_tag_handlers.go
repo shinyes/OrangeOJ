@@ -57,6 +57,7 @@ func (a *API) CreateImageTag(c *fiber.Ctx) error {
 	err = tx.QueryRow(`
 		INSERT INTO image_tags (name, color, created_by, created_at)
 		VALUES (?, ?, ?, ?)
+		RETURNING id
 	`, req.Name, req.Color, user.ID, time.Now()).Scan(&tagID)
 
 	if err != nil {
