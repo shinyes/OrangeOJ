@@ -113,6 +113,8 @@ export default function CodingPage() {
   const [cloudSaveStatus, setCloudSaveStatus] = useState('') // '' | 'saving' | 'saved' | 'error'
   const lastSavedCodeRef = useRef('')
   const cloudDraftLoadedRef = useRef(false)
+  const allCodeRef = useRef({})
+  const prevLangRef = useRef('cpp')
 
   const planId = searchParams.get('planId') ? Number(searchParams.get('planId')) : null
   const [trainingPlan, setTrainingPlan] = useState(null)
@@ -212,24 +214,24 @@ export default function CodingPage() {
           const defaultLang = defaultLanguage
           const key = codeDraftStorageKey(user, spaceId, problemId, defaultLang)
           const cached = localStorage.getItem(key)
-          let initialCode = pickStarter(data.bodyJson, defaultLang)
-          // Prefer cloud draft, then local cache
+          // Load cloud draft — 现在存储所有语言: { languages: { cpp: "...", ... } }
           try {
             const cloudDraft = await api.getProblemDraft(spaceId, problemId)
             if (cloudDraft) {
               const cloud = JSON.parse(cloudDraft.draft)
-              if (cloud && cloud.sourceCode !== undefined && cloud.language === defaultLang) {
-                initialCode = cloud.sourceCode
+              if (cloud?.languages) {
+                Object.assign(allCodeRef.current, cloud.languages)
+              } else if (cloud?.sourceCode !== undefined && cloud?.language) {
+                allCodeRef.current[cloud.language] = cloud.sourceCode
               }
-            } else if (cached) {
-              initialCode = cached
             }
-          } catch (e) {
-            if (cached) initialCode = cached
-          }
+          } catch (e) { /* silent */ }
+          // 优先级: allCodeRef(云草稿) > localStorage > 起始代码
+          let initialCode = allCodeRef.current[defaultLang] || cached || pickStarter(data.bodyJson, defaultLang)
           setCode(initialCode)
           lastSavedCodeRef.current = initialCode
           cloudDraftLoadedRef.current = true
+          prevLangRef.current = defaultLang
         }
         if (planId) setTrainingPlan(results[2] || null)
         if (spaceId) {
@@ -253,28 +255,27 @@ export default function CodingPage() {
 
   useEffect(() => {
     if (!problem || problem.type !== 'programming') return
-    // Save current code to cloud before switching language
+    const oldLang = prevLangRef.current
+    const newLang = language
+    if (oldLang === newLang) return
+
+    // 保存旧语言代码到 allCodeRef
+    allCodeRef.current[oldLang] = code
+
+    // 保存所有语言到云草稿
     if (cloudDraftLoadedRef.current) {
-      api.saveProblemDraft(spaceId, problemId, { draft: JSON.stringify({ sourceCode: code, language }) }).catch(() => {})
+      api.saveProblemDraft(spaceId, problemId, {
+        draft: JSON.stringify({ languages: { ...allCodeRef.current } })
+      }).catch(() => {})
     }
-    // Load draft for new language
-    const key = codeDraftStorageKey(user, spaceId, problemId, language)
+
+    // 从 allCodeRef / localStorage / 起始代码加载新语言
+    const key = codeDraftStorageKey(user, spaceId, problemId, newLang)
     const cached = localStorage.getItem(key)
-    let newCode = cached || pickStarter(problem.bodyJson, language)
-    // Also check cloud draft for this language
-    ;(async () => {
-      try {
-        const cloudDraft = await api.getProblemDraft(spaceId, problemId)
-        if (cloudDraft) {
-          const cloud = JSON.parse(cloudDraft.draft)
-          if (cloud && cloud.sourceCode !== undefined && cloud.language === language) {
-            newCode = cloud.sourceCode
-          }
-        }
-      } catch (e) { /* silent */ }
-      setCode(newCode)
-      lastSavedCodeRef.current = newCode
-    })()
+    const newCode = allCodeRef.current[newLang] || cached || pickStarter(problem.bodyJson, newLang)
+    setCode(newCode)
+    lastSavedCodeRef.current = newCode
+    prevLangRef.current = newLang
   }, [language]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save to cloud every 5 seconds
@@ -290,7 +291,11 @@ export default function CodingPage() {
       if (currentCode === lastSavedCodeRef.current) return
       setCloudSaveStatus('saving')
       try {
-        await api.saveProblemDraft(spaceId, problemId, { draft: JSON.stringify({ sourceCode: currentCode, language: currentLang }) })
+        // 更新 allCodeRef 并保存所有语言
+        allCodeRef.current[currentLang] = currentCode
+        await api.saveProblemDraft(spaceId, problemId, {
+          draft: JSON.stringify({ languages: { ...allCodeRef.current } })
+        })
         lastSavedCodeRef.current = currentCode
         setCloudSaveStatus('saved')
         // Also sync to localStorage
@@ -317,7 +322,10 @@ export default function CodingPage() {
   const saveDraft = () => {
     const key = codeDraftStorageKey(user, spaceId, problemId, language)
     localStorage.setItem(key, code)
-    api.saveProblemDraft(spaceId, problemId, { draft: JSON.stringify({ sourceCode: code, language }) }).catch(() => {})
+    allCodeRef.current[language] = code
+    api.saveProblemDraft(spaceId, problemId, {
+      draft: JSON.stringify({ languages: { ...allCodeRef.current } })
+    }).catch(() => {})
     lastSavedCodeRef.current = code
   }
 

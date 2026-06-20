@@ -21,12 +21,7 @@ const PROBLEM_TYPE_LABELS = { programming: '编程题', single_choice: '单选�
 function blankCase() { return { input: '', output: '' } }
 
 function defaultStarterCode() {
-  return {
-    cpp: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  return 0;\n}',
-    python: 'print("hello")',
-    go: 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("hello")\n}',
-    turtle: 'import turtle\n\nt = turtle.Turtle()\nt.speed(3)\n\n# 在这里编写你的绘图代码\n# 示例：画一个正方形\nfor _ in range(4):\n    t.forward(100)\n    t.left(90)\n\nturtle.done()'
-  }
+  return { cpp: '', python: '', go: '', turtle: '' }
 }
 
 function normalizeCaseList(list) {
@@ -79,7 +74,7 @@ function buildProblemDataFromForm(form, options = {}) {
       inputFormat: form.programming.inputFormat, outputFormat: form.programming.outputFormat,
       samples: form.programming.samples.filter((item) => item.input || item.output),
       testCases: form.programming.testCases.filter((item) => item.input || item.output),
-      starterCode: { cpp: form.programming.starterCode.cpp, python: form.programming.starterCode.python, go: form.programming.starterCode.go }
+      starterCode: { cpp: form.programming.starterCode.cpp, python: form.programming.starterCode.python, go: form.programming.starterCode.go, turtle: form.programming.starterCode.turtle }
     }
     return { bodyJson, answerJson }
   }
