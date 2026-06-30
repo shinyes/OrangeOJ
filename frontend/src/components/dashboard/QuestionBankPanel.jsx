@@ -141,6 +141,7 @@ export default function QuestionBankPanel({
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [searchText, setSearchText] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
+  const [tagsExpanded, setTagsExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageSeverity, setMessageSeverity] = useState('success')
@@ -530,28 +531,36 @@ export default function QuestionBankPanel({
 
               {/* Tags */}
               {allAvailableTags.length > 0 && (
-                <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                  {allAvailableTags.map(tag => (
-                    <Badge key={tag}
-                      variant={selectedTags.includes(tag) ? 'default' : 'outline'}
-                      className="cursor-pointer text-xs select-none"
-                      onClick={() => setSelectedTags(prev =>
-                        prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-                      )}
-                    >
-                      {tag}
-                      {selectedTags.includes(tag) && (
-                        <X className="h-3 w-3 ml-1" onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedTags(prev => prev.filter(t => t !== tag))
-                        }} />
-                      )}
-                    </Badge>
-                  ))}
-                  {selectedTags.length > 0 && (
-                    <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5 text-muted-foreground"
-                      onClick={() => setSelectedTags([])}>
-                      清除筛选
+                <div className="mb-3">
+                  <div className={`flex flex-wrap items-center gap-1.5 ${tagsExpanded ? '' : 'max-h-[3.25rem] overflow-hidden'}`}>
+                    {allAvailableTags.map(tag => (
+                      <Badge key={tag}
+                        variant={selectedTags.includes(tag) ? 'default' : 'outline'}
+                        className="cursor-pointer text-xs select-none"
+                        onClick={() => setSelectedTags(prev =>
+                          prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                        )}
+                      >
+                        {tag}
+                        {selectedTags.includes(tag) && (
+                          <X className="h-3 w-3 ml-1" onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedTags(prev => prev.filter(t => t !== tag))
+                          }} />
+                        )}
+                      </Badge>
+                    ))}
+                    {selectedTags.length > 0 && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5 text-muted-foreground"
+                        onClick={() => setSelectedTags([])}>
+                        清除筛选
+                      </Button>
+                    )}
+                  </div>
+                  {allAvailableTags.length > 10 && (
+                    <Button variant="link" size="sm" className="h-5 text-xs px-0 mt-0.5"
+                      onClick={() => setTagsExpanded(!tagsExpanded)}>
+                      {tagsExpanded ? '收起标签' : `展开全部 ${allAvailableTags.length} 个标签`}
                     </Button>
                   )}
                 </div>
