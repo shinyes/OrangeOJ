@@ -35,7 +35,11 @@ export default function useProblemActions({
     if (!ensureCanManageSpace()) return
     try {
       setError('')
-      const created = await api.createSpaceProblem(selectedSpaceId, problemData)
+      // Inject directoryId from window variable (set by QuestionBankPanel)
+      const dirId = window._createdProblemDirId
+      const body = dirId != null ? { ...problemData, directoryId: dirId } : problemData
+      window._createdProblemDirId = null // reset
+      const created = await api.createSpaceProblem(selectedSpaceId, body)
       const createdProblem = await api.getProblem(selectedSpaceId, created?.id)
       if (problemTagsMismatch(problemData.tags, createdProblem?.tags)) {
         throw new Error('题目标签未生效，请重启后端后重试')

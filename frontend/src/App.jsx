@@ -67,6 +67,10 @@ export default function App() {
         element={renderProtectedPage(<DashboardPage user={user} onLogout={handleLogout} view="system-manage" />)}
       />
       <Route
+        path="/manage/question-bank"
+        element={renderProtectedPage(<DashboardPage user={user} onLogout={handleLogout} view="question-bank" />)}
+      />
+      <Route
         path="/spaces/:spaceId/problems/:problemId/solve"
         element={renderProtectedPage(<CodingPage user={user} onLogout={handleLogout} />)}
       />

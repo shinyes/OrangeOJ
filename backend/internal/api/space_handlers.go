@@ -25,6 +25,7 @@ type problemPayload struct {
 	AnswerJSON     json.RawMessage `json:"answerJson"`
 	TimeLimitMS    int             `json:"timeLimitMs"`
 	MemoryLimitMiB int             `json:"memoryLimitMiB"`
+	DirectoryID     *int64          `json:"directoryId"`
 }
 
 type spaceSettingsPayload struct {
@@ -74,7 +75,7 @@ func insertSpaceProblem(exec sqlExecer, spaceID, createdBy int64, req problemPay
 
 	res, err := exec.Exec(`
 INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, createdBy)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, req.DirectoryID, createdBy)
 	if err != nil {
 		return 0, err
 	}
@@ -391,7 +392,7 @@ func (a *API) handleListSpaceProblemLinks(c *fiber.Ctx) error {
 		return err
 	}
 	rows, err := a.DB.Query(`
-SELECT p.id, p.type, p.title, p.tags_json, p.statement_md, p.time_limit_ms, p.memory_limit_mib, COALESCE(upp.best_verdict, '')
+SELECT p.id, p.type, p.title, p.tags_json, p.statement_md, p.time_limit_ms, p.memory_limit_mib, p.directory_id, COALESCE(upp.best_verdict, '')
 FROM space_problems p
 LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = p.id
 WHERE p.space_id=?
@@ -404,7 +405,8 @@ ORDER BY p.id DESC`, spaceID, user.ID, spaceID)
 	for rows.Next() {
 		var id, timeLimit, memoryLimit int64
 		var typeStr, title, tagsJSON, statement, bestVerdict string
-		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &statement, &timeLimit, &memoryLimit, &bestVerdict); err != nil {
+		var directoryID *int64
+		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &statement, &timeLimit, &memoryLimit, &directoryID, &bestVerdict); err != nil {
 			return err
 		}
 		items = append(items, fiber.Map{
@@ -415,6 +417,7 @@ ORDER BY p.id DESC`, spaceID, user.ID, spaceID)
 			"statementMd":    statement,
 			"timeLimitMs":    timeLimit,
 			"memoryLimitMiB": memoryLimit,
+			"directoryId":        directoryID,
 			"completed":      bestVerdict == "AC",
 		})
 	}

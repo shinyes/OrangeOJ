@@ -174,6 +174,12 @@ export const api = {
   exportProblems: (spaceId, problemIds) => downloadFile(`/api/spaces/${spaceId}/problems/export?ids=${problemIds.join(',')}`),
   importProblems: (spaceId, zipFile) => uploadFile(`/api/spaces/${spaceId}/problems/import`, zipFile),
 
+  listProblemDirectories: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-directories`),
+  createProblemDirectory: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/problem-directories`, { method: "POST", body }),
+  updateProblemDirectory: (spaceId, dirId, body) => apiFetch(`/api/spaces/${spaceId}/problem-directories/${dirId}`, { method: "PUT", body }),
+  deleteProblemDirectory: (spaceId, dirId) => apiFetch(`/api/spaces/${spaceId}/problem-directories/${dirId}`, { method: "DELETE" }),
+  moveProblemToDirectory: (spaceId, problemId, directoryId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/directory`, { method: "PUT", body: { directoryId } }),
+
   exportPractice: (spaceId, practiceId) => downloadFile(`/api/spaces/${spaceId}/practices/${practiceId}/export`),
   exportTrainingPlan: (spaceId, planId) => downloadFile(`/api/spaces/${spaceId}/training-plans/${planId}/export`)
 }

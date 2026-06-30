@@ -1,15 +1,12 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
 import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
 import { Label } from '../ui/label'
-import { X, Loader2, Upload } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
-import { api } from '../../api'
 
 function SummaryItem({ label, value }) {
   return (
@@ -81,34 +78,11 @@ function MemberComboBox({ candidates, selectedUsers, inputValue, loading, onInpu
 export default function SpaceManagePanel({
   hasAnySpaceAdminRole, selectedSpace, canManageSelectedSpace, spaceManageTab, onSpaceManageTabChange,
   normalizeLanguage, openSpaceSettingsModal, spaceSettingsMessage,
-  spaceProblemSearch, onSpaceProblemSearchChange, filteredSpaceProblems, spaceProblems, problemTypeText,
-  editingProblemId, onOpenEditProblem, onExportSpaceProblem, onRemoveSpaceProblem,
   spaceMembers, memberRole, onMemberRoleChange, memberCandidateInput, onMemberCandidateInputChange,
   memberCandidates, selectedMemberCandidates, onSelectedMemberCandidatesChange, memberSearchLoading,
   onSubmitMembers, memberSubmitting, onResetMemberPassword, resettingMemberId, onRemoveMember, removingMemberId,
-  memberMessage, openUploadProblemModal, onProblemsImported, selectedSpaceId
+  memberMessage
 }) {
-  const [zipImporting, setZipImporting] = useState(false)
-  const [zipImportMessage, setZipImportMessage] = useState('')
-
-  const handleImportZip = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !selectedSpaceId) return
-    setZipImporting(true)
-    setZipImportMessage('')
-    try {
-      const result = await api.importProblems(selectedSpaceId, file)
-      const count = result?.problems?.length || 0
-      setZipImportMessage(`已从 ZIP 导入 ${count} 道题目`)
-      if (onProblemsImported) onProblemsImported(selectedSpaceId)
-    } catch (err) {
-      setZipImportMessage(err.message || 'ZIP 导入失败')
-    } finally {
-      setZipImporting(false)
-      e.target.value = ''
-    }
-  }
-
   const renderMemberLabel = (member) => {
     if (!member) return ''
     const parts = [`#${member.userId || member.id}`, member.username]
@@ -161,7 +135,6 @@ export default function SpaceManagePanel({
             <Tabs value={spaceManageTab} onValueChange={onSpaceManageTabChange}>
               <TabsList className="w-full overflow-x-auto flex-nowrap">
                 <TabsTrigger value="settings" className="flex-1 whitespace-nowrap">空间设置</TabsTrigger>
-                <TabsTrigger value="problems" className="flex-1 whitespace-nowrap">题库设置</TabsTrigger>
                 <TabsTrigger value="members" className="flex-1 whitespace-nowrap">成员管理</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -179,10 +152,9 @@ export default function SpaceManagePanel({
                   <Button onClick={openSpaceSettingsModal}>编辑空间设置</Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                   <SummaryItem label="空间名称" value={selectedSpace.name || '-'} />
                   <SummaryItem label="默认语言" value={normalizeLanguage(selectedSpace.defaultProgrammingLanguage || 'cpp')} />
-                  <SummaryItem label="空间题目数" value={spaceProblems.length} />
                 </div>
 
                 <Card className="mt-4">
@@ -193,64 +165,6 @@ export default function SpaceManagePanel({
                 </Card>
 
                 {spaceSettingsMessage && <div className="mt-4"><ToastMessage message={spaceSettingsMessage} severity="success" /></div>}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Problems Tab */}
-          {spaceManageTab === 'problems' && (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
-                  <div>
-                    <h2 className="text-lg font-bold">当前空间题库</h2>
-                    <p className="text-sm text-muted-foreground mt-1">题目只属于当前空间，仅管理当前空间题目。</p>
-                  </div>
-                  <div className="flex gap-2 flex-wrap w-full sm:w-auto">
-                    <Button onClick={openUploadProblemModal} className="flex-1 sm:flex-none">新建题目</Button>
-                    <Button variant="outline" disabled={zipImporting} onClick={() => document.getElementById('problem-zip-import-input')?.click()} className="flex-1 sm:flex-none">
-                      <Upload className="h-4 w-4 mr-1" />
-                      {zipImporting ? '导入中...' : '从ZIP导入'}
-                    </Button>
-                    <input type="file" id="problem-zip-import-input" accept=".zip" className="hidden" onChange={handleImportZip} />
-                  </div>
-                </div>
-
-                {zipImportMessage && (
-                  <div className="mt-3">
-                    <ToastMessage message={zipImportMessage} severity={zipImportMessage.startsWith('已') ? 'success' : 'error'} onShown={() => setZipImportMessage('')} />
-                  </div>
-                )}
-
-                <Input className="mt-4" placeholder="按题目 ID、标题或标签搜索" value={spaceProblemSearch}
-                  onChange={(e) => onSpaceProblemSearchChange(e.target.value)} />
-
-                <div className="mt-4 max-h-[55vh] overflow-auto">
-                  <div className="flex flex-col gap-2 pr-3">
-                    {filteredSpaceProblems.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        {spaceProblems.length === 0 ? '当前空间暂无题目。' : '当前检索条件下没有匹配题目。'}
-                      </p>
-                    ) : (
-                      filteredSpaceProblems.map((problem) => {
-                        const tagsText = (problem.tags || []).join(' / ')
-                        const lineText = [`#${problem.id}`, problem.title, problemTypeText(problem.type), problem.type === 'programming' && `${problem.timeLimitMs}ms`, problem.type === 'programming' && `${problem.memoryLimitMiB}MiB`, tagsText].filter(Boolean).join(' · ')
-                        return (
-                          <ProblemRow key={problem.id} text={lineText} actions={(
-                            <>
-                              <Button size="sm" variant="outline" asChild>
-                                <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`}>去做题</Link>
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => onOpenEditProblem(problem.id)}>编辑</Button>
-                              <Button size="sm" variant="outline" onClick={() => onExportSpaceProblem(problem.id)}>导出</Button>
-                              <Button size="sm" variant="destructive" onClick={() => onRemoveSpaceProblem(problem.id)}>删除</Button>
-                            </>
-                          )} />
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
               </CardContent>
             </Card>
           )}

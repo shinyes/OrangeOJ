@@ -4,13 +4,12 @@ import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
-import { MoreHorizontal, Search, CheckCircle2 } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { api } from '../../api'
 import { differenceInDays } from 'date-fns'
 
 export default function LearningPanel({
   selectedSpace, spaces, spaceTab,
-  learningProblemSearch, onLearningProblemSearchChange, filteredLearningProblems, problemTypeText,
   learningTrainingSearch, onLearningTrainingSearchChange, canManageSelectedSpace,
   onOpenCreateTrainingPlan, filteredLearningTrainingPlans, onOpenEditTrainingPlan,
   onOpenAssignTrainingParticipant, onExportTrainingPlan, onDeleteTrainingPlan, trainingActionMessage,
@@ -51,61 +50,6 @@ export default function LearningPanel({
 
   return (
     <main>
-      {/* Problems Tab */}
-      {spaceTab === 'problems' && (
-        <div>
-          <div className="mb-4">
-            <div className="relative">
-              <Input placeholder="搜索题目（ID/标题/标签）" value={learningProblemSearch}
-                onChange={(e) => onLearningProblemSearchChange(e.target.value)}
-                className="w-full pl-9" />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 max-w-3xl mx-auto">
-            {filteredLearningProblems.length === 0 && (
-              <p className="text-muted-foreground text-center py-8 w-full">没有匹配题目</p>
-            )}
-            {filteredLearningProblems.map((problem) => (
-              <Link key={problem.id}
-                to={`/spaces/${selectedSpace.id}/problems/${problem.id}/solve`}
-                className="no-underline group">
-                <Card className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 hover:border-primary">
-                  <CardContent className="py-3 px-4">
-                    {/* Mobile layout: two rows */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-                      {/* Top row: ID + Title (mobile) / All in one row (desktop) */}
-                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-                        <span className="font-bold text-sm text-primary shrink-0 min-w-[3.5ch] tabular-nums">#{problem.id}</span>
-                        <div className="w-4 shrink-0 flex items-center justify-center">
-                          {problem.completed ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                          ) : null}
-                        </div>
-                        <span className="font-medium text-sm text-foreground leading-snug truncate">
-                          {problem.title}
-                        </span>
-                      </div>
-                      {/* Bottom row: Tags + Type */}
-                      <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap sm:shrink-0 ml-[3.5ch] sm:ml-0">
-                        {(problem.tags || []).length > 0 && (
-                          <div className="flex items-center gap-1 flex-wrap min-w-0">
-                            {problem.tags.map((tag) => (
-                              <Badge key={`${problem.id}-${tag}`} variant="outline" className="text-[11px] h-[22px] shrink-0">{tag}</Badge>
-                            ))}
-                          </div>
-                        )}
-                        <Badge className="bg-primary/10 text-primary text-xs h-[22px] shrink-0 ml-auto sm:ml-1">{problemTypeText(problem.type)}</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Training Tab */}
       {spaceTab === 'training' && (
         <div>

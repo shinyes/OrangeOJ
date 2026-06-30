@@ -17,7 +17,7 @@ export default function useDashboardData({
   locationSearch,
   setError,
   spaceProblemSearch,
-  learningProblemSearch,
+
   learningTrainingSearch,
   learningPracticeSearch,
   memberCandidateInput
@@ -25,7 +25,7 @@ export default function useDashboardData({
   const selectedSpaceKey = useMemo(() => selectedSpaceStorageKey(user), [user?.id, user?.userId, user?.username])
   const [spaces, setSpaces] = useState([])
   const [selectedSpaceId, setSelectedSpaceId] = useState(() => readStoredSelectedSpaceId(selectedSpaceKey))
-  const [spaceTab, setSpaceTab] = useState('problems')
+  const [spaceTab, setSpaceTab] = useState('training')
   const [spaceManageTab, setSpaceManageTab] = useState('settings')
   const [systemTab, setSystemTab] = useState('settings')
   const [learningTrainingTag, setLearningTrainingTag] = useState('')
@@ -62,20 +62,7 @@ export default function useDashboardData({
     })
   }, [spaceProblemSearch, spaceProblems])
 
-  const filteredLearningProblems = useMemo(() => {
-    const keyword = learningProblemSearch.trim().toLowerCase()
-    if (!keyword) return spaceProblems
-    return spaceProblems.filter((problem) => {
-      const tagsText = Array.isArray(problem.tags) ? problem.tags.join(' ').toLowerCase() : ''
-      return (
-        String(problem.id).includes(keyword) ||
-        String(problem.title || '').toLowerCase().includes(keyword) ||
-        tagsText.includes(keyword)
-      )
-    })
-  }, [learningProblemSearch, spaceProblems])
-
-  const allTrainingTags = useMemo(() => {
+    const allTrainingTags = useMemo(() => {
     const tagSet = new Set()
     trainingPlans.forEach((plan) => {
       if (Array.isArray(plan.tags)) plan.tags.forEach((t) => tagSet.add(t))
@@ -117,12 +104,12 @@ export default function useDashboardData({
 
   const requestedSpaceTab = useMemo(() => {
     const raw = new URLSearchParams(locationSearch).get('tab')
-    return ['problems', 'training', 'practice'].includes(raw) ? raw : ''
+    return ['training', 'practice'].includes(raw) ? raw : ''
   }, [locationSearch])
 
   const requestedSpaceManageTab = useMemo(() => {
     const raw = new URLSearchParams(locationSearch).get('mtab')
-    return ['settings', 'problems', 'members'].includes(raw) ? raw : ''
+    return ['settings', 'members'].includes(raw) ? raw : ''
   }, [locationSearch])
 
   const requestedSystemTab = useMemo(() => {
@@ -314,7 +301,6 @@ export default function useDashboardData({
     setLearningTrainingTag,
     learningPracticeTag,
     setLearningPracticeTag,
-    filteredLearningProblems,
     filteredLearningTrainingPlans,
     filteredLearningPractices,
     refreshSpaces,

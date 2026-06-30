@@ -323,6 +323,17 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
 			FOREIGN KEY(practice_id) REFERENCES practices(id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS problem_directories (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			space_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			parent_id INTEGER,
+			order_no INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+			FOREIGN KEY(parent_id) REFERENCES problem_directories(id) ON DELETE SET NULL
+		);`,
+
 		`CREATE TABLE IF NOT EXISTS problem_drafts (
 			user_id    INTEGER NOT NULL,
 			space_id   INTEGER NOT NULL,
@@ -344,6 +355,9 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	if err := addColumnIfNotExists(ctx, db, "space_problems", "space_id", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+		if err := addColumnIfNotExists(ctx, db, "space_problems", "directory_id", "INTEGER"); err != nil {
 		return err
 	}
 	if err := addColumnIfNotExists(ctx, db, "space_problems", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {

@@ -6,12 +6,13 @@ import { Card, CardContent } from '../components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu'
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetClose } from '../components/ui/sheet'
-import { ChevronDown, Menu, Home, Building2, Settings, LogOut, KeyRound } from 'lucide-react'
+import { ChevronDown, Menu, Home, Building2, Settings, LogOut, KeyRound, FolderTree } from 'lucide-react'
 import ChangePasswordPanel from '../components/dashboard/ChangePasswordPanel'
 import ConfirmDialog from '../components/dashboard/ConfirmDialog'
 import DashboardDialogs from '../components/dashboard/DashboardDialogs'
 import DashboardSpaceSwitcher from '../components/dashboard/DashboardSpaceSwitcher'
 import LearningPanel from '../components/dashboard/LearningPanel'
+import QuestionBankPanel from "../components/dashboard/QuestionBankPanel"
 import SpaceManagePanel from '../components/dashboard/SpaceManagePanel'
 import SystemPanel from '../components/dashboard/SystemPanel'
 import ToastMessage from '../components/ToastMessage'
@@ -22,13 +23,6 @@ import useConfirmDialog from '../hooks/useConfirmDialog'
 import useDashboardModalState from '../hooks/useDashboardModalState'
 import useDashboardMemberState from '../hooks/useDashboardMemberState'
 import useDashboardSearchState from '../hooks/useDashboardSearchState'
-
-function problemTypeText(type) {
-  if (type === 'programming') return '编程题'
-  if (type === 'single_choice') return '单选题'
-  if (type === 'true_false') return '判断题'
-  return type
-}
 
 function normalizeLanguage(language) {
   if (language === 'python') return 'python'
@@ -43,6 +37,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
   const isLearnView = view === 'learn'
   const isSpaceManageView = view === 'space-manage'
   const isSystemManageView = view === 'system-manage'
+  const isQuestionBankView = view === 'question-bank'
   const [error, setError] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [trainingActionMessage, setTrainingActionMessage] = useState('')
@@ -80,7 +75,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     learningPracticeTag,
     setLearningPracticeTag,
     filteredSpaceProblems,
-    filteredLearningProblems,
     filteredLearningTrainingPlans,
     filteredLearningPractices,
     refreshSpaces,
@@ -94,7 +88,7 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     locationSearch: location.search,
     setError,
     spaceProblemSearch: searchState.spaceProblemSearch,
-    learningProblemSearch: searchState.learningProblemSearch,
+    
     learningTrainingSearch: searchState.learningTrainingSearch,
     learningPracticeSearch: searchState.learningPracticeSearch,
     memberCandidateInput: memberState.memberCandidateInput
@@ -263,15 +257,23 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     return () => document.removeEventListener('keydown', handleEsc)
   }, [modalState.activeConfigModal, passwordState.changePasswordOpen, passwordState.closeChangePassword])
 
+  // Expose problem actions to window for QuestionBankPanel
+  useEffect(() => {
+    window.openCreateProblem = (dirId) => { window._createdProblemDirId = dirId || null; openConfigModal("upload-space-problem") }
+    window.openEditProblem = (problemId) => { openEditProblem(problemId) }
+    window.removeProblem = (problemId) => { removeSpaceProblem(problemId) }
+    return () => {
+      delete window.openCreateProblem
+      delete window.openEditProblem
+      delete window.removeProblem
+    }
+  }, [openEditProblem, removeSpaceProblem, openConfigModal])
+
   const renderLearningSection = () => (
     <LearningPanel
       selectedSpace={selectedSpace}
       spaces={spaces}
       spaceTab={spaceTab}
-      learningProblemSearch={searchState.learningProblemSearch}
-      onLearningProblemSearchChange={searchState.setLearningProblemSearch}
-      filteredLearningProblems={filteredLearningProblems}
-      problemTypeText={problemTypeText}
       learningTrainingSearch={searchState.learningTrainingSearch}
       onLearningTrainingSearchChange={searchState.setLearningTrainingSearch}
       allTrainingTags={allTrainingTags}
@@ -310,15 +312,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       normalizeLanguage={normalizeLanguage}
       openSpaceSettingsModal={() => openConfigModal('space-settings')}
       spaceSettingsMessage={modalState.spaceSettingsMessage}
-      spaceProblemSearch={searchState.spaceProblemSearch}
-      onSpaceProblemSearchChange={searchState.setSpaceProblemSearch}
-      filteredSpaceProblems={filteredSpaceProblems}
-      spaceProblems={spaceProblems}
-      problemTypeText={problemTypeText}
-      editingProblemId={modalState.editingProblemId}
-      onOpenEditProblem={openEditProblem}
-      onExportSpaceProblem={(problemId) => api.exportProblems(selectedSpaceId, [problemId])}
-      onRemoveSpaceProblem={removeSpaceProblem}
       spaceMembers={spaceMembers}
       memberRole={memberState.memberRole}
       onMemberRoleChange={memberState.setMemberRole}
@@ -335,9 +328,6 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       onRemoveMember={handleRemoveSpaceMember}
       removingMemberId={memberState.removingMemberId}
       memberMessage={memberState.memberMessage}
-      openUploadProblemModal={() => openConfigModal('upload-space-problem')}
-      onProblemsImported={refreshSpaceData}
-      selectedSpaceId={selectedSpaceId}
     />
   )
 
@@ -354,6 +344,17 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       onCopyBatchResult={copyBatchResult}
       toFriendlyError={toFriendlyError}
       onCleanupOrphanedImages={api.cleanupOrphanedImages}
+    />
+  )
+
+  const renderQuestionBankSection = () => (
+    <QuestionBankPanel
+      selectedSpaceId={selectedSpaceId}
+      selectedSpace={selectedSpace}
+      canManageSelectedSpace={canManageSelectedSpace}
+      spaceProblems={spaceProblems}
+      filteredSpaceProblems={filteredSpaceProblems}
+      onRefreshProblems={() => refreshSpaceData(selectedSpaceId)}
     />
   )
 
@@ -374,6 +375,18 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       return renderSystemSection()
     }
 
+    if (isQuestionBankView) {
+      if (!hasAnySpaceAdminRole) {
+        return (
+          <Card><CardContent className="p-6">
+            <h2 className="text-base font-bold">题库管理</h2>
+            <p className="text-muted-foreground">当前账号无管理员权限。</p>
+          </CardContent></Card>
+        )
+      }
+      return renderQuestionBankSection()
+    }
+
     return (
       <Card><CardContent className="p-6">
         <p className="text-muted-foreground">未知页面。</p>
@@ -386,7 +399,9 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     ? '学习主页'
     : isSpaceManageView
       ? '空间管理'
-      : '系统管理'
+      : isQuestionBankView
+        ? '题库管理'
+        : '系统管理'
 
   return (
     <div className="min-h-screen bg-background">
@@ -416,6 +431,13 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                       <SheetClose asChild>
                         <Button variant={isSpaceManageView ? 'default' : 'ghost'} className="justify-start gap-3 h-11" onClick={() => navigate('/manage/space')}>
                           <Building2 className="h-4 w-4" />空间管理
+                        </Button>
+                      </SheetClose>
+                    )}
+                    {hasAnySpaceAdminRole && (
+                      <SheetClose asChild>
+                        <Button variant={isQuestionBankView ? 'default' : 'ghost'} className="justify-start gap-3 h-11" onClick={() => navigate('/manage/question-bank')}>
+                          <FolderTree className="h-4 w-4" />题库管理
                         </Button>
                       </SheetClose>
                     )}
@@ -468,9 +490,8 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                   />
                   <Tabs value={spaceTab} onValueChange={(v) => { setSpaceTab(v); navigate({ search: `?tab=${v}` }, { replace: true }) }}>
                     <TabsList className="h-9">
-                      <TabsTrigger value="problems" className="text-xs px-3">题库</TabsTrigger>
-                      <TabsTrigger value="practice" className="text-xs px-3">练习</TabsTrigger>
                       <TabsTrigger value="training" className="text-xs px-3">训练</TabsTrigger>
+                      <TabsTrigger value="practice" className="text-xs px-3">练习</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>
@@ -494,7 +515,25 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                 </div>
               )}
 
-              {!isLearnView && !isSpaceManageView && (
+              {isQuestionBankView && (
+                <div className="flex items-center gap-2 ml-3">
+                  <span className="text-base font-semibold">{pageTitle}</span>
+                  <DashboardSpaceSwitcher
+                    spaces={spaces}
+                    selectedSpaceId={selectedSpaceId}
+                    onSpaceChange={setSelectedSpaceId}
+                    isSystemAdmin={isSystemAdmin}
+                    hasAnySpaceAdminRole={hasAnySpaceAdminRole}
+                    mode="manage"
+                    showManageButton={false}
+                    showCreateButton
+                    onManage={() => navigate("/manage/space")}
+                    onCreateSpace={() => openConfigModal("create-space")}
+                  />
+                </div>
+              )}
+
+              {!isLearnView && !isSpaceManageView && !isQuestionBankView && (
                 <span className="text-base font-semibold ml-3">{pageTitle}</span>
               )}
             </div>
@@ -517,6 +556,11 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
                   {hasAnySpaceAdminRole && (
                     <DropdownMenuItem onClick={() => { navigate('/manage/space'); setUserMenuOpen(false); }}>
                       空间管理
+                    </DropdownMenuItem>
+                  )}
+                  {hasAnySpaceAdminRole && (
+                    <DropdownMenuItem onClick={() => { navigate('/manage/question-bank'); setUserMenuOpen(false); }}>
+                      题库管理
                     </DropdownMenuItem>
                   )}
                   {isSystemAdmin && (
