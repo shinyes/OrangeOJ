@@ -49,6 +49,18 @@ func collectProblemImageRefs(problems []problemExportEntry) []string {
 	return refs
 }
 
+var imagesPathPattern = regexp.MustCompile(`\(images/`)
+
+func rewriteProblemImageRefs(p *problemPayload) {
+	p.StatementMD = imagesPathPattern.ReplaceAllString(p.StatementMD, "(/api/uploads/")
+	if len(p.BodyJSON) > 0 {
+		p.BodyJSON = json.RawMessage(imagesPathPattern.ReplaceAllString(string(p.BodyJSON), "(/api/uploads/"))
+	}
+	if len(p.AnswerJSON) > 0 {
+		p.AnswerJSON = json.RawMessage(imagesPathPattern.ReplaceAllString(string(p.AnswerJSON), "(/api/uploads/"))
+	}
+}
+
 type problemExportEntry struct {
 	Type           string          `json:"type"`
 	Title          string          `json:"title"`
@@ -303,6 +315,7 @@ func (a *API) handleImportProblems(c *fiber.Ctx) error {
 		if err := normalizeProblemPayload(p); err != nil {
 			return respondError(c, fiber.StatusBadRequest, fmt.Sprintf("题目 %q: %v", p.Title, err))
 		}
+		rewriteProblemImageRefs(p)
 		problemID, err := insertSpaceProblem(a.DB, spaceID, user.ID, *p)
 		if err != nil {
 			return err
@@ -390,6 +403,7 @@ func (a *API) handleImportTrainingPlan(c *fiber.Ctx) error {
 		if err := normalizeProblemPayload(p); err != nil {
 			return respondError(c, fiber.StatusBadRequest, fmt.Sprintf("题目 %q: %v", p.Title, err))
 		}
+		rewriteProblemImageRefs(p)
 		problemID, err := insertSpaceProblem(a.DB, spaceID, user.ID, *p)
 		if err != nil {
 			return err
@@ -679,3 +693,6 @@ func parseIntParam(s string) (int64, error) {
 	}
 	return id, nil
 }
+
+
+
