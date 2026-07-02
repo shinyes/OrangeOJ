@@ -74,8 +74,8 @@ func insertSpaceProblem(exec sqlExecer, spaceID, createdBy int64, req problemPay
 	}
 
 	res, err := exec.Exec(`
-INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, created_by)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, req.DirectoryID, createdBy)
+INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, directory_id, created_by)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, req.DirectoryID, createdBy)
 	if err != nil {
 		return 0, err
 	}
