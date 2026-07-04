@@ -110,6 +110,7 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
 
   const reorderRef = useRef(reorderItems)
   reorderRef.current = reorderItems
+  const dragOverIndexRef = useRef(null)
 
   useEffect(() => {
     if (!dragState.active) return
@@ -120,17 +121,21 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
         const rect = el.getBoundingClientRect()
         if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
           setDragOverIndex(Number(idx))
+          dragOverIndexRef.current = Number(idx)
           break
         }
       }
     }
 
     const handleMouseUp = () => {
-      if (dragOverIndex !== null && dragState.index !== null && dragOverIndex !== dragState.index) {
-        reorderRef.current(dragState.index, dragOverIndex)
+      const src = dragState.index
+      const dst = dragOverIndexRef.current
+      if (dst !== null && src !== null && dst !== src) {
+        reorderRef.current(src, dst)
       }
       setDragState({ active: false, index: null })
       setDragOverIndex(null)
+      dragOverIndexRef.current = null
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -140,7 +145,7 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [dragState.active, dragState.index, dragOverIndex])
+  }, [dragState.active])
 
   const moveItem = (index, dir) => reorderItems(index, index + dir)
 
@@ -256,24 +261,22 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
                 <Button size="sm" variant="outline" onClick={addItem}><Plus className="h-4 w-4 mr-1" />添加题目</Button>
               </div>
 
-              {form.displayMode === 'list' && (
-                <ToastMessage message="题单模式会严格按下面的题目顺序展示。可以直接拖拽手柄调整顺序。" severity="info" />
-              )}
+
 
               <div className="flex flex-col gap-1">
                 {form.items.map((item, index) => (
                   <div key={index}
                     ref={(el) => { itemRefs.current[index] = el }}
-                    className={`flex items-center gap-1 rounded-lg border bg-card ${form.displayMode === 'list' && dragOverIndex === index ? 'border-primary shadow-sm' : ''} ${dragState.index === index ? 'opacity-70' : ''}`}>
+                    className={`flex items-center gap-1 rounded-lg border bg-card ${dragOverIndex === index ? 'border-primary shadow-sm' : ''} ${dragState.index === index ? 'opacity-70' : ''}`}>
 
                     <Button size="icon" variant="ghost"
                       onMouseDown={(e) => {
-                        if (form.displayMode !== 'list') return
                         e.preventDefault()
                         setDragState({ active: true, index })
                         setDragOverIndex(index)
+                        dragOverIndexRef.current = index
                       }}
-                      className={`shrink-0 ${form.displayMode === 'list' ? 'cursor-grab' : 'cursor-default'}`}>
+                      className="shrink-0 cursor-grab">
                       <GripVertical className="h-4 w-4" />
                     </Button>
 

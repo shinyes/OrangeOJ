@@ -113,7 +113,7 @@ export const api = {
   getSpace: (spaceId) => apiFetch(`/api/spaces/${spaceId}`),
   updateSpace: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}`, { method: 'PUT', body }),
 
-  listSpaceProblems: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problems`),
+  listSpaceProblems: (spaceId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/problems`, { limit: options.limit, offset: options.offset })),
   listSpaceMembers: (spaceId) => apiFetch(`/api/spaces/${spaceId}/members`),
   searchSpaceMemberCandidates: (spaceId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/member-candidates`, { q: keyword })),
   createSpaceProblem: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/problems`, { method: 'POST', body }),

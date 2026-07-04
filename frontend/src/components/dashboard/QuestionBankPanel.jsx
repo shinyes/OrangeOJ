@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -8,7 +8,7 @@ import { api } from '../../api'
 import ToastMessage from '../ToastMessage'
 import {
   Folder, FolderOpen, FileText, Plus, Pencil, Trash2, ChevronRight, ChevronDown,
-  Search, Upload, MoreHorizontal, X, Check, RefreshCw, Home
+  Search, Upload, MoreHorizontal, X, Check, RefreshCw, Home, ChevronLeft, ChevronsLeft, ChevronsRight
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
@@ -48,12 +48,12 @@ function findPath(dirId, dirs) {
   return path
 }
 
-function DirTreeNode({ node, depth, selectedId, onSelect, onContextMenu, expandedIds, onToggle, problemCount, allProblems, onAddSub, onRename, onMove, onDelete }) {
-  // Compute total problems in this subtree
-  const totalCount = problemCount != null ? problemCount : (() => {
-    let c = (allProblems || []).filter(p => p.directoryId === node.id).length
+function DirTreeNode({ node, depth, selectedId, onSelect, onContextMenu, expandedIds, onToggle, dirCounts, onAddSub, onRename, onMove, onDelete }) {
+  // Compute total problems in this subtree using precomputed dirCounts
+  const totalCount = (() => {
+    let c = dirCounts?.[node.id] ?? 0
     for (const child of node.children || []) {
-      c += (allProblems || []).filter(p => p.directoryId === child.id).length
+      c += dirCounts?.[child.id] ?? 0
     }
     return c
   })()
@@ -123,7 +123,11 @@ function DirTreeNode({ node, depth, selectedId, onSelect, onContextMenu, expande
               onContextMenu={onContextMenu}
               expandedIds={expandedIds}
               onToggle={onToggle}
-              allProblems={allProblems}
+              dirCounts={dirCounts}
+              onAddSub={onAddSub}
+              onRename={onRename}
+              onMove={onMove}
+              onDelete={onDelete}
             />
           ))}
         </div>
@@ -159,6 +163,10 @@ export default function QuestionBankPanel({
   const [dirSubmitting, setDirSubmitting] = useState(false)
   const [zipImporting, setZipImporting] = useState(false)
 
+  // Pagination
+  const PAGE_SIZE = 50
+  const [page, setPage] = useState(1)
+
   // Context menu
   const [contextMenu, setContextMenu] = useState(null)
   const contextMenuRef = useRef(null)
@@ -191,20 +199,30 @@ export default function QuestionBankPanel({
     }
   }, [contextMenu])
 
-  const treeRoots = buildTree(directories)
+  const treeRoots = useMemo(() => buildTree(directories), [directories])
+
+  // Precompute directory → count mapping so DirTreeNode doesn't iterate allProblems
+  const dirCounts = useMemo(() => {
+    const counts = {}
+    for (const p of spaceProblems) {
+      const key = p.directoryId ?? '__none__'
+      counts[key] = (counts[key] || 0) + 1
+    }
+    return counts
+  }, [spaceProblems])
 
   // Multi-stage filtering: directory → tags → text search
-  const dirFilteredProblems = selectedDirId === -1
-    ? spaceProblems.filter(p => !p.directoryId)
-    : selectedDirId != null
-      ? spaceProblems.filter(p => p.directoryId === selectedDirId)
-      : spaceProblems
+  const dirFilteredProblems = useMemo(() => {
+    if (selectedDirId === -1) return spaceProblems.filter(p => !p.directoryId)
+    if (selectedDirId != null) return spaceProblems.filter(p => p.directoryId === selectedDirId)
+    return spaceProblems
+  }, [selectedDirId, spaceProblems])
 
-  const allAvailableTags = [...new Set(
+  const allAvailableTags = useMemo(() => [...new Set(
     dirFilteredProblems.flatMap(p => p.tags || [])
-  )].sort((a, b) => a.localeCompare(b))
+  )].sort((a, b) => a.localeCompare(b)), [dirFilteredProblems])
 
-  const filteredProblems = dirFilteredProblems
+  const filteredProblems = useMemo(() => dirFilteredProblems
     .filter(p => selectedTags.length === 0 || selectedTags.every(tag => (p.tags || []).includes(tag)))
     .filter(p => {
       const kw = searchText.trim().toLowerCase()
@@ -212,10 +230,24 @@ export default function QuestionBankPanel({
       return String(p.id).includes(kw) ||
         String(p.title || '').toLowerCase().includes(kw)
     })
-    .sort((a, b) => b.id - a.id)
+    .sort((a, b) => b.id - a.id), [dirFilteredProblems, selectedTags, searchText])
 
   // Breadcrumb path
-  const breadcrumbPath = selectedDirId != null && selectedDirId !== -1 ? findPath(selectedDirId, directories) : []
+  const breadcrumbPath = useMemo(() =>
+    selectedDirId != null && selectedDirId !== -1 ? findPath(selectedDirId, directories) : [],
+    [selectedDirId, directories])
+
+  // Pagination
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredProblems.length / PAGE_SIZE)), [filteredProblems])
+  const pagedProblems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredProblems.slice(start, start + PAGE_SIZE)
+  }, [filteredProblems, page])
+
+  // Reset to page 1 when directory or tag filter changes
+  useEffect(() => { setPage(1) }, [selectedDirId, selectedTags])
+  // Clamp page when filtered results shrink
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
 
   const handleRefresh = useCallback(async () => {
     setLoading(true)
@@ -402,7 +434,7 @@ export default function QuestionBankPanel({
     )
   }
 
-  const totalRootProblems = spaceProblems.filter(p => !p.directoryId).length
+  const totalRootProblems = dirCounts['__none__'] ?? 0
 
   return (
     <div>
@@ -453,7 +485,7 @@ export default function QuestionBankPanel({
                       onContextMenu={handleContextMenu}
                       expandedIds={expandedIds}
                       onToggle={toggleExpand}
-                      allProblems={spaceProblems}
+                      dirCounts={dirCounts}
                       onAddSub={openCreateSubdir}
                       onRename={openRename}
                       onMove={openMoveDir}
@@ -588,7 +620,7 @@ export default function QuestionBankPanel({
                   </p>
                 ) : (
                   <div className="flex flex-col gap-1.5 pr-1">
-                    {filteredProblems.map((problem) => (
+                    {pagedProblems.map((problem) => (
                       <div key={problem.id}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-accent/50 transition-colors group">
                         <span className="font-bold text-sm text-primary shrink-0 tabular-nums w-[3.5ch]">#{problem.id}</span>
@@ -631,6 +663,31 @@ export default function QuestionBankPanel({
                   </div>
                 )}
               </ScrollArea>
+
+              {/* Pagination */}
+              {totalPages > 1 && filteredProblems.length > 0 && (
+                <div className="flex items-center justify-center gap-1 mt-3 pt-3 border-t">
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"
+                    disabled={page <= 1} onClick={() => setPage(1)}>
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"
+                    disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-3 select-none">
+                    {page} / {totalPages}
+                  </span>
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"
+                    disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"
+                    disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

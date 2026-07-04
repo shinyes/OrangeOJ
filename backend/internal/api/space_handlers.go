@@ -391,12 +391,28 @@ func (a *API) handleListSpaceProblemLinks(c *fiber.Ctx) error {
 	if err := a.ensureSpaceReadable(spaceID, user.ID, user.GlobalRole); err != nil {
 		return err
 	}
-	rows, err := a.DB.Query(`
+
+	limit := c.QueryInt("limit", 0)
+	offset := c.QueryInt("offset", 0)
+	if limit < 0 {
+		limit = 0
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := `
 SELECT p.id, p.type, p.title, p.tags_json, p.statement_md, p.time_limit_ms, p.memory_limit_mib, p.directory_id, COALESCE(upp.best_verdict, '')
 FROM space_problems p
 LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = p.id
 WHERE p.space_id=?
-ORDER BY p.id DESC`, spaceID, user.ID, spaceID)
+ORDER BY p.id DESC`
+	args := []interface{}{spaceID, user.ID, spaceID}
+	if limit > 0 {
+		query += ` LIMIT ? OFFSET ?`
+		args = append(args, limit, offset)
+	}
+	rows, err := a.DB.Query(query, args...)
 	if err != nil {
 		return err
 	}
@@ -423,6 +439,12 @@ ORDER BY p.id DESC`, spaceID, user.ID, spaceID)
 	}
 	if err := rows.Err(); err != nil {
 		return err
+	}
+
+	if limit > 0 {
+		var total int64
+		a.DB.QueryRow(`SELECT COUNT(*) FROM space_problems WHERE space_id=?`, spaceID).Scan(&total)
+		return respondData(c, fiber.Map{"items": items, "total": total})
 	}
 	return respondData(c, items)
 }
