@@ -201,6 +201,8 @@ export default function CodingPage() {
         setSelectedSubmission(null)
         setSelectedSubmissionCaseIndex(0)
         setShowSubmissionHistory(false)
+        // Reset cross-problem code cache — each problem loads its own draft
+        allCodeRef.current = {}
         if (!spaceId) throw new Error('缺少空间信息')
         const promises = [api.getProblem(spaceId, problemId, { includeAnswer: true }), api.getSpace(spaceId)]
         if (planId) promises.push(api.getTrainingPlan(spaceId, planId))
