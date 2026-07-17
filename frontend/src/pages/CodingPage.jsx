@@ -189,6 +189,7 @@ export default function CodingPage() {
   }
 
   useEffect(() => {
+    let active = true
     ;(async () => {
       try {
         setLoading(true)
@@ -207,6 +208,7 @@ export default function CodingPage() {
         const promises = [api.getProblem(spaceId, problemId, { includeAnswer: true }), api.getSpace(spaceId)]
         if (planId) promises.push(api.getTrainingPlan(spaceId, planId))
         const results = await Promise.all(promises)
+        if (!active) return  // 过期检查：防止旧请求覆盖新数据
         const [data, space] = results
         const defaultLanguage = normalizeDefaultLanguage(space?.defaultProgrammingLanguage)
         setLanguage(defaultLanguage)
@@ -216,6 +218,8 @@ export default function CodingPage() {
           const defaultLang = defaultLanguage
           const key = codeDraftStorageKey(user, spaceId, problemId, defaultLang)
           const cached = localStorage.getItem(key)
+          // 必须在 setLanguage 之前设置 prevLangRef，避免语言切换 effect 误触发
+          prevLangRef.current = defaultLang
           // Load cloud draft — 现在存储所有语言: { languages: { cpp: "...", ... } }
           try {
             const cloudDraft = await api.getProblemDraft(spaceId, problemId)
@@ -228,6 +232,7 @@ export default function CodingPage() {
               }
             }
           } catch (e) { /* silent */ }
+          if (!active) return  // 过期检查
           // 优先级: allCodeRef(云草稿) > localStorage > 起始代码
           let initialCode = allCodeRef.current[defaultLang] || cached || pickStarter(data.bodyJson, defaultLang)
           setCode(initialCode)
@@ -239,15 +244,18 @@ export default function CodingPage() {
         if (spaceId) {
           try {
             const result = await api.listSubmissions(spaceId, problemId, { all: true })
+            if (!active) return  // 过期检查
             setSubmissions(result?.submissions || [])
           } catch (subErr) { /* silent */ }
         }
       } catch (err) {
+        if (!active) return  // 过期请求不设置错误
         setError(err.message)
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     })()
+    return () => { active = false }
   }, [spaceId, problemId, planId, user?.id, user?.userId, user?.username])
 
   // Reset objective answer when switching problems
@@ -255,8 +263,9 @@ export default function CodingPage() {
     setObjectiveAnswer('')
   }, [problemId])
 
+  // 语言切换：仅在非过渡期执行云保存，避免切换题目时的竞态条件
   useEffect(() => {
-    if (!problem || problem.type !== 'programming') return
+    if (!problem || problem.type !== 'programming' || loading) return
     const oldLang = prevLangRef.current
     const newLang = language
     if (oldLang === newLang) return
@@ -278,15 +287,15 @@ export default function CodingPage() {
     setCode(newCode)
     lastSavedCodeRef.current = newCode
     prevLangRef.current = newLang
-  }, [language]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [language, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-save to cloud every 5 seconds
   const codeRef = useRef('')
   codeRef.current = code
   const langRef = useRef('cpp')
   langRef.current = language
+  // Auto-save to cloud every 5 seconds (only when not transitioning between problems)
   useEffect(() => {
-    if (!problem || problem.type !== 'programming') return
+    if (!problem || problem.type !== 'programming' || loading) return
     const timer = setInterval(async () => {
       const currentCode = codeRef.current
       const currentLang = langRef.current
@@ -310,7 +319,7 @@ export default function CodingPage() {
       }
     }, 5000)
     return () => clearInterval(timer)
-  }, [problem, spaceId, problemId, user])
+  }, [problem, spaceId, problemId, user, loading])
 
   const handleRunClick = () => {
     setShowCustomInputDialog(true)
