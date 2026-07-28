@@ -640,7 +640,7 @@ export default function QuestionBankPanel({
                               <Button size="icon" variant="ghost" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => api.exportProblems(selectedSpaceId, [problem.id])}>
+                              <DropdownMenuItem onClick={() => api.exportProblems(selectedSpaceId, [problem.id], problem.title)}>
                                 导出
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {

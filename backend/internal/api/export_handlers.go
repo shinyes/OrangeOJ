@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -205,8 +206,14 @@ func (a *API) handleExportProblems(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	// Try to get a meaningful name from query param, fall back to space ID
+	exportName := c.Query("name", "")
+	filename := fmt.Sprintf("problems_%d.zip", spaceID)
+	if exportName != "" {
+		filename = sanitizeFilename(exportName) + ".zip"
+	}
 	c.Set("Content-Type", "application/zip")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=problems_%d.zip", spaceID))
+	c.Set("Content-Disposition", contentDisposition(filename))
 	return c.Send(zipBytes)
 }
 
@@ -540,7 +547,7 @@ func (a *API) handleExportPractice(c *fiber.Ctx) error {
 	}
 
 	c.Set("Content-Type", "application/zip")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=practice_%d.zip", practiceID))
+	c.Set("Content-Disposition", contentDisposition(hwTitle+".zip"))
 	return c.Send(buf.Bytes())
 }
 
@@ -657,7 +664,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 		return err
 	}
 	c.Set("Content-Type", "application/zip")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=training_plan_%d.zip", planID))
+	c.Set("Content-Disposition", contentDisposition(planTitle+".zip"))
 	return c.Send(zipBytes)
 }
 
@@ -684,6 +691,36 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(
 		entry.MemoryLimitMiB = int(memoryLimit)
 	}
 	return entry, nil
+}
+
+// sanitizeFilename 生成 ASCII-only 文件名（用于 Content-Disposition filename=），
+// 非 ASCII 字符（中文等）替换为 _，依赖 filename* 传递原始名称
+func sanitizeFilename(name string) string {
+	// 移除非 ASCII 和控制字符（\x00-\x1F, \x7F 以上）
+	re := regexp.MustCompile(`[^\x20-\x7E]`)
+	name = re.ReplaceAllString(name, "_")
+	// 移除 Windows 文件名非法字符
+	re2 := regexp.MustCompile(`[\\/:*?"<>|]`)
+	name = re2.ReplaceAllString(name, "_")
+	// 折叠连续下划线
+	re3 := regexp.MustCompile(`_+`)
+	name = re3.ReplaceAllString(name, "_")
+	name = strings.Trim(name, "_.")
+	if len(name) > 100 {
+		name = name[:100]
+	}
+	if name == "" {
+		name = "export"
+	}
+	return name
+}
+
+// contentDisposition 返回同时包含 ASCII 回退和 UTF-8 文件名的 Content-Disposition 值
+// 格式: attachment; filename="ascii.zip"; filename*=UTF-8''percent-encoded-name.zip
+func contentDisposition(filename string) string {
+	safeName := sanitizeFilename(filename)
+	utf8Name := url.PathEscape(filename)
+	return fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, safeName, utf8Name)
 }
 
 func parseIntParam(s string) (int64, error) {

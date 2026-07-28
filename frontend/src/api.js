@@ -171,7 +171,7 @@ export const api = {
 
   uploadImage: (file) => uploadFile('/api/images/upload', file),
 
-  exportProblems: (spaceId, problemIds) => downloadFile(`/api/spaces/${spaceId}/problems/export?ids=${problemIds.join(',')}`),
+  exportProblems: (spaceId, problemIds, name) => downloadFile(`/api/spaces/${spaceId}/problems/export?ids=${problemIds.join(',')}${name ? `&name=${encodeURIComponent(name)}` : ''}`),
   importProblems: (spaceId, zipFile) => uploadFile(`/api/spaces/${spaceId}/problems/import`, zipFile),
 
   listProblemDirectories: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-directories`),
@@ -215,8 +215,15 @@ async function downloadFile(path) {
   }
   const blob = await response.blob()
   const disposition = response.headers.get('Content-Disposition') || ''
-  const match = disposition.match(/filename=(.+?)(;|$)/)
-  const filename = match ? match[1].replace(/"/g, '') : 'export.zip'
+  // Prefer filename* (RFC 5987 UTF-8 encoding), fall back to filename
+  let match = disposition.match(/filename\*=(UTF-8|utf-8)''(.+?)(;|$)/)
+  let filename = 'export.zip'
+  if (match) {
+    try { filename = decodeURIComponent(match[2]) } catch { filename = match[2] }
+  } else {
+    match = disposition.match(/filename=(.+?)(;|$)/)
+    filename = match ? match[1].replace(/"/g, '') : 'export.zip'
+  }
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
