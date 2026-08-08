@@ -117,24 +117,27 @@ func buildTrainingPlanZip(problems []problemExportEntry, chapters []trainingPlan
 		return nil, err
 	}
 
-	// Write trainingPlan.json with chapter structure and metadata
-	planData := map[string]interface{}{"chapters": chapters}
-	if planTitle != "" {
-		planData["title"] = planTitle
-	}
-	if len(planTags) > 0 {
-		planData["tags"] = planTags
-	}
-	planJSON, err := marshalNoEscape(planData)
-	if err != nil {
-		return nil, err
-	}
-	tf, err := w.Create("trainingPlan.json")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := tf.Write(planJSON); err != nil {
-		return nil, err
+	// Only write trainingPlan.json for training/practice export (has chapters or metadata).
+	// Pure problem export (buildProblemsZip) should not include it.
+	if len(chapters) > 0 || planTitle != "" || len(planTags) > 0 {
+		planData := map[string]interface{}{"chapters": chapters}
+		if planTitle != "" {
+			planData["title"] = planTitle
+		}
+		if len(planTags) > 0 {
+			planData["tags"] = planTags
+		}
+		planJSON, err := marshalNoEscape(planData)
+		if err != nil {
+			return nil, err
+		}
+		tf, err := w.Create("trainingPlan.json")
+		if err != nil {
+			return nil, err
+		}
+		if _, err := tf.Write(planJSON); err != nil {
+			return nil, err
+		}
 	}
 
 	imageFiles := collectProblemImageRefs(problems)
@@ -210,7 +213,7 @@ func (a *API) handleExportProblems(c *fiber.Ctx) error {
 	exportName := c.Query("name", "")
 	filename := fmt.Sprintf("problems_%d.zip", spaceID)
 	if exportName != "" {
-		filename = sanitizeFilename(exportName) + ".zip"
+		filename = exportName + ".zip"
 	}
 	c.Set("Content-Type", "application/zip")
 	c.Set("Content-Disposition", contentDisposition(filename))
