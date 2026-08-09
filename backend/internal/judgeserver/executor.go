@@ -370,9 +370,11 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 	if timeLimitSec < 1 {
 		timeLimitSec = 1
 	}
+	// nsjail 的 --time_limit 是整秒（向上取整），它到点时杀进程的时间点。
+	nsjailLimitMS := timeLimitSec * 1000
 
 	cgroupMemoryMiB := memoryLimitMiB + 32
-		memoryBytes := int64(cgroupMemoryMiB) * 1024 * 1024
+	memoryBytes := int64(cgroupMemoryMiB) * 1024 * 1024
 	shell := "/bin/sh"
 	if _, err := os.Stat(shell); err != nil {
 		if _, bashErr := os.Stat("/bin/bash"); bashErr == nil {
@@ -419,6 +421,16 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 		return result, nil
 	}
 
+	// nsjail 的 --time_limit 到点时同样用 SIGKILL 杀进程（退出码 137 / stderr "Killed"），
+	// 和 OOM 被杀无法仅凭退出码区分。二者时机不同：超时被杀必然已跑满 nsjail 的整个
+	// 时间上限，OOM 则发生在上限之前。用时长做判据把超时杀进程标记为 timedOut，
+	// 避免它落入 isMemoryExceeded 被误判成 MLE（冷缓存首跑偏慢时最常见）。
+	if isTimeoutKill(result, nsjailLimitMS) {
+		result.timedOut = true
+		result.durationMS = timeLimitMS
+		return result, nil
+	}
+
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
@@ -429,6 +441,17 @@ func runInSandbox(ctx context.Context, jobDir, command, stdin string, memoryLimi
 	}
 	result.exitCode = 0
 	return result, nil
+}
+
+// isTimeoutKill 判断进程是否为超时被杀（而非内存超限被杀）。
+// SIGKILL（退出码 137）或 stderr 出现 "Killed" 既可能是 OOM，也可能是 nsjail
+// 时间上限到点杀进程；两者的区别在时机：超时被杀时进程已跑满 nsjailLimitMS，
+// OOM 则发生在上限之前。
+func isTimeoutKill(result sandboxResult, nsjailLimitMS int) bool {
+	if result.exitCode != 137 && !strings.Contains(strings.ToLower(result.stderr), "killed") {
+		return false
+	}
+	return result.durationMS >= nsjailLimitMS
 }
 
 func isMemoryExceeded(exitCode int, stderr string) bool {
