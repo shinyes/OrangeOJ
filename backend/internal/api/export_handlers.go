@@ -17,7 +17,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-var imageRefPattern = regexp.MustCompile(`/api/uploads/([a-f0-9]+\.(png|jpe?g|gif|webp|svg))`)
+// 匹配 /api/uploads/<filename>.<ext> 形式的图片引用。
+// 文件名可能为：随机十六进制（如 a1b2...c5d6.png）、UUID（含连字符，如 xxxx-xxxx-....png）、
+// 旧版序号（如 img_0001.png），故用 [a-zA-Z0-9_-]+ 而非仅 [a-f0-9]+，
+// 否则这些非纯十六进制文件名会在导出时被漏掉、图片无法打进 zip。
+var imageRefPattern = regexp.MustCompile(`/api/uploads/([a-zA-Z0-9_-]+\.(png|jpe?g|gif|webp|svg))`)
+
 func collectImageRefs(markdownFields ...string) []string {
 	seen := make(map[string]bool)
 	var refs []string
