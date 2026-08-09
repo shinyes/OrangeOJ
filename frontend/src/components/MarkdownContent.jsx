@@ -64,8 +64,15 @@ export default function MarkdownContent({ content = '', className, ...props }) {
 }
 
 export function MarkdownWithMarker({ marker, content = '', className, markerClassName, contentClassName }) {
+  // 选项首段是纯图片（无文字）时，图片没有文字基线，items-baseline 会把字母标记对齐到图片底部，
+  // 导致 A/B/C/D 离选项圆圈很远；此时改用顶部对齐，让字母靠近圆圈。
+  const alignTop = useMemo(() => {
+    const html = renderMarkdown(content)
+    return /^<p[^>]*>\s*(?:<a[^>]*>\s*)?<img\b/i.test(html)
+  }, [content])
+
   return (
-    <div className={cn('grid gap-x-2 items-baseline', className)}
+    <div className={cn('grid gap-x-2', alignTop ? 'items-start' : 'items-baseline', className)}
       style={{ gridTemplateColumns: 'max-content minmax(0, 1fr)' }}
     >
       <span className={cn(
