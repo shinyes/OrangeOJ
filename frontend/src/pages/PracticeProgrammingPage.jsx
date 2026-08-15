@@ -12,11 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '../components/ui/textarea'
 import { Alert } from '../components/ui/alert'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, ImageIcon } from 'lucide-react'
+import { X, History, Copy, Play, Save, ImageIcon, BookOpen } from 'lucide-react'
 import MarkdownContent from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
 import { practiceDraftStorageKey } from '../utils/userScopedStorage'
+import SolutionsDialog from '../components/SolutionsDialog'
 
 const editorLang = { cpp: 'cpp', python: 'python', go: 'go', turtle: 'python' }
 
@@ -123,8 +124,11 @@ const turtleTimerRef = useRef(null)
   const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [selectedSubmissionCaseIndex, setSelectedSubmissionCaseIndex] = useState(0)
   const [submissionDetailTab, setSubmissionDetailTab] = useState('code')
+  const [showSolutions, setShowSolutions] = useState(false)
+  const [savingSolutions, setSavingSolutions] = useState(false)
 
   const numericProblemId = Number(problemId)
+  const canManage = user?.globalRole === 'system_admin' || space?.myRole === 'space_admin'
   const draftStorageKey = practiceDraftStorageKey(user, spaceId, practiceId)
   const defaultBackTo = `/spaces/${spaceId}/practices/${practiceId}`
   const backTo = safeInternalPath(searchParams.get('returnTo'), defaultBackTo)
@@ -145,6 +149,22 @@ const turtleTimerRef = useRef(null)
     } catch (err) {
       console.error('复制失败:', err)
       toast.error('复制失败')
+    }
+  }
+
+  const handleSolutionsSave = async (solutions) => {
+    setSavingSolutions(true)
+    try {
+      setError('')
+      await api.updateProblemSolutions(spaceId, numericProblemId, solutions)
+      const updated = await api.getProblem(spaceId, problemId, { includeAnswer: true })
+      setProblem(updated)
+      toast.success('题解已保存')
+    } catch (err) {
+      setError(err.message || '保存题解失败')
+      throw err
+    } finally {
+      setSavingSolutions(false)
     }
   }
 
@@ -233,7 +253,7 @@ const turtleTimerRef = useRef(null)
         const [spaceData, practiceData, problemData] = await Promise.all([
           api.getSpace(spaceId),
           api.getPractice(spaceId, practiceId),
-          api.getProblem(spaceId, problemId)
+          api.getProblem(spaceId, problemId, { includeAnswer: true })
         ])
         const practiceHasProblem = (practiceData?.items || []).some((item) => Number(item.problemId) === numericProblemId)
         if (!practiceHasProblem) throw new Error('当前练习不包含这道编程题')
@@ -415,6 +435,11 @@ const turtleTimerRef = useRef(null)
               </span>
             )}
           </div>
+          {canManage && (
+            <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowSolutions(true)}>
+              <BookOpen className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />题解
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" asChild>
             <Link to={backTo} aria-label={backLabel}><X className="h-3.5 w-3.5 md:h-4 md:w-4" /></Link>
           </Button>
@@ -782,6 +807,17 @@ const turtleTimerRef = useRef(null)
           </div>
         </DialogContent>
       </Dialog>
+
+      {canManage && (
+        <SolutionsDialog
+          open={showSolutions}
+          solutions={problem?.solutions || []}
+          saving={savingSolutions}
+          copyToClipboard={copyToClipboard}
+          onClose={() => setShowSolutions(false)}
+          onSave={handleSolutionsSave}
+        />
+      )}
 
     </div>
   )

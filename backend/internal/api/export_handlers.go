@@ -44,7 +44,7 @@ func collectProblemImageRefs(problems []problemExportEntry) []string {
 	seen := make(map[string]bool)
 	var refs []string
 	for _, p := range problems {
-		fields := []string{p.StatementMD, string(p.BodyJSON), string(p.AnswerJSON)}
+		fields := []string{p.StatementMD, string(p.BodyJSON), string(p.AnswerJSON), string(p.Solutions)}
 		for _, m := range imageRefPattern.FindAllStringSubmatch(strings.Join(fields, "\n"), -1) {
 			if !seen[m[1]] {
 				seen[m[1]] = true
@@ -65,6 +65,9 @@ func rewriteProblemImageRefs(p *problemPayload) {
 	if len(p.AnswerJSON) > 0 {
 		p.AnswerJSON = json.RawMessage(imagesPathPattern.ReplaceAllString(string(p.AnswerJSON), "(/api/uploads/"))
 	}
+	if len(p.Solutions) > 0 {
+		p.Solutions = json.RawMessage(imagesPathPattern.ReplaceAllString(string(p.Solutions), "(/api/uploads/"))
+	}
 }
 
 type problemExportEntry struct {
@@ -74,6 +77,7 @@ type problemExportEntry struct {
 	StatementMD    string          `json:"statementMd"`
 	BodyJSON       json.RawMessage `json:"bodyJson"`
 	AnswerJSON     json.RawMessage `json:"answerJson"`
+	Solutions      json.RawMessage `json:"solutions,omitempty"`
 	TimeLimitMS    int             `json:"timeLimitMs,omitempty"`
 	MemoryLimitMiB int             `json:"memoryLimitMiB,omitempty"`
 }
@@ -182,20 +186,41 @@ func (a *API) handleExportProblems(c *fiber.Ctx) error {
 	if !canManage {
 		return respondError(c, fiber.StatusForbidden, "space admin required")
 	}
-	idsParam := c.Query("ids")
-	if strings.TrimSpace(idsParam) == "" {
-		return respondError(c, fiber.StatusBadRequest, "ids query parameter required")
-	}
 	var problemIDs []int64
-	for _, part := range strings.Split(idsParam, ",") {
-		id, err := parseIntParam(strings.TrimSpace(part))
-		if err != nil {
-			return respondError(c, fiber.StatusBadRequest, "invalid id in ids parameter: "+part)
+	idsParam := c.Query("ids")
+	if strings.TrimSpace(idsParam) != "" {
+		for _, part := range strings.Split(idsParam, ",") {
+			id, err := parseIntParam(strings.TrimSpace(part))
+			if err != nil {
+				return respondError(c, fiber.StatusBadRequest, "invalid id in ids parameter: "+part)
+			}
+			problemIDs = append(problemIDs, id)
 		}
-		problemIDs = append(problemIDs, id)
-	}
-	if len(problemIDs) == 0 {
-		return respondError(c, fiber.StatusBadRequest, "at least one problem id required")
+		if len(problemIDs) == 0 {
+			return respondError(c, fiber.StatusBadRequest, "at least one problem id required")
+		}
+	} else {
+		// 未传 ids 时按列表过滤条件导出（dirId / tags / q），无过滤条件则导出空间全部题目。
+		filter := parseProblemListFilter(c)
+		where, whereArgs := buildProblemFilterSQL(spaceID, filter)
+		rows, err := a.DB.Query(`SELECT p.id FROM space_problems p WHERE `+where+` ORDER BY p.id DESC`, whereArgs...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			problemIDs = append(problemIDs, id)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		if len(problemIDs) == 0 {
+			return respondError(c, fiber.StatusBadRequest, "no problems match the filter")
+		}
 	}
 
 	var problems []problemExportEntry
@@ -235,9 +260,7 @@ func extractZipImages(zipData []byte) (map[string]string, error) {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		if !strings.HasPrefix(f.Name, "images/") {
-			continue
-		}
+		// 兼容旧版 ZIP：图片不一定放在根目录 images/ 下，可能位于任意目录层级
 		filename := filepath.Base(f.Name)
 		if !validImageExt(filepath.Ext(filename)) {
 			continue
@@ -263,26 +286,34 @@ func extractZipImages(zipData []byte) (map[string]string, error) {
 	return imageMap, nil
 }
 
+// parseProblemsJSON 解析 ZIP 中的题目数据。
+// 兼容旧版 ZIP 结构：文件可位于任意目录、可用 problem.json 等别名或任意 *.json，
+// 内容可以是数组 / {problems|data:[...]} 包装 / 单个题目对象，并自动映射旧版字段名。
 func parseProblemsJSON(zipData []byte) ([]problemPayload, error) {
 	reader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
 		return nil, fmt.Errorf("invalid zip file: %w", err)
 	}
-	for _, f := range reader.File {
-		if f.Name == "problems.json" {
-			rc, err := f.Open()
-			if err != nil {
-				return nil, fmt.Errorf("read problems.json: %w", err)
-			}
-			defer rc.Close()
-			var problems []problemPayload
-			if err := json.NewDecoder(rc).Decode(&problems); err != nil {
-				return nil, fmt.Errorf("parse problems.json: %w", err)
-			}
-			return problems, nil
-		}
+	raw, name, err := findProblemsJSON(reader)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("problems.json not found in zip")
+	if raw == nil {
+		return nil, fmt.Errorf("problems.json not found in zip")
+	}
+	items, err := unwrapProblemArray(raw)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", name, err)
+	}
+	problems := make([]problemPayload, 0, len(items))
+	for _, item := range items {
+		p, err := decodeLegacyProblem(item)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", name, err)
+		}
+		problems = append(problems, *p)
+	}
+	return problems, nil
 }
 
 func (a *API) handleImportProblems(c *fiber.Ctx) error {
@@ -352,21 +383,19 @@ func parseTrainingPlanJSON(zipData []byte) (*importedTrainingPlanMeta, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid zip file: %w", err)
 	}
-	for _, f := range reader.File {
-		if f.Name == "trainingPlan.json" {
-			rc, err := f.Open()
-			if err != nil {
-				return nil, fmt.Errorf("read trainingPlan.json: %w", err)
-			}
-			defer rc.Close()
-			var meta importedTrainingPlanMeta
-			if err := json.NewDecoder(rc).Decode(&meta); err != nil {
-				return nil, fmt.Errorf("parse trainingPlan.json: %w", err)
-			}
-			return &meta, nil
-		}
+	// 兼容旧版 ZIP：trainingPlan.json 可位于任意目录层级
+	data, name, err := findZipFileByNames(reader, "trainingPlan.json")
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil // no trainingPlan.json is OK
+	if data == nil {
+		return nil, nil // no trainingPlan.json is OK
+	}
+	var meta importedTrainingPlanMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", name, err)
+	}
+	return &meta, nil
 }
 
 func (a *API) handleImportTrainingPlan(c *fiber.Ctx) error {
@@ -593,7 +622,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 	SELECT tc.id, tc.title, tc.order_no,
 	       ti.problem_id,
 	       sp.type, sp.title, sp.tags_json, sp.statement_md,
-	       sp.body_json, sp.answer_json, sp.time_limit_ms, sp.memory_limit_mib
+	       sp.body_json, sp.answer_json, sp.solutions_json, sp.time_limit_ms, sp.memory_limit_mib
 	FROM training_chapters tc
 	LEFT JOIN training_items ti ON ti.chapter_id = tc.id
 	LEFT JOIN space_problems sp ON sp.id = ti.problem_id AND sp.space_id = ?
@@ -619,13 +648,13 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 		var chTitle string
 		var chOrderNo int
 		var problemID sql.NullInt64
-		var pType, pTitle, pTags, pStmt, pBody, pAnswer sql.NullString
+		var pType, pTitle, pTags, pStmt, pBody, pAnswer, pSolutions sql.NullString
 		var pTime, pMem sql.NullInt64
 
 		if err := rows.Scan(&chID, &chTitle, &chOrderNo,
 			&problemID,
 			&pType, &pTitle, &pTags, &pStmt,
-			&pBody, &pAnswer, &pTime, &pMem); err != nil {
+			&pBody, &pAnswer, &pSolutions, &pTime, &pMem); err != nil {
 			return err
 		}
 
@@ -648,6 +677,7 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 					StatementMD: pStmt.String,
 					BodyJSON:    json.RawMessage(pBody.String),
 					AnswerJSON:  json.RawMessage(pAnswer.String),
+					Solutions:   decodeProblemSolutions(pSolutions.String),
 				}
 				if pType.String == "programming" {
 					entry.TimeLimitMS = int(pTime.Int64)
@@ -677,12 +707,12 @@ func (a *API) handleExportTrainingPlan(c *fiber.Ctx) error {
 }
 
 func (a *API) loadProblemForExport(spaceID, problemID int64) (*problemExportEntry, error) {
-	var typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
+	var typeStr, title, tagsJSON, statement, bodyJSON, answerJSON, solutionsJSON string
 	var timeLimit, memoryLimit int64
 	err := a.DB.QueryRow(`
-SELECT type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib
+SELECT type, title, tags_json, statement_md, body_json, answer_json, solutions_json, time_limit_ms, memory_limit_mib
 FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(
-		&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit)
+		&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &solutionsJSON, &timeLimit, &memoryLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -693,6 +723,7 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(
 		StatementMD: statement,
 		BodyJSON:    json.RawMessage(bodyJSON),
 		AnswerJSON:  json.RawMessage(answerJSON),
+		Solutions:   decodeProblemSolutions(solutionsJSON),
 	}
 	if typeStr == "programming" {
 		entry.TimeLimitMS = int(timeLimit)

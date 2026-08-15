@@ -17,11 +17,39 @@ const DEFAULT_TIME_LIMIT_MS = 1000
 const DEFAULT_MEMORY_LIMIT_MIB = 256
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
 const PROBLEM_TYPE_LABELS = { programming: '编程题', single_choice: '单选题', true_false: '判断题' }
+const SOLUTION_LANGUAGE_LABELS = { cpp: 'C++', python: 'Python', go: 'Go', turtle: 'Python Turtle' }
 
 function blankCase() { return { input: '', output: '' } }
 
 function defaultStarterCode() {
   return { cpp: '', python: '', go: '', turtle: '' }
+}
+
+function blankSolution() { return { language: 'cpp', code: '', markdown: '' } }
+
+function normalizeSolutionLanguage(language) {
+  const normalized = String(language || '').trim().toLowerCase()
+  if (['c++', 'cpp', 'c'].includes(normalized)) return 'cpp'
+  if (['python', 'python3', 'py', 'python 3'].includes(normalized)) return 'python'
+  if (['go', 'golang'].includes(normalized)) return 'go'
+  if (['turtle', 'python turtle', 'pythonturtle'].includes(normalized)) return 'turtle'
+  return normalized
+}
+
+function normalizeSolutions(list) {
+  if (!Array.isArray(list)) return []
+  const result = []
+  list.forEach((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return
+    const language = normalizeSolutionLanguage(item.language)
+    if (!language) return
+    result.push({
+      language,
+      code: String(item.code ?? ''),
+      markdown: String(item.markdown ?? '')
+    })
+  })
+  return result
 }
 
 function normalizeCaseList(list) {
@@ -67,6 +95,7 @@ function resolveSingleChoiceAnswerIndex(options, answerJson) {
 
 function buildProblemDataFromForm(form, options = {}) {
   const strict = options.strict !== false
+  const solutions = normalizeSolutions(form.solutions)
   let bodyJson = {}, answerJson = {}
 
   if (form.type === 'programming') {
@@ -76,7 +105,7 @@ function buildProblemDataFromForm(form, options = {}) {
       testCases: form.programming.testCases.filter((item) => item.input || item.output),
       starterCode: { cpp: form.programming.starterCode.cpp, python: form.programming.starterCode.python, go: form.programming.starterCode.go, turtle: form.programming.starterCode.turtle }
     }
-    return { bodyJson, answerJson }
+    return { bodyJson, answerJson, solutions }
   }
 
   if (form.type === 'single_choice') {
@@ -87,11 +116,11 @@ function buildProblemDataFromForm(form, options = {}) {
     }
     bodyJson = { options: optionsList }
     answerJson = { answerIndex: form.singleChoice.answerIndex }
-    return { bodyJson, answerJson }
+    return { bodyJson, answerJson, solutions }
   }
 
   if (form.type === 'true_false') { answerJson = { answer: form.trueFalse.answer === 'true' } }
-  return { bodyJson, answerJson }
+  return { bodyJson, answerJson, solutions }
 }
 
 function buildInitialForm(problem) {
@@ -104,6 +133,7 @@ function buildInitialForm(problem) {
   return {
     type, title: problem?.title || '', tags: normalizeTagList(problem?.tags),
     statementMd: problem?.statementMd || '',
+    solutions: normalizeSolutions(problem?.solutions),
     timeLimitMs: String(problem?.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS),
     memoryLimitMiB: String(problem?.memoryLimitMiB ?? DEFAULT_MEMORY_LIMIT_MIB),
     programming: {
@@ -117,11 +147,11 @@ function buildInitialForm(problem) {
 }
 
 function buildStorageDraftFromForm(form, options = {}) {
-  const { bodyJson, answerJson } = buildProblemDataFromForm(form, { strict: false })
+  const { bodyJson, answerJson, solutions } = buildProblemDataFromForm(form, { strict: false })
   const problemType = options.lockedProblemType || form.type
   const draft = {
     type: problemType, title: form.title, tags: normalizeTagList(form.tags),
-    statementMd: form.statementMd, bodyJson, answerJson
+    statementMd: form.statementMd, bodyJson, answerJson, solutions
   }
   if (problemType === 'programming') {
     draft.timeLimitMs = normalizePositiveInteger(form.timeLimitMs, DEFAULT_TIME_LIMIT_MS)
@@ -153,7 +183,7 @@ function parseStorageDraft(raw, options = {}) {
   const bodyJson = draft.bodyJson && typeof draft.bodyJson === 'object' && !Array.isArray(draft.bodyJson) ? draft.bodyJson : {}
   const rawAnswerJson = draft.answerJson && typeof draft.answerJson === 'object' && !Array.isArray(draft.answerJson) ? draft.answerJson : {}
   const answerJson = normalizeObjectiveAnswerJson(type, bodyJson, rawAnswerJson)
-  const result = { type, title: String(draft.title || ''), tags: normalizeTagList(draft.tags), statementMd: String(draft.statementMd || ''), bodyJson, answerJson }
+  const result = { type, title: String(draft.title || ''), tags: normalizeTagList(draft.tags), statementMd: String(draft.statementMd || ''), bodyJson, answerJson, solutions: normalizeSolutions(draft.solutions) }
   if (type === 'programming') {
     result.timeLimitMs = normalizePositiveInteger(draft.timeLimitMs, DEFAULT_TIME_LIMIT_MS)
     result.memoryLimitMiB = normalizePositiveInteger(draft.memoryLimitMiB, DEFAULT_MEMORY_LIMIT_MIB)
@@ -162,7 +192,7 @@ function parseStorageDraft(raw, options = {}) {
 }
 
 function buildFormFromStorageDraft(draft) {
-  return buildInitialForm({ type: draft.type, title: draft.title, tags: draft.tags, statementMd: draft.statementMd, bodyJson: draft.bodyJson, answerJson: draft.answerJson, timeLimitMs: draft.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS, memoryLimitMiB: draft.memoryLimitMiB ?? DEFAULT_MEMORY_LIMIT_MIB })
+  return buildInitialForm({ type: draft.type, title: draft.title, tags: draft.tags, statementMd: draft.statementMd, bodyJson: draft.bodyJson, answerJson: draft.answerJson, solutions: draft.solutions, timeLimitMs: draft.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS, memoryLimitMiB: draft.memoryLimitMiB ?? DEFAULT_MEMORY_LIMIT_MIB })
 }
 
 function formsEqual(left, right) { return JSON.stringify(left) === JSON.stringify(right) }
@@ -312,6 +342,10 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
   const removeCase = (field, index) => updateCaseList(field, (items) => { if (items.length === 1) return items; return items.filter((_, itemIndex) => itemIndex !== index) })
   const updateCase = (field, index, key, value) => updateCaseList(field, (items) => items.map((item, itemIndex) => { if (itemIndex !== index) return item; return { ...item, [key]: value } }))
 
+  const addSolution = () => setForm((current) => ({ ...current, solutions: [...normalizeSolutions(current.solutions), blankSolution()] }))
+  const removeSolution = (index) => setForm((current) => ({ ...current, solutions: current.solutions.filter((_, itemIndex) => itemIndex !== index) }))
+  const updateSolution = (index, field, value) => setForm((current) => ({ ...current, solutions: current.solutions.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)) }))
+
   const handleTypeChange = (nextType) => {
     if (isEditMode) return
     const blankForm = buildInitialForm({ type: nextType })
@@ -334,21 +368,21 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
     let statementMd = form.statementMd
     let timeLimitMs = DEFAULT_TIME_LIMIT_MS
     let memoryLimitMiB = DEFAULT_MEMORY_LIMIT_MIB
-    let bodyJson = {}, answerJson = {}
+    let bodyJson = {}, answerJson = {}, solutions = []
 
     try {
       if (editorMode === 'json') {
         const draft = parseStorageDraft(jsonDraft, { lockedProblemType })
         problemType = draft.type; title = draft.title.trim(); mergedTags = draft.tags; statementMd = draft.statementMd
         timeLimitMs = draft.timeLimitMs ?? timeLimitMs; memoryLimitMiB = draft.memoryLimitMiB ?? memoryLimitMiB
-        bodyJson = draft.bodyJson; answerJson = draft.answerJson
-      } else { const payload = buildProblemDataFromForm(form, { strict: true }); bodyJson = payload.bodyJson; answerJson = payload.answerJson }
+        bodyJson = draft.bodyJson; answerJson = draft.answerJson; solutions = draft.solutions
+      } else { const payload = buildProblemDataFromForm(form, { strict: true }); bodyJson = payload.bodyJson; answerJson = payload.answerJson; solutions = payload.solutions }
     } catch (err) { setSubmitError(err.message || '题目内容格式不正确'); return }
     if (!title) { setSubmitError('题目标题不能为空'); return }
 
     try {
       setSubmitting(true); setSubmitError('')
-      const submitData = { type: problemType, title, tags: mergedTags, statementMd, bodyJson, answerJson }
+      const submitData = { type: problemType, title, tags: mergedTags, statementMd, bodyJson, answerJson, solutions }
       if (problemType === 'programming') {
         timeLimitMs = Number(form.timeLimitMs) > 0 ? Number(form.timeLimitMs) : DEFAULT_TIME_LIMIT_MS
         memoryLimitMiB = Number(form.memoryLimitMiB) > 0 ? Number(form.memoryLimitMiB) : DEFAULT_MEMORY_LIMIT_MIB
@@ -539,6 +573,61 @@ export default function ProblemEditor({ open, mode = 'create', problem = null, c
                   <SelectItem value="false">错误</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {editorMode === 'ui' && (
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <h4 className="text-sm font-medium">题解</h4>
+                  <p className="text-xs text-muted-foreground">每道题可添加多个题解，包含语言、参考代码与 Markdown 格式的题目解读（仅系统管理员 / 空间管理员可见）</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={addSolution}>
+                  <Plus className="h-4 w-4 mr-1" />添加题解
+                </Button>
+              </div>
+              {form.solutions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">暂无题解</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {form.solutions.map((solution, index) => (
+                    <Card key={index}><CardContent className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center gap-2">
+                          <Select value={solution.language} onValueChange={(v) => updateSolution(index, 'language', v)}>
+                            <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(SOLUTION_LANGUAGE_LABELS).map(([lang, label]) => (
+                                <SelectItem key={lang} value={lang}>{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="text-xs text-muted-foreground">题解 {index + 1}</span>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => removeSolution(index)} title="删除此题解">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <div>
+                          <Label className="text-xs mb-1 block">参考代码</Label>
+                          <Textarea className="font-mono min-h-[120px]" placeholder="// 填写该语言的参考代码"
+                            value={solution.code} onChange={(e) => updateSolution(index, 'code', e.target.value)} />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <Label className="text-xs">题目解读（Markdown）</Label>
+                            <ImageUploadButton onUploaded={(md) => updateSolution(index, 'markdown', solution.markdown + '\n' + md + '\n')} />
+                          </div>
+                          <Textarea className="min-h-[100px]" placeholder={'## 解题思路\n用 Markdown 描述思路、复杂度等'}
+                            value={solution.markdown} onChange={(e) => updateSolution(index, 'markdown', e.target.value)} />
+                        </div>
+                      </div>
+                    </CardContent></Card>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           </div>

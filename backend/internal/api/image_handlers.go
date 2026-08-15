@@ -12,7 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-const uploadDir = "./uploads"
+var uploadDir = "./uploads" // 可被测试覆盖
 const maxUploadSize = 10 << 20 // 10 MiB
 
 var allowedImageTypes = map[string]bool{

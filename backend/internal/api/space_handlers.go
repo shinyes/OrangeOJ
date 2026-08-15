@@ -23,6 +23,7 @@ type problemPayload struct {
 	StatementMD    string          `json:"statementMd"`
 	BodyJSON       json.RawMessage `json:"bodyJson"`
 	AnswerJSON     json.RawMessage `json:"answerJson"`
+	Solutions      json.RawMessage `json:"solutions"`
 	TimeLimitMS    int             `json:"timeLimitMs"`
 	MemoryLimitMiB int             `json:"memoryLimitMiB"`
 	DirectoryID     *int64          `json:"directoryId"`
@@ -61,6 +62,14 @@ func normalizeProblemPayload(req *problemPayload) error {
 	if len(req.AnswerJSON) == 0 {
 		req.AnswerJSON = json.RawMessage(`{}`)
 	}
+	if len(req.Solutions) == 0 {
+		req.Solutions = json.RawMessage(`[]`)
+	}
+	normalizedSolutions, err := normalizeProblemSolutions(req.Solutions)
+	if err != nil {
+		return err
+	}
+	req.Solutions = normalizedSolutions
 	if err := normalizeObjectiveAnswerPayload(req); err != nil {
 		return err
 	}
@@ -74,8 +83,8 @@ func insertSpaceProblem(exec sqlExecer, spaceID, createdBy int64, req problemPay
 	}
 
 	res, err := exec.Exec(`
-INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib, directory_id, created_by)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, req.DirectoryID, createdBy)
+INSERT INTO space_problems(space_id, type, title, tags_json, statement_md, body_json, answer_json, solutions_json, time_limit_ms, memory_limit_mib, directory_id, created_by)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), string(req.Solutions), req.TimeLimitMS, req.MemoryLimitMiB, req.DirectoryID, createdBy)
 	if err != nil {
 		return 0, err
 	}
@@ -401,13 +410,17 @@ func (a *API) handleListSpaceProblemLinks(c *fiber.Ctx) error {
 		offset = 0
 	}
 
+	filter := parseProblemListFilter(c)
+	where, whereArgs := buildProblemFilterSQL(spaceID, filter)
+
+	// 列表接口不返回 statement_md，避免题目过多时传输与渲染卡顿；题面详情走单题接口。
 	query := `
-SELECT p.id, p.type, p.title, p.tags_json, p.statement_md, p.time_limit_ms, p.memory_limit_mib, p.directory_id, COALESCE(upp.best_verdict, '')
+SELECT p.id, p.type, p.title, p.tags_json, p.time_limit_ms, p.memory_limit_mib, p.directory_id, COALESCE(upp.best_verdict, '')
 FROM space_problems p
 LEFT JOIN user_problem_progress upp ON upp.space_id = ? AND upp.user_id = ? AND upp.problem_id = p.id
-WHERE p.space_id=?
+WHERE ` + where + `
 ORDER BY p.id DESC`
-	args := []interface{}{spaceID, user.ID, spaceID}
+	args := append([]interface{}{spaceID, user.ID}, whereArgs...)
 	if limit > 0 {
 		query += ` LIMIT ? OFFSET ?`
 		args = append(args, limit, offset)
@@ -420,9 +433,9 @@ ORDER BY p.id DESC`
 	items := make([]fiber.Map, 0)
 	for rows.Next() {
 		var id, timeLimit, memoryLimit int64
-		var typeStr, title, tagsJSON, statement, bestVerdict string
+		var typeStr, title, tagsJSON, bestVerdict string
 		var directoryID *int64
-		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &statement, &timeLimit, &memoryLimit, &directoryID, &bestVerdict); err != nil {
+		if err := rows.Scan(&id, &typeStr, &title, &tagsJSON, &timeLimit, &memoryLimit, &directoryID, &bestVerdict); err != nil {
 			return err
 		}
 		items = append(items, fiber.Map{
@@ -430,10 +443,9 @@ ORDER BY p.id DESC`
 			"type":           typeStr,
 			"title":          title,
 			"tags":           decodeProblemTags(tagsJSON),
-			"statementMd":    statement,
 			"timeLimitMs":    timeLimit,
 			"memoryLimitMiB": memoryLimit,
-			"directoryId":        directoryID,
+			"directoryId":    directoryID,
 			"completed":      bestVerdict == "AC",
 		})
 	}
@@ -443,7 +455,9 @@ ORDER BY p.id DESC`
 
 	if limit > 0 {
 		var total int64
-		a.DB.QueryRow(`SELECT COUNT(*) FROM space_problems WHERE space_id=?`, spaceID).Scan(&total)
+		if err := a.DB.QueryRow(`SELECT COUNT(*) FROM space_problems p WHERE `+where, whereArgs...).Scan(&total); err != nil {
+			return err
+		}
 		return respondData(c, fiber.Map{"items": items, "total": total})
 	}
 	return respondData(c, items)
@@ -460,8 +474,8 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	}
 
 	// Read markdown fields before deletion so we can clean up orphaned images.
-	var statementMD, bodyJSON, answerJSON string
-	_ = a.DB.QueryRow(`SELECT statement_md, body_json, answer_json FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&statementMD, &bodyJSON, &answerJSON)
+	var statementMD, bodyJSON, answerJSON, solutionsJSON string
+	_ = a.DB.QueryRow(`SELECT statement_md, body_json, answer_json, solutions_json FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&statementMD, &bodyJSON, &answerJSON, &solutionsJSON)
 
 	tx, err := a.DB.BeginTx(c.Context(), nil)
 	if err != nil {
@@ -498,9 +512,9 @@ func (a *API) handleDeleteSpaceProblem(c *fiber.Ctx) error {
 	}
 
 	// Clean up uploaded images that are no longer referenced by any problem.
-	for _, filename := range collectImageRefs(statementMD, bodyJSON, answerJSON) {
+	for _, filename := range collectImageRefs(statementMD, bodyJSON, answerJSON, solutionsJSON) {
 		var count int
-		a.DB.QueryRow(`SELECT COUNT(*) FROM space_problems WHERE statement_md LIKE '%'||?||'%' OR body_json LIKE '%'||?||'%' OR answer_json LIKE '%'||?||'%'`, filename, filename, filename).Scan(&count)
+		a.DB.QueryRow(`SELECT COUNT(*) FROM space_problems WHERE statement_md LIKE '%'||?||'%' OR body_json LIKE '%'||?||'%' OR answer_json LIKE '%'||?||'%' OR solutions_json LIKE '%'||?||'%'`, filename, filename, filename, filename).Scan(&count)
 		if count == 0 {
 			os.Remove(filepath.Join(uploadDir, filename))
 		}
@@ -535,8 +549,8 @@ func (a *API) handleUpdateSpaceProblem(c *fiber.Ctx) error {
 	}
 	_, err = a.DB.Exec(`
 UPDATE space_problems
-SET type=?, title=?, tags_json=?, statement_md=?, body_json=?, answer_json=?, time_limit_ms=?, memory_limit_mib=?
-WHERE id=? AND space_id=?`, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), req.TimeLimitMS, req.MemoryLimitMiB, problemID, spaceID)
+SET type=?, title=?, tags_json=?, statement_md=?, body_json=?, answer_json=?, solutions_json=?, time_limit_ms=?, memory_limit_mib=?
+WHERE id=? AND space_id=?`, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), string(req.Solutions), req.TimeLimitMS, req.MemoryLimitMiB, problemID, spaceID)
 	if err != nil {
 		return err
 	}
@@ -563,22 +577,23 @@ func (a *API) handleGetSpaceProblem(c *fiber.Ctx) error {
 		return err
 	}
 	var (
-		typeStr, title, tagsJSON, statement, bodyJSON, answerJSON string
-		timeLimit, memoryLimit                                    int64
+		typeStr, title, tagsJSON, statement, bodyJSON, answerJSON, solutionsJSON string
+		timeLimit, memoryLimit                                                   int64
 	)
 	err = a.DB.QueryRow(`
-SELECT type, title, tags_json, statement_md, body_json, answer_json, time_limit_ms, memory_limit_mib
-FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &timeLimit, &memoryLimit)
+SELECT type, title, tags_json, statement_md, body_json, answer_json, solutions_json, time_limit_ms, memory_limit_mib
+FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeStr, &title, &tagsJSON, &statement, &bodyJSON, &answerJSON, &solutionsJSON, &timeLimit, &memoryLimit)
+	if err != nil {
+		return err
+	}
+
+	canManage, err := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
 	if err != nil {
 		return err
 	}
 
 	includeAnswer := false
 	if parseBoolQueryParam(c, "includeAnswer") {
-		canManage, err := a.isSpaceAdmin(spaceID, user.ID, user.GlobalRole)
-		if err != nil {
-			return err
-		}
 		// Allow regular users to see answer for objective questions (for practice review)
 		includeAnswer = canManage || typeStr != "programming"
 	}
@@ -597,6 +612,10 @@ FROM space_problems WHERE id=? AND space_id=?`, problemID, spaceID).Scan(&typeSt
 	}
 	if includeAnswer {
 		resp["answerJson"] = json.RawMessage(answerJSON)
+	}
+	// 题解仅对系统管理员 / 空间管理员可见
+	if canManage {
+		resp["solutions"] = decodeProblemSolutions(solutionsJSON)
 	}
 	return respondData(c, resp)
 }

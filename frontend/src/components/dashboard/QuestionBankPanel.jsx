@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Card, CardContent } from '../ui/card'
@@ -8,20 +7,14 @@ import { api } from '../../api'
 import ToastMessage from '../ToastMessage'
 import {
   Folder, FolderOpen, FileText, Plus, Pencil, Trash2, ChevronRight, ChevronDown,
-  Search, Upload, MoreHorizontal, X, Check, RefreshCw, Home, ChevronLeft, ChevronsLeft, ChevronsRight
+  Search, Upload, MoreHorizontal, X, Check, RefreshCw, Home, ChevronLeft, ChevronsLeft, ChevronsRight, Download
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { Separator } from '../ui/separator'
 import { ScrollArea } from '../ui/scroll-area'
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '../ui/command'
-
-function problemTypeText(type) {
-  if (type === 'programming') return '编程题'
-  if (type === 'single_choice') return '单选题'
-  if (type === 'true_false') return '判断题'
-  return type
-}
+import ProblemRow from './ProblemRow'
 
 function buildTree(dirs) {
   const map = new Map()
@@ -136,19 +129,34 @@ function DirTreeNode({ node, depth, selectedId, onSelect, onContextMenu, expande
   )
 }
 
+const PAGE_SIZE = 50
+// 导出前需要确认的题量阈值
+const EXPORT_CONFIRM_THRESHOLD = 300
+
 export default function QuestionBankPanel({
   selectedSpaceId, selectedSpace, canManageSelectedSpace,
-  spaceProblems, onRefreshProblems, problemTypeText: ptText
+  onRefreshProblems, spaceProblems
 }) {
   const [directories, setDirectories] = useState([])
   const [selectedDirId, setSelectedDirId] = useState(null)
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [searchText, setSearchText] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
   const [tagsExpanded, setTagsExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [listLoading, setListLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageSeverity, setMessageSeverity] = useState('success')
+
+  // 服务端分页数据
+  const [problems, setProblems] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  // 目录计数 / 标签聚合（服务端计算，避免大题库前端遍历卡顿）
+  const [dirCounts, setDirCounts] = useState({})
+  const [uncategorizedCount, setUncategorizedCount] = useState(0)
+  const [allTags, setAllTags] = useState([])
 
   // Dialog states
   const [showNewDirDialog, setShowNewDirDialog] = useState(false)
@@ -156,16 +164,14 @@ export default function QuestionBankPanel({
   const [showDeleteDirDialog, setShowDeleteDirDialog] = useState(false)
   const [showMoveProblemDialog, setShowMoveProblemDialog] = useState(false)
   const [showMoveDirDialog, setShowMoveDirDialog] = useState(false)
+  const [showExportConfirmDialog, setShowExportConfirmDialog] = useState(false)
   const [dirNameInput, setDirNameInput] = useState('')
   const [contextDirId, setContextDirId] = useState(null)
   const [moveProblemId, setMoveProblemId] = useState(null)
   const [moveTargetDirId, setMoveTargetDirId] = useState(null)
   const [dirSubmitting, setDirSubmitting] = useState(false)
   const [zipImporting, setZipImporting] = useState(false)
-
-  // Pagination
-  const PAGE_SIZE = 50
-  const [page, setPage] = useState(1)
+  const [exporting, setExporting] = useState(false)
 
   // Context menu
   const [contextMenu, setContextMenu] = useState(null)
@@ -176,89 +182,101 @@ export default function QuestionBankPanel({
     setMessageSeverity(severity)
   }, [])
 
-  const loadDirectories = useCallback(async () => {
+  // ---- 服务端数据加载 ----
+
+  const loadProblems = useCallback(async () => {
+    if (!selectedSpaceId) return
+    setListLoading(true)
+    try {
+      const result = await api.listSpaceProblems(selectedSpaceId, {
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+        dirId: selectedDirId == null ? undefined : selectedDirId,
+        tags: selectedTags.length > 0 ? selectedTags.join(',') : undefined,
+        q: debouncedSearch || undefined
+      })
+      if (result && Array.isArray(result.items)) {
+        setProblems(result.items)
+        setTotal(Number(result.total) || 0)
+      } else {
+        setProblems(Array.isArray(result) ? result : [])
+        setTotal(Array.isArray(result) ? result.length : 0)
+      }
+    } catch (err) {
+      showMessage(err.message || '加载题目列表失败', 'error')
+    } finally {
+      setListLoading(false)
+    }
+  }, [selectedSpaceId, page, selectedDirId, selectedTags, debouncedSearch, showMessage])
+
+  const loadMeta = useCallback(async () => {
     if (!selectedSpaceId) return
     try {
-      const dirs = await api.listProblemDirectories(selectedSpaceId)
+      const [dirs, countsResult, tagsResult] = await Promise.all([
+        api.listProblemDirectories(selectedSpaceId),
+        api.getProblemDirectoryCounts(selectedSpaceId),
+        api.getProblemTags(selectedSpaceId)
+      ])
       setDirectories(dirs || [])
+      setDirCounts(countsResult?.counts || {})
+      setUncategorizedCount(Number(countsResult?.uncategorized) || 0)
+      setAllTags(Array.isArray(tagsResult) ? tagsResult : [])
     } catch (err) {
-      showMessage(err.message || '加载目录失败', 'error')
+      showMessage(err.message || '加载目录/标签失败', 'error')
     }
   }, [selectedSpaceId, showMessage])
 
+  // 搜索防抖
   useEffect(() => {
-    loadDirectories()
-  }, [loadDirectories])
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchText.trim())
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [searchText])
 
-  // Close context menu on click outside
-  useEffect(() => {
-    const handleClick = () => setContextMenu(null)
-    if (contextMenu) {
-      document.addEventListener('click', handleClick)
-      return () => document.removeEventListener('click', handleClick)
-    }
-  }, [contextMenu])
-
-  const treeRoots = useMemo(() => buildTree(directories), [directories])
-
-  // Precompute directory → count mapping so DirTreeNode doesn't iterate allProblems
-  const dirCounts = useMemo(() => {
-    const counts = {}
-    for (const p of spaceProblems) {
-      const key = p.directoryId ?? '__none__'
-      counts[key] = (counts[key] || 0) + 1
-    }
-    return counts
-  }, [spaceProblems])
-
-  // Multi-stage filtering: directory → tags → text search
-  const dirFilteredProblems = useMemo(() => {
-    if (selectedDirId === -1) return spaceProblems.filter(p => !p.directoryId)
-    if (selectedDirId != null) return spaceProblems.filter(p => p.directoryId === selectedDirId)
-    return spaceProblems
-  }, [selectedDirId, spaceProblems])
-
-  const allAvailableTags = useMemo(() => [...new Set(
-    dirFilteredProblems.flatMap(p => p.tags || [])
-  )].sort((a, b) => a.localeCompare(b)), [dirFilteredProblems])
-
-  const filteredProblems = useMemo(() => dirFilteredProblems
-    .filter(p => selectedTags.length === 0 || selectedTags.every(tag => (p.tags || []).includes(tag)))
-    .filter(p => {
-      const kw = searchText.trim().toLowerCase()
-      if (!kw) return true
-      return String(p.id).includes(kw) ||
-        String(p.title || '').toLowerCase().includes(kw)
-    })
-    .sort((a, b) => b.id - a.id), [dirFilteredProblems, selectedTags, searchText])
-
-  // Breadcrumb path
-  const breadcrumbPath = useMemo(() =>
-    selectedDirId != null && selectedDirId !== -1 ? findPath(selectedDirId, directories) : [],
-    [selectedDirId, directories])
-
-  // Pagination
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredProblems.length / PAGE_SIZE)), [filteredProblems])
-  const pagedProblems = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredProblems.slice(start, start + PAGE_SIZE)
-  }, [filteredProblems, page])
-
-  // Reset to page 1 when directory or tag filter changes
-  useEffect(() => { setPage(1) }, [selectedDirId, selectedTags])
-  // Clamp page when filtered results shrink
+  // 过滤条件变化时回到第一页
+  useEffect(() => { setPage(1) }, [selectedDirId, selectedTags, debouncedSearch])
+  // 分页越界时收缩
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total])
   useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+
+  // 过滤条件/分页变化时重新拉取
+  useEffect(() => {
+    loadProblems()
+  }, [loadProblems])
+
+  // 切换空间时重置并加载元数据
+  useEffect(() => {
+    setSelectedDirId(null)
+    setSelectedTags([])
+    setSearchText('')
+    setDebouncedSearch('')
+    setPage(1)
+    setProblems([])
+    setTotal(0)
+    loadMeta()
+  }, [selectedSpaceId, loadMeta])
+
+  // 父级数据刷新（创建/编辑/删除题目后）时同步刷新列表与计数
+  const prevSpaceProblemsRef = useRef(spaceProblems)
+  useEffect(() => {
+    if (prevSpaceProblemsRef.current === spaceProblems) return
+    prevSpaceProblemsRef.current = spaceProblems
+    if (!selectedSpaceId) return
+    loadProblems()
+    loadMeta()
+  }, [spaceProblems, selectedSpaceId, loadProblems, loadMeta])
 
   const handleRefresh = useCallback(async () => {
     setLoading(true)
     try {
-      await Promise.all([onRefreshProblems(), loadDirectories()])
+      await Promise.all([loadProblems(), loadMeta(), onRefreshProblems?.()])
     } finally {
       setLoading(false)
     }
-  }, [onRefreshProblems, loadDirectories])
+  }, [loadProblems, loadMeta, onRefreshProblems])
 
-  // --- Directory CRUD ---
+  // ---- 目录 CRUD ----
 
   const handleCreateDir = async () => {
     if (!dirNameInput.trim()) return
@@ -274,7 +292,7 @@ export default function QuestionBankPanel({
         setExpandedIds(prev => new Set([...prev, contextDirId]))
       }
       setContextDirId(null)
-      await loadDirectories()
+      await loadMeta()
       showMessage('目录创建成功')
     } catch (err) {
       showMessage(err.message || '创建目录失败', 'error')
@@ -291,7 +309,7 @@ export default function QuestionBankPanel({
       setShowRenameDirDialog(false)
       setDirNameInput('')
       setContextDirId(null)
-      await loadDirectories()
+      await loadMeta()
       showMessage('目录重命名成功')
     } catch (err) {
       showMessage(err.message || '重命名失败', 'error')
@@ -308,7 +326,7 @@ export default function QuestionBankPanel({
       setShowDeleteDirDialog(false)
       setContextDirId(null)
       if (selectedDirId === contextDirId) setSelectedDirId(-1)
-      await Promise.all([loadDirectories(), onRefreshProblems()])
+      await Promise.all([loadMeta(), loadProblems()])
       showMessage('目录已删除')
     } catch (err) {
       showMessage(err.message || '删除目录失败', 'error')
@@ -325,7 +343,7 @@ export default function QuestionBankPanel({
       setShowMoveProblemDialog(false)
       setMoveProblemId(null)
       setMoveTargetDirId(null)
-      await onRefreshProblems()
+      await Promise.all([loadProblems(), loadMeta()])
       showMessage('题目移动成功')
     } catch (err) {
       showMessage(err.message || '移动题目失败', 'error')
@@ -379,7 +397,7 @@ export default function QuestionBankPanel({
       setShowMoveDirDialog(false)
       setContextDirId(null)
       setMoveTargetDirId(null)
-      await loadDirectories()
+      await loadMeta()
       showMessage('目录移动成功')
     } catch (err) {
       showMessage(err.message || '移动目录失败', 'error')
@@ -399,13 +417,51 @@ export default function QuestionBankPanel({
     try {
       const result = await api.importProblems(selectedSpaceId, file)
       showMessage(`已从 ZIP 导入 ${result?.problems?.length || 0} 道题目`)
-      await onRefreshProblems()
+      await Promise.all([loadProblems(), loadMeta()])
     } catch (err) {
       showMessage(err.message || 'ZIP 导入失败', 'error')
     } finally {
       setZipImporting(false)
       e.target.value = ''
     }
+  }
+
+  // ---- 导出当前列表 ----
+
+  const currentFilterLabel = useMemo(() => {
+    if (debouncedSearch) return `搜索-${debouncedSearch}`
+    if (selectedDirId === -1) return '未分类'
+    if (selectedDirId != null) {
+      const dir = directories.find(d => d.id === selectedDirId)
+      if (dir) return dir.name
+    }
+    return '全部题目'
+  }, [debouncedSearch, selectedDirId, directories])
+
+  const handleExportList = async () => {
+    if (!selectedSpaceId || total === 0) return
+    setExporting(true)
+    try {
+      await api.exportProblemsFiltered(selectedSpaceId, {
+        dirId: selectedDirId == null ? undefined : selectedDirId,
+        tags: selectedTags.length > 0 ? selectedTags.join(',') : undefined,
+        q: debouncedSearch || undefined,
+        name: `题目导出-${currentFilterLabel}`
+      })
+      showMessage(`已导出当前列表（${total} 道题）`)
+    } catch (err) {
+      showMessage(err.message || '导出失败', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportClick = () => {
+    if (total > EXPORT_CONFIRM_THRESHOLD) {
+      setShowExportConfirmDialog(true)
+      return
+    }
+    handleExportList()
   }
 
   const toggleExpand = (id) => {
@@ -416,6 +472,12 @@ export default function QuestionBankPanel({
       return next
     })
   }
+
+  // 注意：所有 Hook 必须在条件早退之前调用，否则渲染时 Hook 顺序会变化
+  const treeRoots = useMemo(() => buildTree(directories), [directories])
+  const breadcrumbPath = useMemo(() =>
+    selectedDirId != null && selectedDirId !== -1 ? findPath(selectedDirId, directories) : [],
+    [selectedDirId, directories])
 
   if (!selectedSpace) {
     return (
@@ -433,8 +495,6 @@ export default function QuestionBankPanel({
       </CardContent></Card>
     )
   }
-
-  const totalRootProblems = dirCounts['__none__'] ?? 0
 
   return (
     <div>
@@ -467,8 +527,8 @@ export default function QuestionBankPanel({
                   <span className="w-4 h-4 shrink-0" />
                   <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="truncate flex-1">未分类</span>
-                  {totalRootProblems > 0 && (
-                    <span className="text-[11px] text-muted-foreground">{totalRootProblems}</span>
+                  {uncategorizedCount > 0 && (
+                    <span className="text-[11px] text-muted-foreground">{uncategorizedCount}</span>
                   )}
                 </div>
                 {/* Tree */}
@@ -530,7 +590,7 @@ export default function QuestionBankPanel({
                   <span className="text-base font-bold">
                     {selectedDirId === -1 ? '未分类' : selectedDirId != null ? breadcrumbPath.map(d => d.name).join(' / ') : '全部题目'}
                   </span>
-                  <Badge variant="secondary" className="text-[11px]">{filteredProblems.length}</Badge>
+                  <Badge variant="secondary" className="text-[11px]">{total}</Badge>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
                   {selectedDirId != null && selectedDirId !== -1 && (
@@ -551,6 +611,9 @@ export default function QuestionBankPanel({
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Button variant="outline" size="sm" disabled={exporting || total === 0} onClick={handleExportClick} title="导出当前列表（目录/标签/搜索过滤后）">
+                    <Download className="h-3.5 w-3.5 mr-1" />{exporting ? '导出中...' : '导出列表'}
+                  </Button>
                   <Button variant="outline" size="sm" disabled={zipImporting} onClick={() => document.getElementById('qb-zip-input')?.click()}>
                     <Upload className="h-3.5 w-3.5 mr-1" />{zipImporting ? '导入中...' : '导入'}
                   </Button>
@@ -562,22 +625,23 @@ export default function QuestionBankPanel({
               </div>
 
               {/* Tags */}
-              {allAvailableTags.length > 0 && (
+              {allTags.length > 0 && (
                 <div className="mb-3">
                   <div className={`flex flex-wrap items-center gap-1.5 ${tagsExpanded ? '' : 'max-h-[3.25rem] overflow-hidden'}`}>
-                    {allAvailableTags.map(tag => (
-                      <Badge key={tag}
-                        variant={selectedTags.includes(tag) ? 'default' : 'outline'}
+                    {allTags.map(tagItem => (
+                      <Badge key={tagItem.tag}
+                        variant={selectedTags.includes(tagItem.tag) ? 'default' : 'outline'}
                         className="cursor-pointer text-xs select-none"
                         onClick={() => setSelectedTags(prev =>
-                          prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                          prev.includes(tagItem.tag) ? prev.filter(t => t !== tagItem.tag) : [...prev, tagItem.tag]
                         )}
                       >
-                        {tag}
-                        {selectedTags.includes(tag) && (
+                        {tagItem.tag}
+                        <span className="opacity-70 ml-1">{tagItem.count}</span>
+                        {selectedTags.includes(tagItem.tag) && (
                           <X className="h-3 w-3 ml-1" onClick={(e) => {
                             e.stopPropagation()
-                            setSelectedTags(prev => prev.filter(t => t !== tag))
+                            setSelectedTags(prev => prev.filter(t => t !== tagItem.tag))
                           }} />
                         )}
                       </Badge>
@@ -589,10 +653,10 @@ export default function QuestionBankPanel({
                       </Button>
                     )}
                   </div>
-                  {allAvailableTags.length > 10 && (
+                  {allTags.length > 10 && (
                     <Button variant="link" size="sm" className="h-5 text-xs px-0 mt-0.5"
                       onClick={() => setTagsExpanded(!tagsExpanded)}>
-                      {tagsExpanded ? '收起标签' : `展开全部 ${allAvailableTags.length} 个标签`}
+                      {tagsExpanded ? '收起标签' : `展开全部 ${allTags.length} 个标签`}
                     </Button>
                   )}
                 </div>
@@ -614,58 +678,37 @@ export default function QuestionBankPanel({
 
               {/* Problem list */}
               <ScrollArea className="h-[55vh]">
-                {filteredProblems.length === 0 ? (
+                {listLoading && problems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <RefreshCw className="h-5 w-5 animate-spin mb-2" />
+                    <p className="text-sm">加载中...</p>
+                  </div>
+                ) : problems.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-12">
-                    {searchText ? '没有匹配题目' : selectedTags.length > 0 ? '该筛选条件下没有匹配题目' : '该目录下暂无题目，点击"新建"或"导入"添加'}
+                    {debouncedSearch ? '没有匹配题目' : selectedTags.length > 0 ? '该筛选条件下没有匹配题目' : '该目录下暂无题目，点击"新建"或"导入"添加'}
                   </p>
                 ) : (
                   <div className="flex flex-col gap-1.5 pr-1">
-                    {pagedProblems.map((problem) => (
-                      <div key={problem.id}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-accent/50 transition-colors group">
-                        <span className="font-bold text-sm text-primary shrink-0 tabular-nums w-[3.5ch]">#{problem.id}</span>
-                        <span className="text-sm font-medium truncate flex-1 min-w-0">{problem.title}</span>
-                        <Badge variant="outline" className="text-[11px] shrink-0">{ptText ? ptText(problem.type) : problemTypeText(problem.type)}</Badge>
-                        {(problem.tags || []).slice(0, 2).map(tag => (
-                          <Badge key={tag} variant="secondary" className="text-[11px] shrink-0 hidden sm:inline-flex">{tag}</Badge>
-                        ))}
-                        <div className="flex gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <Button size="sm" variant="ghost" className="h-7 text-xs px-2" asChild>
-                            <Link to={`/spaces/${selectedSpaceId}/problems/${problem.id}/solve`} target="_blank">做题</Link>
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs px-2"
-                            onClick={() => window.openEditProblem?.(problem.id)}>编辑</Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => api.exportProblems(selectedSpaceId, [problem.id], problem.title)}>
-                                导出
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setMoveProblemId(problem.id)
-                                setMoveTargetDirId(problem.directoryId || null)
-                                setShowMoveProblemDialog(true)
-                              }}>
-                                移动到目录
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive"
-                                onClick={() => window.removeProblem?.(problem.id)}>
-                                删除
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
+                    {problems.map((problem) => (
+                      <ProblemRow
+                        key={problem.id}
+                        problem={problem}
+                        spaceId={selectedSpaceId}
+                        onEdit={(problemId) => window.openEditProblem?.(problemId)}
+                        onMove={(p) => {
+                          setMoveProblemId(p.id)
+                          setMoveTargetDirId(p.directoryId || null)
+                          setShowMoveProblemDialog(true)
+                        }}
+                        onRemove={(problemId) => window.removeProblem?.(problemId)}
+                      />
                     ))}
                   </div>
                 )}
               </ScrollArea>
 
               {/* Pagination */}
-              {totalPages > 1 && filteredProblems.length > 0 && (
+              {totalPages > 1 && problems.length > 0 && (
                 <div className="flex items-center justify-center gap-1 mt-3 pt-3 border-t">
                   <Button variant="outline" size="sm" className="h-8 w-8 p-0"
                     disabled={page <= 1} onClick={() => setPage(1)}>
@@ -838,6 +881,25 @@ export default function QuestionBankPanel({
             <Button variant="outline" onClick={() => { setShowMoveDirDialog(false); setContextDirId(null) }}>取消</Button>
             <Button onClick={handleMoveDir} disabled={dirSubmitting}>
               {dirSubmitting ? '移动中...' : '确认移动'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ====== Export List Confirm Dialog ====== */}
+      <Dialog open={showExportConfirmDialog} onOpenChange={setShowExportConfirmDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>导出当前列表</DialogTitle></DialogHeader>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground">
+              当前过滤条件（{currentFilterLabel}）下有 <strong className="text-foreground">{total}</strong> 道题，
+              将全部导出为 ZIP（含题面、答案与题解），题目较多时可能需要一些时间。
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExportConfirmDialog(false)}>取消</Button>
+            <Button onClick={() => { setShowExportConfirmDialog(false); handleExportList() }} disabled={exporting}>
+              {exporting ? '导出中...' : '确认导出'}
             </Button>
           </DialogFooter>
         </DialogContent>

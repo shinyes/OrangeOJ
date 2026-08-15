@@ -373,6 +373,193 @@ VALUES(?, ?, 1, 100)`, practiceID, problemID); err != nil {
 	}
 }
 
+func TestSpaceProblemsSupportMultipleSolutions(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_solutions_admin", "spacesolutions123")
+	memberID := seedUser(t, database, "space_solutions_member", "spacesolutionsmember123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Solutions")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+	mustAddMember(t, database, spaceID, memberID, "member")
+
+	cookie := mustLogin(t, app, "space_solutions_admin", "spacesolutions123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems", cookie, map[string]interface{}{
+		"type":        "programming",
+		"title":       "带多题解的题目",
+		"statementMd": "请输出 Hello",
+		"bodyJson": map[string]interface{}{
+			"inputFormat":  "无",
+			"outputFormat": "输出 Hello",
+		},
+		"answerJson": map[string]interface{}{},
+		"solutions": []map[string]interface{}{
+			{"language": "C++", "code": "#include <iostream>", "markdown": "## 思路\n直接输出。"},
+			{"language": "python3", "code": "print('Hello')", "markdown": "用 print 输出。"},
+		},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	createEnv := decodeEnvelope[map[string]interface{}](t, createResp)
+	problemID := int64(createEnv.Data["id"].(float64))
+
+	// Stored solutions_json should be normalized (C++ -> cpp, python3 -> python)
+	var storedSolutionsJSON string
+	if err := database.QueryRow(`SELECT solutions_json FROM space_problems WHERE id=?`, problemID).Scan(&storedSolutionsJSON); err != nil {
+		t.Fatalf("query solutions json: %v", err)
+	}
+	var storedSolutions []map[string]interface{}
+	if err := json.Unmarshal([]byte(storedSolutionsJSON), &storedSolutions); err != nil {
+		t.Fatalf("decode stored solutions: %v", err)
+	}
+	if len(storedSolutions) != 2 {
+		t.Fatalf("expected 2 stored solutions, got %d: %+v", len(storedSolutions), storedSolutions)
+	}
+	if storedSolutions[0]["language"] != "cpp" || storedSolutions[1]["language"] != "python" {
+		t.Fatalf("expected normalized languages, got %+v", storedSolutions)
+	}
+
+	// Admin sees solutions in problem JSON
+	adminGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, nil)
+	if adminGetResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected admin get 200, got %d", adminGetResp.StatusCode)
+	}
+	adminEnv := decodeEnvelope[map[string]interface{}](t, adminGetResp)
+	solutions, ok := adminEnv.Data["solutions"].([]interface{})
+	if !ok || len(solutions) != 2 {
+		t.Fatalf("expected 2 solutions in admin response, got %+v", adminEnv.Data["solutions"])
+	}
+
+	// Regular member must NOT receive solutions
+	memberCookie := mustLogin(t, app, "space_solutions_member", "spacesolutionsmember123")
+	memberGetResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), memberCookie, nil)
+	if memberGetResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected member get 200, got %d", memberGetResp.StatusCode)
+	}
+	memberEnv := decodeEnvelope[map[string]interface{}](t, memberGetResp)
+	if _, ok := memberEnv.Data["solutions"]; ok {
+		t.Fatalf("member should not receive solutions: %+v", memberEnv.Data)
+	}
+
+	// Update solutions (replace with a single solution)
+	updateResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, map[string]interface{}{
+		"type":        "programming",
+		"title":       "带多题解的题目（更新）",
+		"statementMd": "请输出 Hello",
+		"bodyJson": map[string]interface{}{
+			"inputFormat":  "无",
+			"outputFormat": "输出 Hello",
+		},
+		"answerJson": map[string]interface{}{},
+		"solutions": []map[string]interface{}{
+			{"language": "go", "code": "package main", "markdown": "用 fmt.Println 输出。"},
+		},
+	})
+	if updateResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected update 200, got %d", updateResp.StatusCode)
+	}
+	updateResp.Body.Close()
+
+	verifyResp := doJSONRequest(t, app, http.MethodGet, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10), cookie, nil)
+	if verifyResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected verify 200, got %d", verifyResp.StatusCode)
+	}
+	verifyEnv := decodeEnvelope[map[string]interface{}](t, verifyResp)
+	updatedSolutions, ok := verifyEnv.Data["solutions"].([]interface{})
+	if !ok || len(updatedSolutions) != 1 {
+		t.Fatalf("expected 1 solution after update, got %+v", verifyEnv.Data["solutions"])
+	}
+}
+
+func TestCreateSpaceProblemRejectsInvalidSolutions(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_solutions_invalid_admin", "spacesolutionsinvalid123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Solutions-Invalid")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+
+	cookie := mustLogin(t, app, "space_solutions_invalid_admin", "spacesolutionsinvalid123")
+	resp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems", cookie, map[string]interface{}{
+		"type":        "programming",
+		"title":       "非法题解数组",
+		"statementMd": "test",
+		"bodyJson":    map[string]interface{}{},
+		"answerJson":  map[string]interface{}{},
+		"solutions":   map[string]interface{}{"language": "cpp"},
+	})
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for non-array solutions, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdateProblemSolutionsEndpoint(t *testing.T) {
+	app, database := newTestApp(t, false)
+
+	spaceAdminID := seedUser(t, database, "space_solutions_endpoint_admin", "spacesolutionsendpoint123")
+	memberID := seedUser(t, database, "space_solutions_endpoint_member", "spacesolutionsendpointmember123")
+	spaceID := mustCreateSpace(t, database, "Space-Problem-Solutions-Endpoint")
+	mustAddMember(t, database, spaceID, spaceAdminID, "space_admin")
+	mustAddMember(t, database, spaceID, memberID, "member")
+
+	cookie := mustLogin(t, app, "space_solutions_endpoint_admin", "spacesolutionsendpoint123")
+	createResp := doJSONRequest(t, app, http.MethodPost, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems", cookie, map[string]interface{}{
+		"type":        "programming",
+		"title":       "题解独立更新接口",
+		"statementMd": "请输出 Hello",
+		"bodyJson":    map[string]interface{}{},
+		"answerJson":  map[string]interface{}{},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected create 200, got %d", createResp.StatusCode)
+	}
+	createEnv := decodeEnvelope[map[string]interface{}](t, createResp)
+	problemID := int64(createEnv.Data["id"].(float64))
+
+	// Member cannot update solutions
+	memberCookie := mustLogin(t, app, "space_solutions_endpoint_member", "spacesolutionsendpointmember123")
+	memberResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"/solutions", memberCookie, map[string]interface{}{
+		"solutions": []map[string]interface{}{{"language": "cpp", "code": "x"}},
+	})
+	defer memberResp.Body.Close()
+	if memberResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected member update 403, got %d", memberResp.StatusCode)
+	}
+
+	// Admin updates only solutions; other problem fields must be untouched
+	updateResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"/solutions", cookie, map[string]interface{}{
+		"solutions": []map[string]interface{}{
+			{"language": "cpp", "code": "#include <iostream>", "markdown": "## 思路\n直接输出。"},
+			{"language": "python", "code": "print('Hello')", "markdown": "用 print。"},
+		},
+	})
+	if updateResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected update solutions 200, got %d", updateResp.StatusCode)
+	}
+	updateEnv := decodeEnvelope[map[string]interface{}](t, updateResp)
+	if solutions, ok := updateEnv.Data["solutions"].([]interface{}); !ok || len(solutions) != 2 {
+		t.Fatalf("expected 2 solutions in response, got %+v", updateEnv.Data["solutions"])
+	}
+
+	// Problem title / statement unchanged
+	var storedTitle, storedStatement string
+	if err := database.QueryRow(`SELECT title, statement_md FROM space_problems WHERE id=?`, problemID).Scan(&storedTitle, &storedStatement); err != nil {
+		t.Fatalf("query problem: %v", err)
+	}
+	if storedTitle != "题解独立更新接口" || storedStatement != "请输出 Hello" {
+		t.Fatalf("update solutions must not touch other fields, got title=%q statement=%q", storedTitle, storedStatement)
+	}
+
+	// Invalid solutions body -> 400
+	invalidResp := doJSONRequest(t, app, http.MethodPut, "/api/spaces/"+strconv.FormatInt(spaceID, 10)+"/problems/"+strconv.FormatInt(problemID, 10)+"/solutions", cookie, map[string]interface{}{
+		"solutions": map[string]interface{}{"language": "cpp"},
+	})
+	defer invalidResp.Body.Close()
+	if invalidResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected invalid solutions 400, got %d", invalidResp.StatusCode)
+	}
+}
+
 func mustCreateSpace(t *testing.T, database *sql.DB, name string) int64 {
 	t.Helper()
 	res, err := database.Exec(`INSERT INTO spaces(name, description, created_by) VALUES(?, '', 1)`, name)

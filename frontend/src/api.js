@@ -113,11 +113,12 @@ export const api = {
   getSpace: (spaceId) => apiFetch(`/api/spaces/${spaceId}`),
   updateSpace: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}`, { method: 'PUT', body }),
 
-  listSpaceProblems: (spaceId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/problems`, { limit: options.limit, offset: options.offset })),
+  listSpaceProblems: (spaceId, options = {}) => apiFetch(withQuery(`/api/spaces/${spaceId}/problems`, { limit: options.limit, offset: options.offset, dirId: options.dirId, tags: options.tags, q: options.q })),
   listSpaceMembers: (spaceId) => apiFetch(`/api/spaces/${spaceId}/members`),
   searchSpaceMemberCandidates: (spaceId, keyword) => apiFetch(withQuery(`/api/spaces/${spaceId}/member-candidates`, { q: keyword })),
   createSpaceProblem: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/problems`, { method: 'POST', body }),
   updateSpaceProblem: (spaceId, problemId, body) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`, { method: 'PUT', body }),
+  updateProblemSolutions: (spaceId, problemId, solutions) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}/solutions`, { method: 'PUT', body: { solutions } }),
   deleteSpaceProblem: (spaceId, problemId) => apiFetch(`/api/spaces/${spaceId}/problems/${problemId}`, { method: 'DELETE' }),
   addSpaceMember: (spaceId, userId, role = 'member') => apiFetch(`/api/spaces/${spaceId}/members`, { method: 'POST', body: { userId, role } }),
   deleteSpaceMember: (spaceId, userId) => apiFetch(`/api/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' }),
@@ -172,9 +173,12 @@ export const api = {
   uploadImage: (file) => uploadFile('/api/images/upload', file),
 
   exportProblems: (spaceId, problemIds, name) => downloadFile(`/api/spaces/${spaceId}/problems/export?ids=${problemIds.join(',')}${name ? `&name=${encodeURIComponent(name)}` : ''}`),
+  exportProblemsFiltered: (spaceId, options = {}) => downloadFile(withQuery(`/api/spaces/${spaceId}/problems/export`, { dirId: options.dirId, tags: options.tags, q: options.q, name: options.name })),
   importProblems: (spaceId, zipFile) => uploadFile(`/api/spaces/${spaceId}/problems/import`, zipFile),
 
   listProblemDirectories: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-directories`),
+  getProblemDirectoryCounts: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problem-directories/counts`),
+  getProblemTags: (spaceId) => apiFetch(`/api/spaces/${spaceId}/problems/tags`),
   createProblemDirectory: (spaceId, body) => apiFetch(`/api/spaces/${spaceId}/problem-directories`, { method: "POST", body }),
   updateProblemDirectory: (spaceId, dirId, body) => apiFetch(`/api/spaces/${spaceId}/problem-directories/${dirId}`, { method: "PUT", body }),
   deleteProblemDirectory: (spaceId, dirId) => apiFetch(`/api/spaces/${spaceId}/problem-directories/${dirId}`, { method: "DELETE" }),

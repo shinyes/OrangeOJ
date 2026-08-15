@@ -15,12 +15,13 @@ import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, Pencil, ChevronLeft, ChevronRight, ImageIcon, Users } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil, ChevronLeft, ChevronRight, ImageIcon, Users, BookOpen } from 'lucide-react'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
 import { codeDraftStorageKey } from '../utils/userScopedStorage'
 import ProblemEditor from '../components/dashboard/ProblemEditor'
+import SolutionsDialog from '../components/SolutionsDialog'
 
 const editorLang = {
   cpp: 'cpp',
@@ -109,6 +110,8 @@ export default function CodingPage() {
   const [objectiveAnswer, setObjectiveAnswer] = useState('')
   const [spaceMyRole, setSpaceMyRole] = useState('')
   const [showProblemEditor, setShowProblemEditor] = useState(false)
+  const [showSolutions, setShowSolutions] = useState(false)
+  const [savingSolutions, setSavingSolutions] = useState(false)
   const [savingProblem, setSavingProblem] = useState(false)
   const [cloudSaveStatus, setCloudSaveStatus] = useState('') // '' | 'saving' | 'saved' | 'error'
   const lastSavedCodeRef = useRef('')
@@ -169,6 +172,22 @@ export default function CodingPage() {
       throw err
     } finally {
       setSavingProblem(false)
+    }
+  }
+
+  const handleSolutionsSave = async (solutions) => {
+    setSavingSolutions(true)
+    try {
+      setError('')
+      await api.updateProblemSolutions(spaceId, problemId, solutions)
+      const updated = await api.getProblem(spaceId, problemId, { includeAnswer: true })
+      setProblem(updated)
+      toast.success('题解已保存')
+    } catch (err) {
+      setError(err.message || '保存题解失败')
+      throw err
+    } finally {
+      setSavingSolutions(false)
     }
   }
   const selectedSubmissionCaseDetails = selectedSubmission?.caseDetails || []
@@ -277,7 +296,15 @@ export default function CodingPage() {
     if (cloudDraftLoadedRef.current) {
       api.saveProblemDraft(spaceId, problemId, {
         draft: JSON.stringify({ languages: { ...allCodeRef.current } })
-      }).catch(() => {})
+      })
+        .then(() => {
+          setCloudSaveStatus('saved')
+          setTimeout(() => setCloudSaveStatus((s) => (s === 'saved' ? '' : s)), 2000)
+        })
+        .catch(() => {
+          setCloudSaveStatus('error')
+          setTimeout(() => setCloudSaveStatus((s) => (s === 'error' ? '' : s)), 3000)
+        })
     }
 
     // 从 allCodeRef / localStorage / 起始代码加载新语言
@@ -330,14 +357,19 @@ export default function CodingPage() {
     handleCodeSubmit('test')
   }
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     const key = codeDraftStorageKey(user, spaceId, problemId, language)
     localStorage.setItem(key, code)
     allCodeRef.current[language] = code
-    api.saveProblemDraft(spaceId, problemId, {
-      draft: JSON.stringify({ languages: { ...allCodeRef.current } })
-    }).catch(() => {})
-    lastSavedCodeRef.current = code
+    try {
+      await api.saveProblemDraft(spaceId, problemId, {
+        draft: JSON.stringify({ languages: { ...allCodeRef.current } })
+      })
+      lastSavedCodeRef.current = code
+      toast.success('草稿已保存')
+    } catch (e) {
+      toast.error('保存失败，请重试')
+    }
   }
 
   const pollSubmission = async (submissionId, mode) => {
@@ -462,6 +494,17 @@ export default function CodingPage() {
         />
       )}
 
+      {canEditProblem && (
+        <SolutionsDialog
+          open={showSolutions}
+          solutions={problem?.solutions || []}
+          saving={savingSolutions}
+          copyToClipboard={copyToClipboard}
+          onClose={() => setShowSolutions(false)}
+          onSave={handleSolutionsSave}
+        />
+      )}
+
       <CodingPageContent
         problem={problem}
         body={body}
@@ -470,6 +513,8 @@ export default function CodingPage() {
         canEditProblem={canEditProblem}
         showProblemEditor={showProblemEditor}
         setShowProblemEditor={setShowProblemEditor}
+        showSolutions={showSolutions}
+        setShowSolutions={setShowSolutions}
         error={error}
         setError={setError}
         language={language}
@@ -527,6 +572,7 @@ export default function CodingPage() {
 
 function CodingPageContent({
   problem, body, backTo, backLabel, canEditProblem, showProblemEditor, setShowProblemEditor,
+  showSolutions, setShowSolutions,
   error, setError, language, setLanguage, code, setCode, cloudSaveStatus,
   customInput, setCustomInput, showCustomInputDialog, setShowCustomInputDialog,
   tempCustomInput, setTempCustomInput, consoleText, setConsoleText, consoleVariant, setConsoleVariant,
@@ -719,6 +765,11 @@ function CodingPageContent({
             <h1 className="text-xs md:text-sm font-semibold flex-1 truncate">{problem.title}</h1>
             <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
               {canEditProblem && (
+                <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowSolutions(true)}>
+                  <BookOpen className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />题解
+                </Button>
+              )}
+              {canEditProblem && (
                 <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowProblemEditor(true)}>
                   <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
                 </Button>
@@ -817,6 +868,11 @@ function CodingPageContent({
         <div className="flex items-center justify-between min-h-8 md:min-h-10 px-2 md:px-4 py-0.5 gap-1 flex-wrap">
           <h1 className="text-xs md:text-sm font-semibold flex-1 truncate">{problem.title}</h1>
           <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
+            {canEditProblem && (
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowSolutions(true)}>
+                <BookOpen className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />题解
+              </Button>
+            )}
             {canEditProblem && (
               <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowProblemEditor(true)}>
                 <Pencil className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />编辑
@@ -950,6 +1006,11 @@ function CodingPageContent({
                 </>
               )}
               <div className="flex-1" />
+              {cloudSaveStatus && (
+                <span className={`text-[10px] md:text-xs whitespace-nowrap ${cloudSaveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {cloudSaveStatus === 'saving' ? '保存中...' : cloudSaveStatus === 'saved' ? '已保存' : '保存失败'}
+                </span>
+              )}
               <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs px-1.5 md:px-3" onClick={() => { setSelectedSubmission(null); setSelectedSubmissionCaseIndex(0); setSubmissionDetailTab('code'); setShowSubmissionHistory(true) }}>
                 <History className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />
                 <span className="hidden sm:inline">测评记录</span> {submissions.length > 0 && `(${submissions.length})`}

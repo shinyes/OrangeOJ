@@ -363,6 +363,9 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err := addColumnIfNotExists(ctx, db, "space_problems", "tags_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
 		return err
 	}
+	if err := addColumnIfNotExists(ctx, db, "space_problems", "solutions_json", "TEXT NOT NULL DEFAULT '[]'"); err != nil {
+		return err
+	}
 	if err := addColumnIfNotExists(ctx, db, "practices", "display_mode", "TEXT NOT NULL DEFAULT 'exam'"); err != nil {
 		return err
 	}
