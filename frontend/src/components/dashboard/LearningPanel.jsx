@@ -13,9 +13,11 @@ export default function LearningPanel({
   learningTrainingSearch, onLearningTrainingSearchChange, canManageSelectedSpace,
   onOpenCreateTrainingPlan, filteredLearningTrainingPlans, onOpenEditTrainingPlan,
   onOpenAssignTrainingParticipant, onExportTrainingPlan, onDeleteTrainingPlan, trainingActionMessage,
-  allTrainingTags, allPracticeTags,
+  allTrainingTags, allPracticeTags, allTrainingUsers, allPracticeUsers,
   learningTrainingTag, onLearningTrainingTagChange,
   learningPracticeTag, onLearningPracticeTagChange,
+  learningTrainingUser, onLearningTrainingUserChange,
+  learningPracticeUser, onLearningPracticeUserChange,
   learningPracticeSearch, onLearningPracticeSearchChange, onOpenCreatePractice,
   filteredLearningPractices, onOpenEditPractice, onOpenAssignPracticeTarget,
   onExportPractice, onDeletePractice, practiceActionMessage
@@ -60,7 +62,7 @@ export default function LearningPanel({
           </div>
 
           {allTrainingTags.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-1.5">
+            <div className="mb-2 flex flex-wrap gap-1.5">
               {allTrainingTags.map((tag) => (
                 <Badge key={tag}
                   variant={learningTrainingTag === tag ? 'default' : 'outline'}
@@ -69,6 +71,22 @@ export default function LearningPanel({
                   {tag}
                 </Badge>
               ))}
+            </div>
+          )}
+          {allTrainingUsers.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5 items-center">
+              <span className="text-xs text-muted-foreground mr-1">按成员筛选:</span>
+              {allTrainingUsers.map((username) => (
+                <Badge key={username}
+                  variant={learningTrainingUser === username ? 'default' : 'outline'}
+                  className="cursor-pointer text-xs select-none"
+                  onClick={() => onLearningTrainingUserChange(learningTrainingUser === username ? '' : username)}>
+                  {username}
+                </Badge>
+              ))}
+              {learningTrainingUser && (
+                <Badge variant="secondary" className="cursor-pointer text-xs" onClick={() => onLearningTrainingUserChange('')}>清除 ×</Badge>
+              )}
             </div>
           )}
 
@@ -131,7 +149,7 @@ export default function LearningPanel({
           </div>
 
           {allPracticeTags.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-1.5">
+            <div className="mb-2 flex flex-wrap gap-1.5">
               {allPracticeTags.map((tag) => (
                 <Badge key={tag}
                   variant={learningPracticeTag === tag ? 'default' : 'outline'}
@@ -140,6 +158,22 @@ export default function LearningPanel({
                   {tag}
                 </Badge>
               ))}
+            </div>
+          )}
+          {allPracticeUsers.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5 items-center">
+              <span className="text-xs text-muted-foreground mr-1">按成员筛选:</span>
+              {allPracticeUsers.map((username) => (
+                <Badge key={username}
+                  variant={learningPracticeUser === username ? 'default' : 'outline'}
+                  className="cursor-pointer text-xs select-none"
+                  onClick={() => onLearningPracticeUserChange(learningPracticeUser === username ? '' : username)}>
+                  {username}
+                </Badge>
+              ))}
+              {learningPracticeUser && (
+                <Badge variant="secondary" className="cursor-pointer text-xs" onClick={() => onLearningPracticeUserChange('')}>清除 ×</Badge>
+              )}
             </div>
           )}
 

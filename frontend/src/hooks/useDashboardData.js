@@ -30,6 +30,8 @@ export default function useDashboardData({
   const [systemTab, setSystemTab] = useState('settings')
   const [learningTrainingTag, setLearningTrainingTag] = useState('')
   const [learningPracticeTag, setLearningPracticeTag] = useState('')
+  const [learningTrainingUser, setLearningTrainingUser] = useState('')
+  const [learningPracticeUser, setLearningPracticeUser] = useState('')
   const [registrationEnabled, setRegistrationEnabled] = useState(false)
   const [spaceProblems, setSpaceProblems] = useState([])
   const [trainingPlans, setTrainingPlans] = useState([])
@@ -78,23 +80,49 @@ export default function useDashboardData({
     return [...tagSet].sort((a, b) => a.localeCompare(b))
   }, [practices])
 
+  const allTrainingUsers = useMemo(() => {
+    const nameSet = new Set()
+    trainingPlans.forEach((plan) => {
+      const names = String(plan.participantUsernames || '').split(',').map((s) => s.trim()).filter(Boolean)
+      names.forEach((n) => nameSet.add(n))
+    })
+    return [...nameSet].sort((a, b) => a.localeCompare(b))
+  }, [trainingPlans])
+
+  const allPracticeUsers = useMemo(() => {
+    const nameSet = new Set()
+    practices.forEach((practice) => {
+      const names = String(practice.targetUsernames || '').split(',').map((s) => s.trim()).filter(Boolean)
+      names.forEach((n) => nameSet.add(n))
+    })
+    return [...nameSet].sort((a, b) => a.localeCompare(b))
+  }, [practices])
+
   const filteredLearningTrainingPlans = useMemo(() => {
     const keyword = learningTrainingSearch.trim().toLowerCase()
     return trainingPlans.filter((plan) => {
       if (keyword && !String(plan.title || '').toLowerCase().includes(keyword)) return false
       if (learningTrainingTag && !(Array.isArray(plan.tags) && plan.tags.includes(learningTrainingTag))) return false
+      if (learningTrainingUser) {
+        const names = String(plan.participantUsernames || '').split(',').map((s) => s.trim()).filter(Boolean)
+        if (!names.includes(learningTrainingUser)) return false
+      }
       return true
     })
-  }, [learningTrainingSearch, learningTrainingTag, trainingPlans])
+  }, [learningTrainingSearch, learningTrainingTag, learningTrainingUser, trainingPlans])
 
   const filteredLearningPractices = useMemo(() => {
     const keyword = learningPracticeSearch.trim().toLowerCase()
     return practices.filter((practice) => {
       if (keyword && !String(practice.title || '').toLowerCase().includes(keyword)) return false
       if (learningPracticeTag && !(Array.isArray(practice.tags) && practice.tags.includes(learningPracticeTag))) return false
+      if (learningPracticeUser) {
+        const names = String(practice.targetUsernames || '').split(',').map((s) => s.trim()).filter(Boolean)
+        if (!names.includes(learningPracticeUser)) return false
+      }
       return true
     })
-  }, [learningPracticeSearch, learningPracticeTag, practices])
+  }, [learningPracticeSearch, learningPracticeTag, learningPracticeUser, practices])
 
   const requestedSpaceId = useMemo(() => {
     const raw = new URLSearchParams(locationSearch).get('spaceId')
@@ -297,10 +325,16 @@ export default function useDashboardData({
     filteredSpaceProblems,
     allTrainingTags,
     allPracticeTags,
+    allTrainingUsers,
+    allPracticeUsers,
     learningTrainingTag,
     setLearningTrainingTag,
     learningPracticeTag,
     setLearningPracticeTag,
+    learningTrainingUser,
+    setLearningTrainingUser,
+    learningPracticeUser,
+    setLearningPracticeUser,
     filteredLearningTrainingPlans,
     filteredLearningPractices,
     refreshSpaces,

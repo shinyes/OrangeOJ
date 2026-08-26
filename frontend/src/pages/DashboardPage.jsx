@@ -70,10 +70,16 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
     canManageSelectedSpace,
     allTrainingTags,
     allPracticeTags,
+    allTrainingUsers,
+    allPracticeUsers,
     learningTrainingTag,
     setLearningTrainingTag,
     learningPracticeTag,
     setLearningPracticeTag,
+    learningTrainingUser,
+    setLearningTrainingUser,
+    learningPracticeUser,
+    setLearningPracticeUser,
     filteredSpaceProblems,
     filteredLearningTrainingPlans,
     filteredLearningPractices,
@@ -278,10 +284,16 @@ export default function DashboardPage({ user, onLogout, view = 'learn' }) {
       onLearningTrainingSearchChange={searchState.setLearningTrainingSearch}
       allTrainingTags={allTrainingTags}
       allPracticeTags={allPracticeTags}
+      allTrainingUsers={allTrainingUsers}
+      allPracticeUsers={allPracticeUsers}
       learningTrainingTag={learningTrainingTag}
       onLearningTrainingTagChange={setLearningTrainingTag}
       learningPracticeTag={learningPracticeTag}
       onLearningPracticeTagChange={setLearningPracticeTag}
+      learningTrainingUser={learningTrainingUser}
+      onLearningTrainingUserChange={setLearningTrainingUser}
+      learningPracticeUser={learningPracticeUser}
+      onLearningPracticeUserChange={setLearningPracticeUser}
       canManageSelectedSpace={canManageSelectedSpace}
       onOpenCreateTrainingPlan={openCreateTrainingPlanModal}
       filteredLearningTrainingPlans={filteredLearningTrainingPlans}

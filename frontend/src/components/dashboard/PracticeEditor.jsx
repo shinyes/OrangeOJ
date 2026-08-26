@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { DatePicker } from '../ui/date-picker'
-import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
+import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, X, Search } from 'lucide-react'
 import ToastMessage from '../ToastMessage'
 import { Badge } from '../ui/badge'
 import TagInput from '../ui/tag-input'
@@ -61,6 +61,45 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
   const [zipFile, setZipFile] = useState(null)
   const [searchPerItem, setSearchPerItem] = useState({})
   const descRef = useRef(null)
+  const [assignInput, setAssignInput] = useState('')
+  const [assignCandidates, setAssignCandidates] = useState([])
+  const [assignSelected, setAssignSelected] = useState([])
+  const [assignLoading, setAssignLoading] = useState(false)
+  const [assignFocused, setAssignFocused] = useState(false)
+  const assignWrapRef = useRef(null)
+  const [existingTargets, setExistingTargets] = useState([])
+
+  useEffect(() => {
+    if (!isEditMode || !open || !practice?.id || !spaceId) { setExistingTargets([]); return }
+    api.getPractice(spaceId, practice.id).then((detail) => {
+      setExistingTargets(Array.isArray(detail?.targets) ? detail.targets : [])
+    }).catch(() => setExistingTargets([]))
+  }, [isEditMode, open, practice?.id, spaceId])
+
+  useEffect(() => {
+    const handler = (e) => { if (assignWrapRef.current && !assignWrapRef.current.contains(e.target)) setAssignFocused(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  useEffect(() => {
+    if (!isEditMode) { setAssignCandidates([]); setAssignLoading(false); return undefined }
+    const keyword = assignInput.trim()
+    if (!keyword) { setAssignCandidates([]); setAssignLoading(false); return undefined }
+    const practiceId = practice?.id
+    if (!practiceId || !spaceId) { setAssignCandidates([]); return undefined }
+    let active = true
+    const timer = window.setTimeout(async () => {
+      try {
+        setAssignLoading(true)
+        const list = await api.searchPracticeTargetCandidates(spaceId, practiceId, keyword)
+        if (!active) return
+        setAssignCandidates(Array.isArray(list) ? list : [])
+      } catch { if (active) setAssignCandidates([]) }
+      finally { if (active) setAssignLoading(false) }
+    }, 250)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [isEditMode, assignInput, practice?.id, spaceId])
 
   const autoGrowTextarea = (el) => {
     if (!el) return
@@ -76,6 +115,7 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
     if (!open) return
     setForm(buildInitialForm(practice)); setSubmitting(false); setSubmitError('')
     setDragState({ active: false, index: null }); setDragOverIndex(null); setProblemSourceMode('manual'); setZipFile(null); setSearchPerItem({})
+    setAssignInput(''); setAssignCandidates([]); setAssignSelected([]); setAssignLoading(false)
   }, [open, practice, mode])
 
   const handleImportZip = (e) => {
@@ -178,6 +218,12 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
     }
 
     await onSubmit({ title, description: form.description.trim(), dueAt: toDueAtISO(form.dueAt), displayMode: form.displayMode || 'exam', published: form.published, tags: form.tags, items: normalizedItems, problemDrafts })
+    if (isEditMode && practice?.id && spaceId && assignSelected.length > 0) {
+      const userIds = assignSelected.map((u) => Number(u.id)).filter((id) => Number.isInteger(id) && id > 0)
+      if (userIds.length > 0) {
+        await Promise.all(userIds.map((userId) => api.addPracticeTarget(spaceId, practice.id, userId)))
+      }
+    }
     onClose()
     } catch (err) { setSubmitError(err.message || '保存失败') }
     finally { setSubmitting(false) }
@@ -234,6 +280,71 @@ export default function PracticeEditor({ open, mode = 'create', practice = null,
                   <TabsTrigger value="import" className="flex-1">导入题目 ZIP</TabsTrigger>
                 </TabsList>
               </Tabs>
+            </div>
+          )}
+
+          {isEditMode && (
+            <div className="rounded-lg border bg-card p-3 flex flex-col gap-2">
+              <h4 className="text-sm font-medium">分配成员</h4>
+              <p className="text-xs text-muted-foreground">在编辑练习时可直接分配成员，保存时会一并提交。</p>
+              <div ref={assignWrapRef} className="relative">
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {assignSelected.map((user) => (
+                    <Badge key={user.id} variant="secondary" className="gap-1 shrink-0 cursor-default">
+                      <span className="truncate max-w-[120px]">{user.username}</span>
+                      <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => setAssignSelected((prev) => prev.filter((u) => u.id !== user.id))} />
+                    </Badge>
+                  ))}
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="搜索用户 ID 或用户名..." value={assignInput}
+                    onChange={(e) => setAssignInput(e.target.value)} onFocus={() => setAssignFocused(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const first = assignCandidates.find((u) => !assignSelected.some((s) => s.id === u.id))
+                        if (first) { e.preventDefault(); setAssignSelected((prev) => prev.some((u) => u.id === first.id) ? prev : [...prev, first]); setAssignInput('') }
+                      }
+                    }} className="pl-8" />
+                  {assignFocused && (!!assignInput.trim() || assignCandidates.length > 0 || assignLoading) && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-1 border rounded-lg bg-popover shadow-lg max-h-52 overflow-y-auto">
+                      {assignLoading && <p className="text-center text-sm text-muted-foreground py-6">搜索中...</p>}
+                      {!assignLoading && assignCandidates.length === 0 && (
+                        <p className="text-center text-sm text-muted-foreground py-6">{assignInput.trim() ? '未找到匹配用户' : '输入用户 ID 或用户名开始搜索'}</p>
+                      )}
+                      {assignCandidates.map((user) => {
+                        const checked = assignSelected.some((u) => u.id === user.id)
+                        const userLabel = [`#${user.id || user.userId}`, user.username].filter(Boolean).join(' · ')
+                        return (
+                          <div key={user.id} className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent ${!checked && user.id === assignCandidates.find((x) => !assignSelected.some((s) => s.id === x.id))?.id ? 'bg-accent/50' : ''}`}
+                            onClick={() => {
+                              setAssignSelected((prev) => prev.some((u) => u.id === user.id) ? prev.filter((u) => u.id !== user.id) : [...prev, user])
+                              setAssignInput('')
+                            }}>
+                            <Checkbox checked={checked} />
+                            <span>{userLabel}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {existingTargets.length > 0 && (
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1 block">已分配 {existingTargets.length} 名成员</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {existingTargets.map((t) => (
+                      <Badge key={t.userId} variant="secondary" className="gap-1">#{t.userId} {t.username}
+                        <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={async () => {
+                          if (!practice?.id || !spaceId) return
+                          try { await api.removePracticeTarget(spaceId, practice.id, t.userId); setExistingTargets((prev) => prev.filter((x) => x.userId !== t.userId)) } catch {}
+                        }} />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

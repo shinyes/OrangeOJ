@@ -76,10 +76,53 @@ func normalizeProblemPayload(req *problemPayload) error {
 	return nil
 }
 
+func smallestMissingProblemID(q interface {
+	Query(string, ...interface{}) (*sql.Rows, error)
+}) (int64, error) {
+	rows, err := q.Query(`SELECT id FROM space_problems ORDER BY id ASC`)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	expected := int64(1)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return 0, err
+		}
+		if id == expected {
+			expected++
+		} else if id > expected {
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return expected, nil
+}
+
 func insertSpaceProblem(exec sqlExecer, spaceID, createdBy int64, req problemPayload) (int64, error) {
 	tagsJSON, err := encodeProblemTags(req.Tags)
 	if err != nil {
 		return 0, err
+	}
+
+	if q, ok := exec.(interface {
+		Query(string, ...interface{}) (*sql.Rows, error)
+	}); ok {
+		if nextID, err := smallestMissingProblemID(q); err == nil && nextID > 0 {
+			res, err := exec.Exec(`
+INSERT INTO space_problems(id, space_id, type, title, tags_json, statement_md, body_json, answer_json, solutions_json, time_limit_ms, memory_limit_mib, directory_id, created_by)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, nextID, spaceID, req.Type, req.Title, tagsJSON, req.StatementMD, string(req.BodyJSON), string(req.AnswerJSON), string(req.Solutions), req.TimeLimitMS, req.MemoryLimitMiB, req.DirectoryID, createdBy)
+			if err == nil {
+				return nextID, nil
+			}
+			if !isUniqueErr(err) {
+				return 0, err
+			}
+			_ = res
+		}
 	}
 
 	res, err := exec.Exec(`
