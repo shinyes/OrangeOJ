@@ -40,6 +40,7 @@ Kill-PortProcess -Port $FrontendPort
 Write-Host "[2/4] Starting backend server on port $BackendPort..." -ForegroundColor Green
 $backendJob = Start-Job -ScriptBlock {
     Set-Location "$using:ROOT_DIR\backend"
+    if (-not $env:ORANGEOJ_ADMIN_PASSWORD) { $env:ORANGEOJ_ADMIN_PASSWORD = "admin123456" }
     & go run .
 }
 
