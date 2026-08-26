@@ -15,7 +15,8 @@ import { Alert } from '../components/ui/alert'
 import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { X, History, Copy, Play, Save, Pencil, ChevronLeft, ChevronRight, ImageIcon, Users, BookOpen } from 'lucide-react'
+import { X, History, Copy, Play, Save, Pencil, ChevronLeft, ChevronRight, ImageIcon, Users, BookOpen, PanelRightClose, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
+import useStatementZoom from '../hooks/useStatementZoom'
 import MarkdownContent, { MarkdownWithMarker } from '../components/MarkdownContent'
 import ToastMessage from '../components/ToastMessage'
 import { useAuth } from '../hooks/useAuth'
@@ -583,6 +584,8 @@ function CodingPageContent({
   handleRunClick, handleTestClick, saveDraft, handleCodeSubmit, handleObjectiveSubmit, copyToClipboard, user,
   planId, spaceId, problemId, trainingProblems, currentTrainingIndex, prevTrainingProblem, nextTrainingProblem,
   solveReturnTo, solveReturnLabel, initialReturnTo, trainingPlan, isTransitioning }) {
+  const [editorCollapsed, setEditorCollapsed] = useState(false)
+  const { scale: statementScale, zoomIn: zoomStatementIn, zoomOut: zoomStatementOut, reset: resetStatementZoom, handleWheel: handleStatementWheel } = useStatementZoom()
   const samples = body.samples || []
   const showTrainingNav = planId != null && trainingProblems.length > 0
 
@@ -764,6 +767,10 @@ function CodingPageContent({
           <div className="flex items-center justify-between min-h-8 md:min-h-10 px-2 md:px-4 py-0.5 gap-1">
             <h1 className="text-xs md:text-sm font-semibold flex-1 truncate">{problem.title}</h1>
             <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={zoomStatementOut} title="缩小题目字体"><ZoomOut className="h-3 w-3 md:h-3.5 md:w-3.5" /></Button>
+              <span className="text-[10px] md:text-xs text-muted-foreground min-w-[3ch] text-center">{Math.round(statementScale * 100)}%</span>
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={zoomStatementIn} title="放大题目字体"><ZoomIn className="h-3 w-3 md:h-3.5 md:w-3.5" /></Button>
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={resetStatementZoom} title="重置题目字体"><RotateCcw className="h-3 w-3 md:h-3.5 md:w-3.5" /></Button>
               {canEditProblem && (
                 <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowSolutions(true)}>
                   <BookOpen className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />题解
@@ -795,8 +802,8 @@ function CodingPageContent({
             </aside>
           )}
 
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto">
+          <div className="flex-1 overflow-y-auto" onWheel={handleStatementWheel}>
+            <div className="max-w-3xl mx-auto" style={{ fontSize: `${statementScale}em` }}>
               {error && <ToastMessage message={error} severity="error" onShown={() => setError('')} />}
 
               <Card>
@@ -866,8 +873,16 @@ function CodingPageContent({
     <div className="flex flex-col h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background shadow-sm">
         <div className="flex items-center justify-between min-h-8 md:min-h-10 px-2 md:px-4 py-0.5 gap-1 flex-wrap">
-          <h1 className="text-xs md:text-sm font-semibold flex-1 truncate">{problem.title}</h1>
-          <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
+          <h1 className="text-xs md:text-sm font-semibold flex-1 min-w-0 truncate">{problem.title}</h1>
+          <div className="flex items-center gap-0.5 md:gap-1 shrink-0 flex-wrap">
+            <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setEditorCollapsed((v) => !v)} title={editorCollapsed ? '展开编辑器' : '折叠编辑器，仅显示题目'}>
+              {editorCollapsed ? <PanelRightOpen className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" /> : <PanelRightClose className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />}
+              <span className="hidden sm:inline">{editorCollapsed ? '展开编辑器' : '折叠编辑器'}</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={zoomStatementOut} title="缩小题目字体"><ZoomOut className="h-3 w-3 md:h-3.5 md:w-3.5" /></Button>
+            <span className="text-[10px] md:text-xs text-muted-foreground min-w-[3ch] text-center">{Math.round(statementScale * 100)}%</span>
+            <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={zoomStatementIn} title="放大题目字体"><ZoomIn className="h-3 w-3 md:h-3.5 md:w-3.5" /></Button>
+            <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={resetStatementZoom} title="重置题目字体"><RotateCcw className="h-3 w-3 md:h-3.5 md:w-3.5" /></Button>
             {canEditProblem && (
               <Button variant="ghost" size="sm" className="h-7 md:h-8 px-1 md:px-2 text-[10px] md:text-xs" onClick={() => setShowSolutions(true)}>
                 <BookOpen className="h-3 w-3 md:h-3.5 md:w-3.5 md:mr-1" />题解
@@ -903,9 +918,15 @@ function CodingPageContent({
         )}
 
         {/* Left Panel - Problem Description */}
-        <Card className={`${showTrainingNav ? 'md:w-[38%] md:min-w-[350px]' : 'md:w-[40%] md:min-w-[400px]'} w-full flex flex-col overflow-hidden`}>
-          <CardContent className="flex-1 overflow-auto p-4 scrollbar-thin">
-            <h2 className="text-lg font-bold mb-3">题目描述</h2>
+        <Card className={`${editorCollapsed ? 'flex-1' : (showTrainingNav ? 'md:w-[38%] md:min-w-[350px]' : 'md:w-[40%] md:min-w-[400px]')} w-full flex flex-col overflow-hidden`} onWheel={handleStatementWheel}>
+          <CardContent className="flex-1 overflow-auto p-4 scrollbar-thin" style={{ fontSize: `${statementScale}em` }}>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-lg font-bold">题目描述</h2>
+              <Button variant="outline" size="sm" className="h-7 text-xs md:hidden" onClick={() => setEditorCollapsed((v) => !v)}>
+                {editorCollapsed ? <PanelRightOpen className="h-3.5 w-3.5 mr-1" /> : <PanelRightClose className="h-3.5 w-3.5 mr-1" />}
+                {editorCollapsed ? '展开' : '折叠编辑器'}
+              </Button>
+            </div>
 
             <div className="p-3 bg-muted/50 rounded-lg mb-4">
               <MarkdownContent content={problem.statementMd} />
@@ -970,7 +991,7 @@ function CodingPageContent({
         </Card>
 
         {/* Right Panel - Code Editor */}
-        <Card className="flex-1 flex flex-col overflow-hidden">
+        {!editorCollapsed && <Card className="flex-1 flex flex-col overflow-hidden">
           <CardContent className="flex-1 flex flex-col p-3 overflow-auto">
             {/* Toolbar */}
             <div className="flex items-center gap-1 md:gap-2 mb-2 md:mb-3 flex-wrap">
@@ -1056,7 +1077,7 @@ function CodingPageContent({
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {showTrainingNav && renderTrainingBottomNav()}
