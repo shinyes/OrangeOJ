@@ -152,7 +152,18 @@ func NewApp(db *sql.DB, jwtSecret string, cookieSecure bool, corsOrigins string)
 
 	app.Static("/api/uploads", "./uploads")
 	app.Static("/", "./web")
-	app.Get("*", func(c *fiber.Ctx) error {
+	app.Get("/*", func(c *fiber.Ctx) error {
+		reqPath := c.Path()
+		if strings.HasPrefix(reqPath, "/api/") {
+			return c.SendStatus(fiber.StatusNotFound)
+		}
+		if strings.HasPrefix(reqPath, "/assets/") {
+			c.Set("Cache-Control", "public, max-age=31536000, immutable")
+			return c.SendFile("./web" + reqPath)
+		}
+		c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		c.Set("Pragma", "no-cache")
+		c.Set("Expires", "0")
 		return c.SendFile("./web/index.html")
 	})
 
